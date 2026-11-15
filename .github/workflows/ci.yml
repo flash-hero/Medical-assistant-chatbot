@@ -1,0 +1,110 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: python scripts/secret_scan.py --all
+
+  python:
+    runs-on: ubuntu-latest
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.20.1
+        ports: ["6333:6333"]
+      postgres:
+        image: postgres:18-alpine
+        env: {POSTGRES_DB: ausculta, POSTGRES_USER: ausculta, POSTGRES_PASSWORD: ausculta-ci}
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ausculta" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      AUSCULTA_ENV: test
+      AUSCULTA_LLM_BACKEND: fake
+      AUSCULTA_DATA_ROOT: ${{ runner.temp }}/ausculta-data
+      AUSCULTA_SESSION_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
+      QDRANT_URL: http://127.0.0.1:6333
+      DATABASE_URL: postgresql+asyncpg://ausculta:ausculta-ci@127.0.0.1:5432/ausculta
+      REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install
+        run: |
+          pip install uv==0.13.8
+          uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: Lint
+        run: |
+          .venv/bin/ruff check .
+          .venv/bin/ruff format --check .
+      - name: Contracts up to date
+        run: |
+          .venv/bin/python scripts/export_contracts.py
+          git diff --exit-code docs/contracts
+      - name: Source registry
+        run: .venv/bin/python -m data_pipeline.registry --check
+      - name: Tests (unit, contract, services) with coverage
+        run: .venv/bin/pytest -m "not live" --cov --cov-report=term --cov-report=xml --cov-fail-under=80
+      - name: Dependency audit
+        run: .venv/bin/pip-audit --strict --progress-spinner off
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run: {working-directory: web}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: "24", cache: npm, cache-dependency-path: web/package-lock.json}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --run
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e
+      - run: npm audit --audit-level=high --omit=dev
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: {name: playwright-report, path: web/playwright-report, retention-days: 7}
+
+  images:
+    runs-on: ubuntu-latest
+    needs: [python, web]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deploy/api.Dockerfile -t ausculta-api:ci .
+      - run: docker build -f deploy/web.Dockerfile -t ausculta-web:ci .
+      - name: Stack comes up healthy within 120 s
+        run: |
+          cat > deploy/.env.prod <<'EOF'
+          SITE_ADDRESS=:80
+          GEMINI_TIER=free
+          AUSCULTA_LLM_BACKEND=fake
+          AUSCULTA_SESSION_SECRET=ci-only-not-a-secret-0123456789abcdef0123456789
+          POSTGRES_PASSWORD=ci-pg
+          REDIS_PASSWORD=ci-redis
+          QDRANT_API_KEY=ci-qdrant
+          EOF
+          docker compose -f deploy/compose.yaml --env-file deploy/.env.prod up -d --build --wait --wait-timeout 120
+          curl -fsS http://127.0.0.1/api/v1/health
+          docker compose -f deploy/compose.yaml --env-file deploy/.env.prod down -v

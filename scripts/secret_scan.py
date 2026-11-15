@@ -80,7 +80,7 @@ def _read_blob(path: str, staged: bool) -> str | None:
 def scan_paths(paths: Iterable[str], staged: bool) -> list[Finding]:
     findings: list[Finding] = []
     for path in paths:
-        if BLOCKED_FILENAMES.search(path):
+        if BLOCKED_FILENAMES.search(path) and not path.endswith(".example"):
             findings.append(Finding(path=path, line=0, rule="env_file_committed"))
             continue
         text = _read_blob(path, staged)

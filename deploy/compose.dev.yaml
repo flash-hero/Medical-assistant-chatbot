@@ -1,0 +1,27 @@
+# Local services for development (API and web run natively for hot reload).
+#   docker compose -f deploy/compose.dev.yaml up -d
+# Ports bind to 127.0.0.1 only. Stop the native Qdrant binary first if it is running (same port).
+name: ausculta-dev
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.20.1
+    ports: ["127.0.0.1:6333:6333", "127.0.0.1:6334:6334"]
+    environment: {QDRANT__TELEMETRY_DISABLED: "true"}
+    volumes: [qdrant_dev:/qdrant/storage]
+
+  postgres:
+    image: postgres:18-alpine
+    ports: ["127.0.0.1:5432:5432"]
+    environment: {POSTGRES_DB: ausculta, POSTGRES_USER: ausculta, POSTGRES_PASSWORD: ausculta-dev}
+    volumes: [pg_dev:/var/lib/postgresql]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U ausculta"], interval: 5s, retries: 10}
+
+  redis:
+    image: redis:8-alpine
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck: {test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 10}
+
+volumes:
+  qdrant_dev: {}
+  pg_dev: {}

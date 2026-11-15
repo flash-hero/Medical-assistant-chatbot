@@ -1,0 +1,60 @@
+# Single origin: /api/* -> FastAPI, everything else -> Next.js.
+# SITE_ADDRESS: a domain for automatic HTTPS (e.g. ausculta.example.org) or ":80" for local testing.
+{$SITE_ADDRESS::80} {
+	encode {
+		zstd
+		gzip
+		# never compress SSE (it would buffer the stream)
+		match {
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type application/javascript*
+			header Content-Type application/json*
+			header Content-Type image/svg+xml*
+		}
+	}
+
+	request_body {
+		max_size 64KB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000 {
+			# stream SSE immediately; keep long-lived connections open
+			flush_interval -1
+			transport http {
+				read_timeout 120s
+			}
+			# the API trusts exactly one proxy hop (AUSCULTA_TRUSTED_PROXY_COUNT=1)
+			header_up X-Forwarded-For {remote_host}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	log {
+		output stdout
+		format json
+		# never log query strings or bodies (may contain health information)
+		format filter {
+			wrap json
+			fields {
+				request>uri query {
+					delete *
+				}
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}
