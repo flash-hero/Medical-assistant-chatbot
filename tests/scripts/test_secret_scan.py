@@ -1,10 +1,12 @@
 import importlib.util
+import sys
 from pathlib import Path
 
 _spec = importlib.util.spec_from_file_location(
     "secret_scan", Path(__file__).resolve().parents[2] / "scripts" / "secret_scan.py"
 )
 secret_scan = importlib.util.module_from_spec(_spec)
+sys.modules["secret_scan"] = secret_scan
 _spec.loader.exec_module(secret_scan)
 
 
