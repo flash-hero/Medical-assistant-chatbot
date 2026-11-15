@@ -23,10 +23,19 @@ _INVISIBLES = frozenset(
         0x00AD,  # soft hyphen
         0x180E,  # mongolian vowel separator
         0x200B,  # zero width space
-        0x2060, 0x2061, 0x2062, 0x2063, 0x2064,  # word joiner, invisible operators
+        0x2060,
+        0x2061,
+        0x2062,
+        0x2063,
+        0x2064,  # word joiner, invisible operators
         0xFEFF,  # BOM / ZWNBSP
-        0x115F, 0x1160, 0x3164, 0xFFA0,  # hangul fillers
-        0xFFF9, 0xFFFA, 0xFFFB,  # interlinear annotation
+        0x115F,
+        0x1160,
+        0x3164,
+        0xFFA0,  # hangul fillers
+        0xFFF9,
+        0xFFFA,
+        0xFFFB,  # interlinear annotation
         0x034F,  # combining grapheme joiner
     }
 )
@@ -127,7 +136,9 @@ _AR_MAP = str.maketrans(
         "ک": "ك",  # keheh -> ك
     }
 )
-_DIGITS = str.maketrans({**{chr(0x0660 + i): str(i) for i in range(10)}, **{chr(0x06F0 + i): str(i) for i in range(10)}})
+_DIGITS = str.maketrans(
+    {**{chr(0x0660 + i): str(i) for i in range(10)}, **{chr(0x06F0 + i): str(i) for i in range(10)}}
+)
 _JOINERS = re.compile(r"[‌‍‎‏؜️]")
 _NON_WORD = re.compile(r"[^\w\s]+", re.UNICODE)
 _WS = re.compile(r"\s+")

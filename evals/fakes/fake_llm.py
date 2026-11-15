@@ -43,7 +43,9 @@ def default_decider(input_text: str, key: str, q: DecisionQuestion) -> DecisionA
         return DecisionAnswer(kind="noul", confidence=0.99, noul=0.01)
     if q.kind == "choice":
         options = list(q.criteria.keys()) if isinstance(q.criteria, Mapping) else ["unknown"]
-        return DecisionAnswer(kind="choice", confidence=0.9, choice=options[0], probabilities={options[0]: 0.9})
+        return DecisionAnswer(
+            kind="choice", confidence=0.9, choice=options[0], probabilities={options[0]: 0.9}
+        )
     levels = list(q.criteria or ["0", "1"])
     return DecisionAnswer(kind="score", confidence=0.9, score=float(len(levels) - 1) / 2)
 
@@ -116,7 +118,9 @@ class FakeLLMProvider:
             await asyncio.sleep(self.latency_s)
         self._maybe_fail(role)
         answers = {k: self.decider(input_text, k, q) for k, q in questions.items()}
-        return DecisionResult(answers=answers, model_id=model_for(role).model_id, input_tokens=len(input_text) // 4)
+        return DecisionResult(
+            answers=answers, model_id=model_for(role).model_id, input_tokens=len(input_text) // 4
+        )
 
     async def embed(self, texts: Sequence[str], *, dim: int) -> list[list[float]]:
         self.calls.append(("embed", ModelRole.EMBED, len(texts)))

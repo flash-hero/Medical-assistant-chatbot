@@ -14,7 +14,9 @@ def _cos(a, b):
 def test_fake_satisfies_port_and_embeddings_are_lexical_and_unit_norm():
     fake = FakeLLMProvider()
     assert isinstance(fake, LLMProvider)
-    a, b, c = (hash_embed(t, 768) for t in ("asthma inhaler attack", "asthma attack inhaler use", "hospital parking"))
+    a, b, c = (
+        hash_embed(t, 768) for t in ("asthma inhaler attack", "asthma attack inhaler use", "hospital parking")
+    )
     assert abs(_cos(a, a) - 1.0) < 1e-9
     assert _cos(a, b) > _cos(a, c)
 
@@ -33,7 +35,8 @@ async def test_stream_counts_open_and_closed_on_cancel():
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
-    assert fake.open_streams == 0 and fake.closed_streams == 1
+    assert fake.open_streams == 0
+    assert fake.closed_streams == 1
 
 
 async def test_failure_injection_per_role():

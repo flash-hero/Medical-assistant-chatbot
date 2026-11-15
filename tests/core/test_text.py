@@ -12,8 +12,10 @@ def test_strips_unicode_tag_smuggling_and_flags_it():
 def test_strips_bidi_overrides_but_keeps_arabic_joiners_and_marks():
     text = "‮abc‬ مرحبا‌بك ‏؜"
     result = sanitize(text)
-    assert "‮" not in result.text and "‬" not in result.text
-    assert "‌" in result.text and "‏" in result.text and "؜" in result.text
+    for removed in ("‮", "‬"):
+        assert removed not in result.text
+    for kept in ("‌", "‏", "؜"):
+        assert kept in result.text
     assert "bidi_override" in result.flags
 
 
@@ -22,14 +24,15 @@ def test_keeps_newlines_and_collapses_runs():
 
 
 def test_collapses_repeated_emoji_variation_selectors():
-    result = sanitize("ok ❤️️️\U000E0101")
+    result = sanitize("ok ❤️️️\U000e0101")
     assert result.text == "ok ❤️"
     assert "vs_supplement" in result.flags
 
 
 def test_truncates_to_max_chars():
     result = sanitize("x" * 50, max_chars=10)
-    assert result.text == "x" * 10 and "truncated" in result.flags
+    assert result.text == "x" * 10
+    assert "truncated" in result.flags
 
 
 def test_detection_form_folds_arabic_variants_and_diacritics():

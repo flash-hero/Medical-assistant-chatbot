@@ -51,8 +51,13 @@ def scan_text(path: str, text: str) -> list[Finding]:
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(  # noqa: S603
-        ["git", *args], check=True, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    return subprocess.run(  # noqa: S603 - fixed git argv, no shell
+        ["git", *args],  # noqa: S607 - git resolved from PATH by design
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout
 
 

@@ -77,10 +77,13 @@ def test_document_checksum_is_stable_and_models_are_frozen():
 def test_sse_roundtrip_through_discriminated_union():
     ev = AnswerEvent(text="Hi [1]", intent=Intent.MEDICAL_INFO, mode="streamed", verified=True)
     wire = to_sse(ev)
-    assert wire.startswith("event: answer\ndata: ") and wire.endswith("\n\n")
+    assert wire.startswith("event: answer\ndata: ")
+    assert wire.endswith("\n\n")
     parsed = CHAT_EVENT_ADAPTER.validate_json(wire.split("data: ", 1)[1].strip())
     assert parsed == ev
-    assert isinstance(CHAT_EVENT_ADAPTER.validate_python({"type": "done", "turn_id": "t", "turns_left": 3}), DoneEvent)
+    assert isinstance(
+        CHAT_EVENT_ADAPTER.validate_python({"type": "done", "turn_id": "t", "turns_left": 3}), DoneEvent
+    )
 
 
 def test_model_ids_are_pinned_and_paid_only_models_not_used_on_free_tier():
