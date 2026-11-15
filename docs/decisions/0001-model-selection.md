@@ -39,3 +39,11 @@ Thinking tokens count against `max_output_tokens`: budgets must include thinking
 
 Re-run this bake-off when billing is enabled: hydrogen latency on a paid tier is unknown.
 All IDs live in `core/models.py`; nothing else may hard-code a model ID.
+
+## Free-tier quotas measured (2026-11-15)
+
+- `embed_content_free_tier_requests`: **100 per minute, counted per text** (a 100-text batch uses the whole minute).
+  `retryDelay` hint on 429: ~47 s. The provider throttles embeddings to 90 texts/min on the free tier
+  (`app/llm/throttle.py`), so bulk indexing runs at ~5,400 chunks/hour. Daily cap not yet observed.
+- `gemini-4-argon`, `gemini-4-carbon`: free-tier limit 0 (paid only).
+- `gemini-decision-1`: published free-tier limits 200 RPM / 50k TPM / 10k RPD.

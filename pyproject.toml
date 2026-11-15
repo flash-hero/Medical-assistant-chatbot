@@ -54,7 +54,7 @@ packages = ["core", "data_pipeline", "rag", "app", "evals"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -m \"not live\""
 markers = [
   "live: calls the real Gemini API (needs GEMINI_API_KEY; excluded by default)",
   "services: needs Qdrant/Postgres/Redis running",
