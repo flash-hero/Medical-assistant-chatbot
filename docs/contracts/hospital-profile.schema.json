@@ -1,0 +1,341 @@
+{
+  "$defs": {
+    "Department": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9_]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/L10n"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/L10n"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/L10n"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phone"
+        },
+        "hours": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/L10n"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "accepts_appointments": {
+          "default": false,
+          "title": "Accepts Appointments",
+          "type": "boolean"
+        },
+        "keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Department",
+      "type": "object"
+    },
+    "FAQ": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "question": {
+          "$ref": "#/$defs/L10n"
+        },
+        "answer": {
+          "$ref": "#/$defs/L10n"
+        },
+        "keywords": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Keywords",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "question",
+        "answer"
+      ],
+      "title": "FAQ",
+      "type": "object"
+    },
+    "L10n": {
+      "additionalProperties": false,
+      "description": "Localised string. English is mandatory; missing FR/AR fall back to English with a flag in the UI.",
+      "properties": {
+        "en": {
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "fr": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fr"
+        },
+        "ar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ar"
+        }
+      },
+      "required": [
+        "en"
+      ],
+      "title": "L10n",
+      "type": "object"
+    },
+    "PhoneContact": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/L10n"
+        },
+        "number": {
+          "title": "Number",
+          "type": "string"
+        },
+        "hours": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/L10n"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "label",
+        "number"
+      ],
+      "title": "PhoneContact",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "pattern": "^[a-z0-9_]+$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "$ref": "#/$defs/L10n"
+    },
+    "is_demo": {
+      "default": true,
+      "title": "Is Demo",
+      "type": "boolean"
+    },
+    "country": {
+      "maxLength": 2,
+      "minLength": 2,
+      "title": "Country",
+      "type": "string"
+    },
+    "timezone": {
+      "title": "Timezone",
+      "type": "string"
+    },
+    "address": {
+      "$ref": "#/$defs/L10n"
+    },
+    "website": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Website"
+    },
+    "main_phone": {
+      "$ref": "#/$defs/PhoneContact"
+    },
+    "emergency": {
+      "$ref": "#/$defs/PhoneContact"
+    },
+    "crisis_lines": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PhoneContact"
+      },
+      "title": "Crisis Lines",
+      "type": "array"
+    },
+    "poison_control": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PhoneContact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "handoff": {
+      "$ref": "#/$defs/PhoneContact"
+    },
+    "visiting_hours": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/L10n"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "documents_to_bring": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/L10n"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "insurance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/L10n"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "directions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/L10n"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "departments": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Department"
+      },
+      "title": "Departments",
+      "type": "array"
+    },
+    "faqs": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/FAQ"
+      },
+      "title": "Faqs",
+      "type": "array"
+    },
+    "verified_by": {
+      "title": "Verified By",
+      "type": "string"
+    },
+    "verified_on": {
+      "format": "date",
+      "title": "Verified On",
+      "type": "string"
+    },
+    "expires_on": {
+      "format": "date",
+      "title": "Expires On",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "country",
+    "timezone",
+    "address",
+    "main_phone",
+    "emergency",
+    "handoff",
+    "verified_by",
+    "verified_on",
+    "expires_on"
+  ],
+  "title": "HospitalProfile",
+  "type": "object"
+}

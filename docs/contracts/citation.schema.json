@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "Language": {
+      "enum": [
+        "en",
+        "fr",
+        "ar",
+        "es"
+      ],
+      "title": "Language",
+      "type": "string"
+    }
+  },
+  "description": "What the UI shows for a [n] marker. Built server-side from RetrievedPassage, never from model text.",
+  "properties": {
+    "n": {
+      "minimum": 1,
+      "title": "N",
+      "type": "integer"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "publisher": {
+      "title": "Publisher",
+      "type": "string"
+    },
+    "url": {
+      "format": "uri",
+      "maxLength": 2083,
+      "minLength": 1,
+      "title": "Url",
+      "type": "string"
+    },
+    "heading": {
+      "default": "",
+      "title": "Heading",
+      "type": "string"
+    },
+    "reviewed_on": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reviewed On"
+    },
+    "language": {
+      "$ref": "#/$defs/Language"
+    },
+    "snippet": {
+      "maxLength": 600,
+      "title": "Snippet",
+      "type": "string"
+    }
+  },
+  "required": [
+    "n",
+    "title",
+    "publisher",
+    "url",
+    "language",
+    "snippet"
+  ],
+  "title": "Citation",
+  "type": "object"
+}

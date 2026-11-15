@@ -1,0 +1,54 @@
+# Source registry: the single source of truth for what may be fetched and indexed.
+# Schema: core/schemas/source.py (SourceRecord). Validated in CI by tests/data_pipeline/test_registry.py.
+# Rules:
+#   - status=active requires license.evidence_url + verified_on + verified_by, commercial_use yes|conditional.
+#   - Anything not listed here, or listed as hold/excluded, can never be indexed.
+#   - verified_by names who read the terms page ("data-agent" for automated reads, a person for manual review).
+version: 1
+sources:
+  # ---------------- Wave 1 (verified commercial-safe) : filled in by the data track ----------------
+  - id: medlineplus_topics
+    name: MedlinePlus Health Topics
+    publisher: U.S. National Library of Medicine
+    homepage: https://medlineplus.gov/
+    status: hold   # data track: re-read terms, then set active with evidence
+    wave: 1
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en, es]
+    content_types: [condition, wellness]
+    license:
+      id: public-domain-us-gov
+      name: Public domain (U.S. Government work); credit MedlinePlus
+      evidence_url: https://medlineplus.gov/about/using/usingcontent/
+      commercial_use: yes
+      attribution: "Source: MedlinePlus, U.S. National Library of Medicine"
+      conditions: ["do not use the MedlinePlus logo", "do not imply NLM endorsement",
+                   "A.D.A.M. encyclopedia and ASHP drug monographs are copyrighted and excluded"]
+    access:
+      method: bulk
+      endpoints: ["https://medlineplus.gov/xml.html"]
+    refresh_days: 7
+    domains: [medlineplus.gov]
+
+  # ---------------- Excluded (never fetched, never indexed) ----------------
+  - {id: x_mayo_clinic, name: Mayo Clinic, publisher: Mayo Foundation, homepage: https://www.mayoclinic.org/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [mayoclinic.org], license: {id: proprietary, name: "All rights reserved; terms prohibit scraping/reuse", commercial_use: no}}
+  - {id: x_webmd, name: WebMD, publisher: WebMD LLC, homepage: https://www.webmd.com/, status: excluded, wave: 0, trust_tier: 3, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [webmd.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_cleveland_clinic, name: Cleveland Clinic, publisher: Cleveland Clinic, homepage: https://my.clevelandclinic.org/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [clevelandclinic.org], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_msd_manuals, name: Merck / MSD Manuals, publisher: Merck & Co., homepage: https://www.msdmanuals.com/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, fr], content_types: [condition], domains: [msdmanuals.com, merckmanuals.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_uptodate, name: UpToDate, publisher: Wolters Kluwer, homepage: https://www.uptodate.com/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [guideline], domains: [uptodate.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_healthline, name: Healthline, publisher: Healthline Media, homepage: https://www.healthline.com/, status: excluded, wave: 0, trust_tier: 3, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [healthline.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_drugs_com, name: Drugs.com, publisher: Drugsite Trust, homepage: https://www.drugs.com/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [drug_label], domains: [drugs.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_medscape, name: Medscape, publisher: WebMD LLC, homepage: https://www.medscape.com/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [medscape.com], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_vidal, name: Vidal, publisher: Vidal Group, homepage: https://www.vidal.fr/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [fr], content_types: [drug_label], domains: [vidal.fr], license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_statpearls, name: StatPearls, publisher: StatPearls Publishing, homepage: https://www.statpearls.com/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [textbook], domains: [statpearls.com], notes: "Terms forbid copying; NCBI Bookshelf forbids bulk download", license: {id: proprietary, name: All rights reserved, commercial_use: no}}
+  - {id: x_openstax, name: OpenStax health titles, publisher: Rice University, homepage: https://openstax.org/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [textbook], domains: [openstax.org], license: {id: CC-BY-NC-SA-4.0, name: "CC BY-NC-SA 4.0; AI use non-commercial education only", commercial_use: no}}
+  - {id: x_nice, name: NICE guidance, publisher: National Institute for Health and Care Excellence, homepage: https://www.nice.org.uk/, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [en], content_types: [guideline], domains: [nice.org.uk], notes: "AI use excluded from the UK Open Content Licence", license: {id: nice-ocl, name: UK Open Content Licence (AI use excluded), commercial_use: no}}
+  - {id: x_canada_ca_pages, name: Government of Canada health web pages, publisher: Government of Canada, homepage: https://www.canada.ca/en/health-canada.html, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [en, fr], content_types: [condition], domains: [canada.ca], notes: "Commercial reproduction needs written permission (open.canada.ca datasets are separate)", license: {id: crown-copyright-ca, name: Crown copyright, commercial_use: no}}
+  - {id: x_sante_publique_france, name: Santé publique France website text, publisher: Santé publique France, homepage: https://www.santepubliquefrance.fr/, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [fr], content_types: [condition], domains: [santepubliquefrance.fr], license: {id: proprietary-fr, name: "Reproduction for research/study only; no commercial use", commercial_use: no}}
+  - {id: x_medlineplus_adam, name: MedlinePlus A.D.A.M. Medical Encyclopedia, publisher: Ebix / A.D.A.M., homepage: https://medlineplus.gov/encyclopedia.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [condition], domains: [], notes: "medlineplus.gov/ency/ paths", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
+  - {id: x_medlineplus_ashp, name: MedlinePlus drug monographs (ASHP), publisher: ASHP, homepage: https://medlineplus.gov/druginformation.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [drug_label], domains: [], notes: "medlineplus.gov/druginfo/meds/ paths", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
+  - {id: x_medrag_textbooks, name: MedRAG/textbooks and MedRAG/statpearls datasets, publisher: Hugging Face community, homepage: https://huggingface.co/MedRAG, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [textbook], domains: [], license: {id: none, name: No licence / copyrighted textbooks, commercial_use: no}}
+
+  # ---------------- Optional non-commercial profile (off by default) ----------------
+  - {id: who_fact_sheets, name: WHO fact sheets, publisher: World Health Organization, homepage: https://www.who.int/news-room/fact-sheets, status: optional_noncommercial, wave: 3, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en, fr, ar], content_types: [condition], domains: [who.int], license: {id: CC-BY-NC-SA-3.0-IGO, name: CC BY-NC-SA 3.0 IGO, evidence_url: "https://www.who.int/about/policies/publishing/copyright", commercial_use: no, attribution: "Source: World Health Organization"}}

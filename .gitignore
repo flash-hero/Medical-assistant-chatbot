@@ -1,0 +1,53 @@
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+dist/
+build/
+
+# Node / web
+node_modules/
+web/.next/
+web/out/
+web/playwright-report/
+web/test-results/
+web/blob-report/
+*.tsbuildinfo
+next-env.d.ts
+
+# Data lives outside the repo (C:\dev\ausculta-data); guard against accidents
+data/
+*.sqlite
+*.sqlite3
+*.db
+*.jsonl.gz
+qdrant_storage/
+
+# Eval and load-test outputs
+evals/reports/
+evals/.cache/
+.promptfoo/
+locust_*.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

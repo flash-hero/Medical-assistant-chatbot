@@ -1,0 +1,581 @@
+{
+  "$defs": {
+    "AnswerEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "answer",
+          "default": "answer",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "citations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "intent": {
+          "$ref": "#/$defs/Intent"
+        },
+        "mode": {
+          "enum": [
+            "streamed",
+            "verified",
+            "template",
+            "abstain",
+            "refusal"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        },
+        "replaces_stream": {
+          "default": false,
+          "title": "Replaces Stream",
+          "type": "boolean"
+        },
+        "source_language_note": {
+          "default": false,
+          "title": "Source Language Note",
+          "type": "boolean"
+        },
+        "show_seek_care": {
+          "default": false,
+          "title": "Show Seek Care",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "intent",
+        "mode",
+        "verified"
+      ],
+      "title": "AnswerEvent",
+      "type": "object"
+    },
+    "Citation": {
+      "description": "What the UI shows for a [n] marker. Built server-side from RetrievedPassage, never from model text.",
+      "properties": {
+        "n": {
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "publisher": {
+          "title": "Publisher",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "heading": {
+          "default": "",
+          "title": "Heading",
+          "type": "string"
+        },
+        "reviewed_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewed On"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "snippet": {
+          "maxLength": 600,
+          "title": "Snippet",
+          "type": "string"
+        }
+      },
+      "required": [
+        "n",
+        "title",
+        "publisher",
+        "url",
+        "language",
+        "snippet"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Contact": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "number": {
+          "title": "Number",
+          "type": "string"
+        },
+        "hours": {
+          "default": "",
+          "title": "Hours",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "number"
+      ],
+      "title": "Contact",
+      "type": "object"
+    },
+    "DeltaEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "delta",
+          "default": "delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "DeltaEvent",
+      "type": "object"
+    },
+    "DoneEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "done",
+          "default": "done",
+          "title": "Type",
+          "type": "string"
+        },
+        "turn_id": {
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "turns_left": {
+          "title": "Turns Left",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turn_id",
+        "turns_left"
+      ],
+      "title": "DoneEvent",
+      "type": "object"
+    },
+    "ErrorEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "error",
+          "default": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retry_after_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry After S"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ErrorEvent",
+      "type": "object"
+    },
+    "FormEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "form",
+          "default": "form",
+          "title": "Type",
+          "type": "string"
+        },
+        "form_id": {
+          "const": "appointment_request",
+          "title": "Form Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FormField"
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "submit_url": {
+          "default": "/api/v1/appointments",
+          "title": "Submit Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "form_id",
+        "title",
+        "description",
+        "fields"
+      ],
+      "title": "FormEvent",
+      "type": "object"
+    },
+    "FormField": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "text",
+            "tel",
+            "email",
+            "date",
+            "select",
+            "textarea"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "options": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
+        },
+        "max_length": {
+          "default": 200,
+          "title": "Max Length",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "kind"
+      ],
+      "title": "FormField",
+      "type": "object"
+    },
+    "Intent": {
+      "enum": [
+        "medical_info",
+        "medication",
+        "symptom_info",
+        "hospital_admin",
+        "appointment",
+        "smalltalk",
+        "meta",
+        "out_of_scope"
+      ],
+      "title": "Intent",
+      "type": "string"
+    },
+    "Language": {
+      "enum": [
+        "en",
+        "fr",
+        "ar",
+        "es"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "MetaEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "meta",
+          "default": "meta",
+          "title": "Type",
+          "type": "string"
+        },
+        "turn_id": {
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
+        },
+        "locale": {
+          "enum": [
+            "en",
+            "fr",
+            "ar"
+          ],
+          "title": "Locale",
+          "type": "string"
+        },
+        "demo_mode": {
+          "title": "Demo Mode",
+          "type": "boolean"
+        },
+        "release": {
+          "$ref": "#/$defs/ReleaseInfo"
+        }
+      },
+      "required": [
+        "turn_id",
+        "session_id",
+        "locale",
+        "demo_mode",
+        "release"
+      ],
+      "title": "MetaEvent",
+      "type": "object"
+    },
+    "NoticeEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "notice",
+          "default": "notice",
+          "title": "Type",
+          "type": "string"
+        },
+        "code": {
+          "enum": [
+            "degraded",
+            "source_language",
+            "demo_mode",
+            "session_limit_near",
+            "handoff_available"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "NoticeEvent",
+      "type": "object"
+    },
+    "ReleaseInfo": {
+      "properties": {
+        "app_version": {
+          "title": "App Version",
+          "type": "string"
+        },
+        "corpus_version": {
+          "title": "Corpus Version",
+          "type": "string"
+        },
+        "prompt_hash": {
+          "title": "Prompt Hash",
+          "type": "string"
+        },
+        "models": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Models",
+          "type": "object"
+        }
+      },
+      "required": [
+        "app_version",
+        "corpus_version",
+        "prompt_hash",
+        "models"
+      ],
+      "title": "ReleaseInfo",
+      "type": "object"
+    },
+    "SafetyEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "safety",
+          "default": "safety",
+          "title": "Type",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "emergency",
+            "self_harm",
+            "harm_to_others",
+            "abuse_disclosure"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "template_id": {
+          "title": "Template Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "contacts": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Contact"
+          },
+          "title": "Contacts",
+          "type": "array"
+        },
+        "sticky": {
+          "default": true,
+          "title": "Sticky",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "template_id",
+        "title",
+        "message"
+      ],
+      "title": "SafetyEvent",
+      "type": "object"
+    },
+    "StatusEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "status",
+          "default": "status",
+          "title": "Type",
+          "type": "string"
+        },
+        "stage": {
+          "enum": [
+            "checking",
+            "searching",
+            "writing",
+            "verifying"
+          ],
+          "title": "Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage"
+      ],
+      "title": "StatusEvent",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "answer": "#/$defs/AnswerEvent",
+      "delta": "#/$defs/DeltaEvent",
+      "done": "#/$defs/DoneEvent",
+      "error": "#/$defs/ErrorEvent",
+      "form": "#/$defs/FormEvent",
+      "meta": "#/$defs/MetaEvent",
+      "notice": "#/$defs/NoticeEvent",
+      "safety": "#/$defs/SafetyEvent",
+      "status": "#/$defs/StatusEvent"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/MetaEvent"
+    },
+    {
+      "$ref": "#/$defs/StatusEvent"
+    },
+    {
+      "$ref": "#/$defs/SafetyEvent"
+    },
+    {
+      "$ref": "#/$defs/DeltaEvent"
+    },
+    {
+      "$ref": "#/$defs/AnswerEvent"
+    },
+    {
+      "$ref": "#/$defs/NoticeEvent"
+    },
+    {
+      "$ref": "#/$defs/FormEvent"
+    },
+    {
+      "$ref": "#/$defs/ErrorEvent"
+    },
+    {
+      "$ref": "#/$defs/DoneEvent"
+    }
+  ]
+}

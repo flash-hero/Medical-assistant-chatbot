@@ -1,0 +1,92 @@
+[project]
+name = "ausculta"
+version = "0.1.0"
+description = "Ausculta: sourced health information and hospital front-desk assistant (RAG on Gemini)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { text = "Proprietary" }
+dependencies = [
+  "google-genai==3.3.0",
+  "fastapi>=0.163,<0.170",
+  "uvicorn[standard]>=0.54",
+  "pydantic>=2.14,<3",
+  "pydantic-settings>=2.16",
+  "httpx>=0.28",
+  "qdrant-client>=1.20,<1.21",
+  "fastembed>=0.9,<0.10",
+  "pyyaml>=6",
+  "lxml>=6",
+  "sqlalchemy[asyncio]>=2.0.40",
+  "aiosqlite>=0.21",
+  "asyncpg>=0.30",
+  "alembic>=1.16",
+  "redis>=6",
+  "limits>=5.8",
+  "orjson>=3.10",
+  "structlog>=25",
+  "rapidfuzz>=3.13",
+  "regex>=2025.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9",
+  "pytest-asyncio>=1.5",
+  "pytest-cov>=7",
+  "respx>=0.23",
+  "hypothesis>=6.130",
+  "ruff>=0.12",
+  "mypy>=1.17",
+  "types-PyYAML",
+  "types-redis",
+  "pip-audit>=2.9",
+]
+load = ["locust>=2.47"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core", "data_pipeline", "rag", "app", "evals"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-ra --strict-markers"
+markers = [
+  "live: calls the real Gemini API (needs GEMINI_API_KEY; excluded by default)",
+  "services: needs Qdrant/Postgres/Redis running",
+  "slow: long-running test",
+]
+filterwarnings = ["error::pytest.PytestUnraisableExceptionWarning"]
+
+[tool.coverage.run]
+branch = true
+source = ["core", "data_pipeline", "rag", "app", "evals"]
+omit = ["*/__main__.py", "spikes/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["spikes", "web"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "ASYNC", "PT", "C4", "PIE", "RET"]
+ignore = ["S101", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "PT011"]
+"evals/**" = ["S311"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+exclude = ["spikes/", "web/"]
