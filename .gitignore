@@ -29,6 +29,7 @@ web/out/
 web/playwright-report/
 web/test-results/
 web/blob-report/
+web/coverage/
 *.tsbuildinfo
 next-env.d.ts
 
