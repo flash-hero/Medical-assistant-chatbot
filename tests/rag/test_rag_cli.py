@@ -162,6 +162,51 @@ def test_promote_override_is_explicit_recorded_and_cleared_by_a_passing_promotio
     assert main(["promote", "ausculta_corpus_o1", "--override-gates", reason]) == EXIT_ERROR  # never bypassed
 
 
+def _online(paths: DataPaths, collection: str, minute: int) -> list[dict]:
+    when = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=1, minutes=minute)
+    report = {**_passing_report(collection, when), "mode": "online"}
+    write_report(paths.reports_dir, report, when)
+    return report["gate_records"]
+
+
+def _published(paths: DataPaths) -> list[dict]:
+    return json.loads(paths.rag_metrics_file.read_text(encoding="utf-8"))
+
+
+def test_promote_and_rollback_keep_the_live_gate_metrics_on_the_live_collection(env, capsys):
+    paths, _ = env
+    for version in ("m1", "m2"):
+        assert main(["build", "--corpus-version", version, "--sources", "demo_src"]) == EXIT_OK
+    m1_records = _online(paths, "ausculta_corpus_m1", 1)
+    m2_records = _online(paths, "ausculta_corpus_m2", 2)
+    _passing(paths, "ausculta_corpus_m2", 3)  # newer, but not online: never published
+    capsys.readouterr()
+
+    assert main(["promote", "ausculta_corpus_m1"]) == EXIT_OK
+    assert _published(paths) == m1_records
+    assert main(["promote", "ausculta_corpus_m2"]) == EXIT_OK
+    assert _published(paths) == m2_records  # the newest ONLINE report of the collection now live
+    assert "live rag gate metrics" in capsys.readouterr().out
+
+    assert main(["rollback"]) == EXIT_OK
+    assert _published(paths) == m1_records
+
+
+def test_promote_without_an_online_report_removes_the_previous_collections_metrics(env, capsys):
+    paths, _ = env
+    for version in ("n1", "n2"):
+        assert main(["build", "--corpus-version", version, "--sources", "demo_src"]) == EXIT_OK
+    _online(paths, "ausculta_corpus_n1", 1)
+    assert main(["promote", "ausculta_corpus_n1"]) == EXIT_OK
+    assert paths.rag_metrics_file.exists()
+    capsys.readouterr()
+
+    reason = "engine needs the new sources now, eval pending"
+    assert main(["promote", "ausculta_corpus_n2", "--override-gates", reason]) == EXIT_OK
+    assert not paths.rag_metrics_file.exists()  # MISSING beats another collection's numbers
+    assert "python -m rag eval" in capsys.readouterr().out
+
+
 def test_eval_stops_cleanly_with_exit_3_when_the_daily_embedding_quota_is_spent(env, monkeypatch, capsys):
     from core.errors import UpstreamRateLimited
     from evals.fakes.fake_llm import FakeLLMProvider

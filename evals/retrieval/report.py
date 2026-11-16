@@ -6,7 +6,8 @@ reports/retrieval/<stamp>.gates.json    that run's gate records (evals.run forma
                                         keeps the newest record per gate, so an offline run or an eval of a
                                         validation collection would otherwise replace the live numbers)
 reports/rag.metrics.json                gate records of the LIVE collection: written only by an online eval
-                                        of the alias target (publish_metrics)
+                                        of the alias target, and re-synced from the newest online report
+                                        whenever promote/rollback moves the alias (publish_metrics)
 
 Promotion (`python -m rag promote`) requires the collection's latest report to have every rag.* gate PASS or
 PROVISIONAL (free tier). Offline reports (no query embeddings) cannot promote: their recall and abstention
@@ -138,7 +139,10 @@ class PromotionCheck:
     reason: str
 
 
-def latest_report(reports_dir: Path, collection: str) -> tuple[Path, dict[str, Any]] | None:
+def latest_report(
+    reports_dir: Path, collection: str, *, mode: str | None = None
+) -> tuple[Path, dict[str, Any]] | None:
+    """The newest report of `collection` (of any mode, or only of `mode` when given)."""
     found: list[tuple[str, Path, dict[str, Any]]] = []
     for path in reports_dir.glob("*.json"):
         if path.name.endswith((".metrics.json", RUN_RECORDS_SUFFIX)):
@@ -151,6 +155,7 @@ def latest_report(reports_dir: Path, collection: str) -> tuple[Path, dict[str, A
             isinstance(data, dict)
             and data.get("schema") == REPORT_SCHEMA
             and data.get("collection") == collection
+            and (mode is None or data.get("mode") == mode)
         ):
             found.append((str(data.get("measured_at", "")), path, data))
     if not found:

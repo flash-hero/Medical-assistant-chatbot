@@ -264,7 +264,25 @@ async def _switch(
     out(f"alias {settings.qdrant_alias!r}: {previous or '(none)'} -> {collection} (corpus {version})")
     if previous and previous != collection:
         out(f"previous collection kept for rollback: python -m rag rollback  (-> {previous})")
+    out(sync_live_metrics(paths, collection))
     return previous or ""
+
+
+def sync_live_metrics(paths: DataPaths, collection: str) -> str:
+    """The alias now serves `collection`, so reports/rag.metrics.json must describe it: publish its newest
+    online report, or remove the file when there is none (MISSING is truer than another collection's numbers).
+    Returns the line to print."""
+    from evals.retrieval.report import latest_report, publish_metrics
+
+    latest = latest_report(paths.reports_dir, collection, mode="online")
+    if latest is not None:
+        published = publish_metrics(paths.rag_metrics_file, latest[1])
+        return f"live rag gate metrics: {published} (from {latest[0].name})"
+    paths.rag_metrics_file.unlink(missing_ok=True)
+    return (
+        f"no online report for {collection}: {paths.rag_metrics_file.name} removed "
+        f"(rag gates show MISSING); measure it with: python -m rag eval"
+    )
 
 
 async def cmd_promote(args: argparse.Namespace, settings: Settings) -> int:
