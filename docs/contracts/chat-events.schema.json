@@ -53,6 +53,23 @@
           "default": false,
           "title": "Show Seek Care",
           "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "enum": [
+                "en",
+                "fr",
+                "ar"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
         }
       },
       "required": [
@@ -497,6 +514,23 @@
           "default": true,
           "title": "Sticky",
           "type": "boolean"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "enum": [
+                "en",
+                "fr",
+                "ar"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
         }
       },
       "required": [
