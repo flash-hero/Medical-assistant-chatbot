@@ -1,0 +1,109 @@
+/*
+ * Ausculta design tokens. Single source of truth for colour, type, space, radius and motion.
+ * Colours are OKLCH, one definition per token: light-dark(<light>, <dark>), resolved by color-scheme.
+ * scripts/check-contrast.mjs parses this file and reports WCAG ratios (docs/brand/README.md).
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces: near-white tinted toward the brand hue (165), never cream. */
+  --bg: light-dark(oklch(0.985 0.004 165), oklch(0.17 0.012 170));
+  --surface: light-dark(oklch(1 0 0), oklch(0.21 0.014 170));
+  --surface-2: light-dark(oklch(0.962 0.01 165), oklch(0.245 0.016 170));
+  --line: light-dark(oklch(0.89 0.012 165), oklch(0.34 0.016 170));
+  --line-strong: light-dark(oklch(0.62 0.02 165), oklch(0.56 0.02 165));
+
+  /* Ink. */
+  --ink: light-dark(oklch(0.22 0.02 170), oklch(0.95 0.008 165));
+  --ink-2: light-dark(oklch(0.44 0.02 170), oklch(0.79 0.014 165));
+
+  /* Brand: deep spruce. One accent, used for actions, citations and the mark. */
+  --brand: light-dark(oklch(0.43 0.085 165), oklch(0.8 0.09 165));
+  --brand-strong: light-dark(oklch(0.36 0.075 165), oklch(0.87 0.08 165));
+  --brand-soft: light-dark(oklch(0.94 0.032 165), oklch(0.3 0.045 165));
+  --brand-ink: light-dark(oklch(0.36 0.075 165), oklch(0.86 0.08 165));
+  --on-brand: light-dark(oklch(0.99 0.004 165), oklch(0.17 0.02 170));
+
+  /* Safety red: reserved for emergency and crisis, nothing else uses this hue. */
+  --danger: light-dark(oklch(0.5 0.19 27), oklch(0.74 0.15 27));
+  --danger-soft: light-dark(oklch(0.965 0.022 27), oklch(0.27 0.06 27));
+  --danger-ink: light-dark(oklch(0.42 0.16 27), oklch(0.88 0.07 27));
+  --danger-line: light-dark(oklch(0.84 0.07 27), oklch(0.45 0.1 27));
+  --on-danger: light-dark(oklch(0.99 0.005 27), oklch(0.17 0.03 27));
+
+  /* Demo / degraded notices: muted amber. */
+  --warn-soft: light-dark(oklch(0.955 0.045 85), oklch(0.29 0.045 80));
+  --warn-ink: light-dark(oklch(0.4 0.08 65), oklch(0.9 0.08 85));
+  --warn-line: light-dark(oklch(0.84 0.08 80), oklch(0.46 0.07 80));
+
+  --focus: light-dark(oklch(0.45 0.13 250), oklch(0.8 0.11 250));
+
+  /* Type: hyperlegible Latin + Arabic designed for readability. */
+  --font-stack: var(--font-latin), var(--font-arabic), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --text-body: 1.0625rem;
+  --leading-body: 1.6;
+
+  /* Shape: interactive controls are pills, containers are 20px, inputs 14px. */
+  --radius-card: 1.25rem;
+  --radius-input: 0.875rem;
+
+  /* Motion: organic calm for reveals, precise for UI feedback. */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-in-out-sine: cubic-bezier(0.37, 0, 0.63, 1);
+  --dur-ui: 160ms;
+  --dur-panel: 280ms;
+  --dur-reveal: 600ms;
+  --m-distance: 12px;
+  --m-stagger: 60ms;
+
+  /* Layers. */
+  --z-sticky: 20;
+  --z-header: 30;
+  --z-dialog: 50;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-distance: 0px;
+    --m-stagger: 0ms;
+    --dur-reveal: 1ms;
+    --dur-panel: 1ms;
+  }
+}
+
+/* Browsers without light-dark() (pre-2024) get the light palette. */
+@supports not (color: light-dark(#000, #fff)) {
+  :root {
+    --bg: oklch(0.985 0.004 165);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.962 0.01 165);
+    --line: oklch(0.89 0.012 165);
+    --line-strong: oklch(0.62 0.02 165);
+    --ink: oklch(0.22 0.02 170);
+    --ink-2: oklch(0.44 0.02 170);
+    --brand: oklch(0.43 0.085 165);
+    --brand-strong: oklch(0.36 0.075 165);
+    --brand-soft: oklch(0.94 0.032 165);
+    --brand-ink: oklch(0.36 0.075 165);
+    --on-brand: oklch(0.99 0.004 165);
+    --danger: oklch(0.5 0.19 27);
+    --danger-soft: oklch(0.965 0.022 27);
+    --danger-ink: oklch(0.42 0.16 27);
+    --danger-line: oklch(0.84 0.07 27);
+    --on-danger: oklch(0.99 0.005 27);
+    --warn-soft: oklch(0.955 0.045 85);
+    --warn-ink: oklch(0.4 0.08 65);
+    --warn-line: oklch(0.84 0.08 80);
+    --focus: oklch(0.45 0.13 250);
+  }
+}

@@ -1,0 +1,363 @@
+# Self-harm and suicidal-ideation lexicon.
+# STATUS: draft-unreviewed. A clinician must review this list before any pilot use (docs/intended-purpose.md).
+# See emergency.yaml for the meaning of `terms` and `condition_terms`. Indirect phrasings ("better off without
+# me", "sleep and never wake up") are included on purpose: recall matters more than precision.
+version: draft-unreviewed
+kind: self_harm
+review:
+  status: draft-unreviewed
+  reviewed_by: null
+  reviewed_on: null
+  note: "Draft written by the engineering track. Requires clinician and native-speaker review."
+# A past attempt or past self-harm still shows the crisis resources (recall first).
+suppress_historical: false
+# Threats from someone else are abuse disclosures, not self-harm.
+exclusions:
+  - menace de me tuer
+  - menacé de me tuer
+  - menacée de me tuer
+  - threatens to kill me
+  - threatened to kill me
+terms:
+  en:
+    - would it take to die
+    - pills to kill myself
+    - isn't worth living
+    - isnt worth living
+    - is not worth living
+    - jumping off a bridge
+    - jumping off the roof
+    - jumping off a building
+    - killed myself
+    - taking my own life
+    - rather be dead
+    - kill myself
+    - killing myself
+    - kill my self
+    - end my life
+    - ending my life
+    - end it all
+    - take my own life
+    - take my life
+    - commit suicide
+    - thinking about suicide
+    - thinking of suicide
+    - suicidal thoughts
+    - i'm suicidal
+    - im suicidal
+    - feel suicidal
+    - feeling suicidal
+    - want to die
+    - wanna die
+    - wish i was dead
+    - wish i were dead
+    - wish i could die
+    - better off dead
+    - better off without me
+    - don't want to live
+    - dont want to live
+    - do not want to live
+    - don't want to be alive
+    - don't want to be here anymore
+    - no reason to live
+    - nothing to live for
+    - not worth living
+    - no point in living
+    - no point living
+    - can't go on like this
+    - can't go on anymore
+    - can't go on living
+    - cant go on anymore
+    - can't do this anymore
+    - want it all to end
+    - want everything to end
+    - want to hurt myself
+    - going to hurt myself
+    - urge to hurt myself
+    - thoughts of hurting myself
+    - hurt myself on purpose
+    - harm myself
+    - harming myself
+    - cut myself on purpose
+    - been cutting myself
+    - cutting myself
+    - burn myself on purpose
+    - starve myself to death
+    - overdose on purpose
+    - take all my pills
+    - took all my pills
+    - swallow all my pills
+    - swallow all the pills
+    - take all the pills
+    - how many pills to die
+    - how many pills would kill me
+    - jump off a bridge
+    - jump off the roof
+    - jump off a building
+    - jump in front of a train
+    - hang myself
+    - hanging myself
+    - slit my wrists
+    - shoot myself
+    - go to sleep and never wake up
+    - sleep and never wake up
+    - not wake up tomorrow
+    - disappear forever
+    - wrote a suicide note
+    - write a suicide note
+    - my suicide note
+    - unalive myself
+    - unalive
+    - i'm a burden
+    - im a burden to everyone
+    - everyone would be better off
+    - plan to kill myself
+    - planning to end it
+  fr:
+    - sans douleur de se suicider
+    - moyen de se suicider
+    - façon de se suicider
+    - j'aimerais être mort
+    - j'aimerais être morte
+    - faut il pour mourir
+    - plus aucune raison de vivre
+    - n'ai plus aucune raison de vivre
+    - ne jamais me réveiller
+    - de me tuer
+    - sert à rien de vivre
+    - que tout s'arrête
+    - pris tous mes médicaments
+    - pris tous mes comprimés
+    - pris toutes mes pilules
+    - envie de crever
+    - je veux crever
+    - ne veux plus être en vie
+    - veux plus être en vie
+    - ne veux plus être là
+    - veux plus être là
+    - overdose exprès
+    - overdose volontaire
+    - ne peux plus continuer comme ça
+    - peux plus continuer comme ça
+    - fait du mal exprès
+    - me suis fait du mal
+    - si je me tuais
+    - je me fais du mal
+    - me donner la mort
+    - sauter du toit
+    - me tirer une balle
+    - me laisser mourir
+    - avaler toutes les pilules
+    - me coupe les bras
+    - me coupe les poignets
+    - me couper les bras
+    - jveux mourir
+    - jveu mourir
+    - supporte plus la vie
+    - me suicider
+    - je vais me tuer
+    - je veux me tuer
+    - envie de me tuer
+    - je suis suicidaire
+    - pensées suicidaires
+    - idées suicidaires
+    - envie de mourir
+    - je veux mourir
+    - j'ai envie de mourir
+    - je voudrais mourir
+    - je préférerais être mort
+    - je préférerais être morte
+    - mettre fin à mes jours
+    - mettre fin à ma vie
+    - en finir avec la vie
+    - je veux en finir
+    - envie d'en finir
+    - plus envie de vivre
+    - pas envie de vivre
+    - je ne veux plus vivre
+    - je veux plus vivre
+    - aucune raison de vivre
+    - la vie ne vaut pas la peine
+    - me faire du mal
+    - me blesser exprès
+    - me scarifier
+    - je me scarifie
+    - me couper les veines
+    - m'ouvrir les veines
+    - me pendre
+    - sauter du pont
+    - sauter par la fenêtre
+    - me jeter sous un train
+    - avaler tous mes médicaments
+    - prendre toutes mes pilules
+    - prendre tous mes comprimés
+    - je serais mieux mort
+    - je serais mieux morte
+    - tout le monde serait mieux sans moi
+    - mieux sans moi
+    - je suis un fardeau
+    - disparaître pour toujours
+    - dormir et ne jamais me réveiller
+    - ne plus me réveiller
+    - lettre d'adieu
+    - je n'en peux plus de vivre
+    - j'en peux plus de vivre
+    - combien de comprimés pour mourir
+  ar:
+    # MSA
+    - تكفي لأموت
+    - عبء على الجميع
+    - رمي نفسي
+    - كنجرح راسي
+    - نرمي راسي
+    - أريد أن أنتحر
+    - سأنتحر
+    - أفكر في الانتحار
+    - أفكار انتحارية
+    - أريد أن أموت
+    - اريد ان اموت
+    - أتمنى أن أموت
+    - أتمنى الموت
+    - ليتني مت
+    - أقتل نفسي
+    - اقتل نفسي
+    - أنهي حياتي
+    - انهي حياتي
+    - إنهاء حياتي
+    - لا أريد أن أعيش
+    - لا اريد ان اعيش
+    - لا سبب لأعيش
+    - الحياة لا تستحق
+    - أؤذي نفسي
+    - إيذاء نفسي
+    - أجرح نفسي
+    - أقطع شرايين
+    - أشنق نفسي
+    - أرمي نفسي من
+    - أبتلع كل الحبوب
+    - رسالة وداع
+    - الكل سيرتاح بدوني
+    - أنا عبء
+    # Darija (Morocco)
+    - بغيت ننتاحر
+    - غادي ننتاحر
+    - بغيت ننتحر
+    - غادي ننتحر
+    - بغيت نموت
+    - بغيت نقتل راسي
+    - غادي نقتل راسي
+    - نقتل راسي
+    - نسالي مع حياتي
+    - نسالي مع راسي
+    - ما بقيتش بغيت نعيش
+    - مابقيتش باغي نعيش
+    - ما عندي علاش نعيش
+    - ماعنديش علاش نعيش
+    - نضر راسي
+    - نجرح راسي
+    - نقطع عروقي
+    - نشنق راسي
+    - نلوح راسي من
+    - نشرب الدوا كامل
+    - ناكل الدوا كامل
+    - الحياة ما عندها معنى
+    - تعبت من الحياة
+    - عييت من الحياة
+    - نتمنى نموت
+    - كلشي غادي يرتاح مني
+    # Algerian
+    - حاب نموت
+    - راني حاب نموت
+    - نحب نقتل روحي
+    - حاب نقتل روحي
+    - نقتل روحي
+    - حاب ننتحر
+    - ما نحبش نعيش
+    - قلقت من حياتي
+    # Tunisian
+    - نحب نموت
+    - نحب ننتحر
+    - باش نقتل روحي
+    - ما عادش نحب نعيش
+    - تعبت من روحي
+  arabizi:
+    - kanjre7 rassi
+    - kanjr7 rasi
+    - bghit nmout
+    - bghit nmot
+    - bghit nmouut
+    - n7eb nmout
+    - nheb nmout
+    - n7ab nmout
+    - 7ab nmout
+    - hab nmout
+    - rani 7ab nmout
+    - bghit nentaher
+    - bghit nantahr
+    - bghit nentahar
+    - ghadi nentaher
+    - ghadi nantahr
+    - n7eb nentaher
+    - 7ab nentaher
+    - bghit n9tel rassi
+    - n9tel rassi
+    - n9tel rasi
+    - nqtel rasi
+    - ghadi n9tel rassi
+    - n9tal rou7i
+    - n9tel rou7i
+    - nqtel rouhi
+    - bach n9tel rou7i
+    - nsali m3a 7yati
+    - nsali m3a rassi
+    - ma b9itch bghit n3ich
+    - mab9itch bghit n3ich
+    - ma 3andi 3lach n3ich
+    - ma3andich 3lach n3ich
+    - ma n7ebch n3ich
+    - ma 3adech n7eb n3ich
+    - ndor rassi
+    - nejre7 rassi
+    - njre7 rasi
+    - n9te3 3rou9i
+    - ncheneq rassi
+    - nlou7 rassi
+    - nchreb dwa kaml
+    - nakol dwa kaml
+    - 3yit mn 7yati
+    - 3yit men l7ayat
+    - t3bt mn l7ayat
+    - l7ayat ma 3andha ma3na
+    - kolchi ghadi yrta7 meni
+condition_terms:
+  en:
+    - suicide
+    - suicde
+    - sucide
+    - suiside
+    - suicid
+    - suicidle
+    - suicidal
+    - self harm
+    - self-harm
+    - self injury
+    - suicide attempt
+    - attempted suicide
+  fr:
+    - se suicider
+    - suicide
+    - suicidaire
+    - sucide
+    - suicid
+    - automutilation
+    - tentative de suicide
+    - scarification
+  ar:
+    - انتحار
+    - الانتحار
+    - محاولة انتحار
+    - إيذاء النفس
+  arabizi:
+    - intihar
+    - suicide
+    - tentative de suicide

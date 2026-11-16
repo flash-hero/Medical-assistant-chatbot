@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "generated_on": "2026-11-16",
+  "generated_from": "data_pipeline/sources/registry.yaml (seed written by the UI track; regenerated from the registry)",
+  "sources": [
+    {
+      "id": "medlineplus_topics",
+      "name": "MedlinePlus Health Topics",
+      "publisher": "U.S. National Library of Medicine",
+      "homepage": "https://medlineplus.gov/",
+      "languages": ["en"],
+      "trust_tier": 1,
+      "reuse_mode": "paraphrase_ok",
+      "license": {
+        "id": "public-domain-us-gov",
+        "name": "Public domain (U.S. Government work); acknowledge MedlinePlus",
+        "evidence_url": "https://medlineplus.gov/about/using/usingcontent/",
+        "attribution": "Source: MedlinePlus, National Library of Medicine",
+        "conditions": [
+          "Acknowledge MedlinePlus with 'Courtesy of MedlinePlus from the National Library of Medicine' or 'Source: MedlinePlus, National Library of Medicine'",
+          "A.D.A.M. Medical Encyclopedia and ASHP drug monographs are copyrighted and are never ingested",
+          "Images and photos may be copyrighted and are never ingested",
+          "Do not use the NLM logo or imply endorsement"
+        ],
+        "verified_on": "2026-11-15"
+      }
+    }
+  ]
+}

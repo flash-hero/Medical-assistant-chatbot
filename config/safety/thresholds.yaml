@@ -1,0 +1,39 @@
+# Guard / router thresholds. Tuned for RECALL on safety: a false alarm costs a banner, a miss can cost a life.
+# STATUS: draft. Re-tune on the P4 gate sets (300 per language) before release; record changes in a decision record.
+version: 1
+classifier:
+  # P(yes) from the GUARD decide call above which the risk is flagged.
+  risk:
+    emergency: 0.30
+    self_harm: 0.25
+    harm_to_others: 0.35
+    abuse_disclosure: 0.35
+    injection: 0.50
+    harmful_request: 0.50
+    abusive_user: 0.60
+  population: 0.50
+  # Below this intent confidence the deterministic intent heuristic is used instead of the classifier's choice.
+  intent_min_confidence: 0.40
+  language_min_confidence: 0.50
+lexicon:
+  # rapidfuzz score (0-100) for a fuzzy (misspelt) lexicon hit; exact word-bounded hits always count.
+  fuzzy_min_score: 88
+  # terms shorter than this (in characters, after normalisation) only match exactly.
+  fuzzy_min_term_chars: 8
+injection:
+  # heuristic detector score (0-1) above which an injection signal is raised.
+  heuristic_min_score: 0.50
+session:
+  strikes_to_lock: 3
+  # risk kinds after which the same turn carries NO further medical content (template only).
+  block_medical_after: [emergency, self_harm]
+timeouts:
+  router_s: 6.0
+  rewrite_s: 6.0
+  verify_s: 8.0
+  retrieval_s: 8.0
+groundedness:
+  supported_min: 0.50
+  # abstain when fewer than this share of answer sentences survive, or when no cited sentence remains.
+  min_kept_ratio: 0.50
+  max_sentences_per_call: 20

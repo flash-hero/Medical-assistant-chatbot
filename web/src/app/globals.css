@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/components.css";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-on-brand: var(--on-brand);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-line: var(--danger-line);
+  --color-on-danger: var(--on-danger);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-line: var(--warn-line);
+  --color-focus: var(--focus);
+  --font-sans: var(--font-stack);
+  --radius-card: var(--radius-card);
+  --radius-input: var(--radius-input);
+  --ease-calm: var(--ease-out-cubic);
+  --ease-ui: var(--ease-out-quart);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-stack);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--bg);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    font-kerning: normal;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Arabic: Readex Pro has tall ascenders and needs more leading and a slightly larger size. */
+  :lang(ar) {
+    --text-body: 1.125rem;
+    --leading-body: 1.85;
+    letter-spacing: 0;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+  }
+
+  :lang(ar) :is(h1, h2, h3) {
+    line-height: 1.45;
+    letter-spacing: 0;
+  }
+
+  p,
+  li,
+  dd {
+    text-wrap: pretty;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--ink);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:focus-within {
+      scroll-behavior: smooth;
+    }
+  }
+}

@@ -1,0 +1,143 @@
+"""Command line: python -m rag {build,gold,eval,promote,status}.
+
+Exit codes: 0 ok, 1 error, 3 embedding quota exhausted (resume later), 4 retrieval gate failed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import logging
+import sys
+from collections.abc import Awaitable, Callable, Sequence
+
+import structlog
+from qdrant_client import AsyncQdrantClient
+
+from core.config import Settings, get_settings
+from core.errors import AusculaError
+from core.ports import LLMProvider
+from rag.build import BuildRequest, IndexBuilder
+from rag.embed_cache import EmbeddingCache
+from rag.embedding import DocumentEmbedder, embed_model_id
+from rag.errors import EmbeddingQuotaExhausted, GateFailed
+from rag.offline import CacheOnlyLLM
+from rag.paths import DataPaths
+from rag.registry import load_registry
+from rag.sparse import SparseEncoder
+
+EXIT_OK, EXIT_ERROR, EXIT_QUOTA, EXIT_GATE = 0, 1, 3, 4
+
+
+def out(text: str = "") -> None:
+    """CLI output goes to stdout; structured logs go to stderr."""
+    sys.stdout.write(f"{text}\n")
+    sys.stdout.flush()
+
+
+def configure_logging() -> None:
+    structlog.configure(
+        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    )
+
+
+def qdrant_client(settings: Settings, *, timeout: int = 60) -> AsyncQdrantClient:
+    key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+    return AsyncQdrantClient(url=settings.qdrant_url, api_key=key, timeout=timeout)
+
+
+def llm_provider(settings: Settings) -> LLMProvider:
+    from app.llm.factory import build_llm_provider
+
+    return build_llm_provider(settings)
+
+
+async def close_llm(llm: LLMProvider) -> None:
+    closer = getattr(llm, "aclose", None)
+    if closer is not None:
+        await closer()
+
+
+# ---- build -------------------------------------------------------------------------------------------
+async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
+    if settings.session_secret is None:
+        out("AUSCULTA_SESSION_SECRET is not set: the corpus manifest cannot be signed.")
+        return EXIT_ERROR
+    sources = tuple(s.strip() for s in args.sources.split(",") if s.strip())
+    req = BuildRequest(args.corpus_version, sources, limit=args.limit, batch_size=args.batch_size)
+    paths = DataPaths.from_settings(settings)
+    llm = CacheOnlyLLM() if args.cache_only else llm_provider(settings)
+    client = qdrant_client(settings)
+    try:
+        with EmbeddingCache(paths.embed_cache_db) as cache:
+            builder = IndexBuilder(
+                paths=paths,
+                registry=load_registry(),
+                client=client,
+                embedder=DocumentEmbedder(
+                    llm, cache, model_id=embed_model_id(settings.llm_backend), batch_size=args.batch_size
+                ),
+                sparse=SparseEncoder(paths.fastembed_dir),
+                secret=settings.session_secret.get_secret_value(),
+                alias=settings.qdrant_alias,
+            )
+            report = await builder.build(req)
+    except EmbeddingQuotaExhausted as exc:
+        if args.cache_only:
+            out(f"Cache-only build stopped: {exc.remaining} chunk(s) not in the cache (0 API calls made).")
+        else:
+            out(f"Embedding quota exhausted ({exc.scope}); progress is saved in {paths.embed_cache_db}.")
+        out(f"Resume later with (repeats zero embeddings):\n  {req.resume_command()}")
+        return EXIT_QUOTA
+    finally:
+        await client.close()
+        await close_llm(llm)
+    out(f"Indexed {report.chunks} chunks from {report.documents} documents into {report.collection}")
+    skipped = {source: dict(reasons) for source, reasons in report.skipped.items()}
+    out(f"  per source: {dict(report.per_source_chunks)}  skipped: {skipped}")
+    out(f"  embedded {report.embedded} (api calls {report.api_calls}), cache hits {report.cache_hits}")
+    out(f"  manifest: {report.manifest_path}  elapsed {report.elapsed_s:.0f}s")
+    out(f"Next: python -m rag eval --collection {report.collection}")
+    return EXIT_OK
+
+
+# ---- dispatch ----------------------------------------------------------------------------------------
+Handler = Callable[[argparse.Namespace, Settings], Awaitable[int]]
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="python -m rag", description="Ausculta retrieval index tools")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("build", help="chunk, embed and index sources into a new collection")
+    b.add_argument("--corpus-version", required=True)
+    b.add_argument("--sources", required=True, help="comma-separated source ids (must be ACTIVE)")
+    b.add_argument("--limit", type=int, default=None, help="max documents per source")
+    b.add_argument("--batch-size", type=int, default=90)
+    b.add_argument(
+        "--cache-only", action="store_true", help="never call the embedding API; stop at the first cache miss"
+    )
+    from rag.cli_eval import add_eval_parsers
+
+    add_eval_parsers(sub)
+    return parser
+
+
+def _handlers() -> dict[str, Handler]:
+    from rag.cli_eval import EVAL_HANDLERS
+
+    return {"build": cmd_build, **EVAL_HANDLERS}
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    configure_logging()
+    settings = get_settings()
+    try:
+        return asyncio.run(_handlers()[args.cmd](args, settings))
+    except GateFailed as exc:
+        out(f"Gate failed: {exc}")
+        return EXIT_GATE
+    except AusculaError as exc:
+        out(f"Error [{exc.code}]: {exc}")
+        return EXIT_ERROR

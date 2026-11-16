@@ -1,0 +1,136 @@
+# Fixed (non-model) responses, front-desk labels, appointment-form labels and API error messages, in EN/FR/AR.
+# Placeholders are filled only from the verified hospital profile:
+#   {emergency_number} {crisis_number} {handoff_label} {handoff_number} {main_label} {main_number} {turns_left}
+# STATUS: draft wording; review with the hospital and native speakers before pilot use.
+version: 1
+responses:
+  refusal_injection:
+    en: "I can't help with that request. I can share general health information from trusted sources or help you with questions about the hospital."
+    fr: "Je ne peux pas répondre à cette demande. Je peux vous donner des informations générales de santé issues de sources fiables ou répondre à vos questions sur l'hôpital."
+    ar: "لا أستطيع المساعدة في هذا الطلب. يمكنني مشاركة معلومات صحية عامة من مصادر موثوقة أو مساعدتك في أسئلة تتعلق بالمستشفى."
+  refusal_harmful:
+    en: "I can't help with that. If you are thinking about harming yourself or someone else, please call {emergency_number} or talk to someone at {crisis_number} now."
+    fr: "Je ne peux pas vous aider pour cela. Si vous pensez à vous faire du mal ou à faire du mal à quelqu'un, appelez le {emergency_number} ou parlez à quelqu'un au {crisis_number} maintenant."
+    ar: "لا أستطيع المساعدة في ذلك. إذا كنت تفكر في إيذاء نفسك أو شخص آخر، اتصل بالرقم {emergency_number} أو تحدث إلى شخص على الرقم {crisis_number} الآن."
+  refusal_abusive:
+    en: "I'm here to help with health information and hospital questions. Let's keep the conversation respectful."
+    fr: "Je suis là pour vous aider avec des informations de santé et des questions sur l'hôpital. Restons respectueux."
+    ar: "أنا هنا للمساعدة في المعلومات الصحية وأسئلة المستشفى. لنحافظ على الاحترام في المحادثة."
+  refusal_blocked:
+    en: "I can't answer that message. If you are in danger, call {emergency_number}. For other questions, you can rephrase or contact {handoff_label}: {handoff_number}."
+    fr: "Je ne peux pas répondre à ce message. Si vous êtes en danger, appelez le {emergency_number}. Pour d'autres questions, vous pouvez reformuler ou contacter {handoff_label} : {handoff_number}."
+    ar: "لا أستطيع الرد على هذه الرسالة. إذا كنت في خطر، اتصل بالرقم {emergency_number}. لأسئلة أخرى، يمكنك إعادة الصياغة أو التواصل مع {handoff_label}: {handoff_number}."
+  session_locked:
+    en: "This conversation has been paused because several messages could not be processed safely. For help, contact {handoff_label}: {handoff_number}. In an emergency, call {emergency_number}."
+    fr: "Cette conversation a été suspendue car plusieurs messages n'ont pas pu être traités en toute sécurité. Pour obtenir de l'aide, contactez {handoff_label} : {handoff_number}. En cas d'urgence, appelez le {emergency_number}."
+    ar: "تم إيقاف هذه المحادثة مؤقتًا لأن عدة رسائل لم يكن من الممكن معالجتها بأمان. للمساعدة، تواصل مع {handoff_label}: {handoff_number}. في حالة الطوارئ، اتصل بالرقم {emergency_number}."
+  smalltalk:
+    en: "Hello! I'm Ausculta, an automated assistant. I can explain general health information from trusted sources and help with hospital questions such as departments, opening hours and appointment requests. How can I help?"
+    fr: "Bonjour ! Je suis Ausculta, un assistant automatique. Je peux expliquer des informations générales de santé issues de sources fiables et répondre aux questions sur l'hôpital : services, horaires, demandes de rendez-vous. Comment puis-je vous aider ?"
+    ar: "مرحبًا! أنا أوسكولتا، مساعد آلي. يمكنني شرح معلومات صحية عامة من مصادر موثوقة والمساعدة في أسئلة المستشفى مثل الأقسام ومواعيد العمل وطلبات المواعيد. كيف يمكنني مساعدتك؟"
+  meta:
+    en: "I'm Ausculta, an AI assistant: not a person and not a doctor. I give general health information based on public health sources, with citations, and I answer questions about this hospital. I can't diagnose, judge how urgent a situation is, or tell you what dose to take. For personal medical advice, please talk to a health professional."
+    fr: "Je suis Ausculta, un assistant d'intelligence artificielle : ni une personne, ni un médecin. Je donne des informations générales de santé tirées de sources publiques, avec leurs références, et je réponds aux questions sur cet hôpital. Je ne peux pas poser de diagnostic, évaluer l'urgence d'une situation ni vous indiquer une dose. Pour un avis médical personnel, adressez-vous à un professionnel de santé."
+    ar: "أنا أوسكولتا، مساعد يعمل بالذكاء الاصطناعي: لست شخصًا ولست طبيبًا. أقدم معلومات صحية عامة مستندة إلى مصادر صحية عامة مع ذكر المراجع، وأجيب عن أسئلة تخص هذا المستشفى. لا أستطيع التشخيص أو تقدير مدى استعجال حالة ما أو تحديد الجرعة التي يجب أخذها. للحصول على نصيحة طبية شخصية، تحدث إلى مختص صحي."
+  out_of_scope:
+    en: "I can only help with general health information and questions about the hospital. Is there something health-related I can help you with?"
+    fr: "Je peux seulement vous aider avec des informations générales de santé et des questions sur l'hôpital. Y a-t-il une question de santé pour laquelle je peux vous aider ?"
+    ar: "يمكنني المساعدة فقط في المعلومات الصحية العامة والأسئلة المتعلقة بالمستشفى. هل هناك سؤال صحي يمكنني مساعدتك فيه؟"
+  abstain:
+    en: "I don't have reliable information on that in my sources, so I would rather not guess. A doctor or pharmacist can help you with this question."
+    fr: "Je n'ai pas d'information fiable à ce sujet dans mes sources, je préfère donc ne pas deviner. Un médecin ou un pharmacien pourra vous aider."
+    ar: "ليست لدي معلومات موثوقة حول هذا في مصادري، لذلك أفضل عدم التخمين. يمكن للطبيب أو الصيدلي مساعدتك في هذا السؤال."
+  abstain_handoff:
+    en: "You can also contact {handoff_label}: {handoff_number}."
+    fr: "Vous pouvez aussi contacter {handoff_label} : {handoff_number}."
+    ar: "يمكنك أيضًا التواصل مع {handoff_label}: {handoff_number}."
+  retrieval_unavailable:
+    en: "Medical information is temporarily unavailable. Please try again in a few minutes. If you need help now, contact a health professional; in an emergency, call {emergency_number}."
+    fr: "Les informations médicales sont temporairement indisponibles. Réessayez dans quelques minutes. Si vous avez besoin d'aide maintenant, contactez un professionnel de santé ; en cas d'urgence, appelez le {emergency_number}."
+    ar: "المعلومات الطبية غير متاحة مؤقتًا. يرجى المحاولة بعد بضع دقائق. إذا كنت بحاجة إلى مساعدة الآن، تواصل مع مختص صحي؛ وفي حالة الطوارئ اتصل بالرقم {emergency_number}."
+  busy:
+    en: "I'm very busy right now and can't answer this question. Please try again in a few minutes. If this is urgent, call {emergency_number}. For hospital questions: {handoff_label}, {handoff_number}."
+    fr: "Je suis très sollicité en ce moment et je ne peux pas répondre à cette question. Réessayez dans quelques minutes. Si c'est urgent, appelez le {emergency_number}. Pour les questions sur l'hôpital : {handoff_label}, {handoff_number}."
+    ar: "أنا مشغول جدًا الآن ولا أستطيع الإجابة عن هذا السؤال. يرجى المحاولة بعد بضع دقائق. إذا كان الأمر عاجلًا، اتصل بالرقم {emergency_number}. لأسئلة المستشفى: {handoff_label}، {handoff_number}."
+  frontdesk_unavailable:
+    en: "Hospital information is not available right now. Please contact the hospital directly. In an emergency, call {emergency_number}."
+    fr: "Les informations sur l'hôpital ne sont pas disponibles pour le moment. Contactez directement l'hôpital. En cas d'urgence, appelez le {emergency_number}."
+    ar: "معلومات المستشفى غير متاحة حاليًا. يرجى التواصل مع المستشفى مباشرة. في حالة الطوارئ، اتصل بالرقم {emergency_number}."
+  frontdesk_no_match:
+    en: "I couldn't find that in the hospital information. I can help with departments, opening hours, visiting hours, documents to bring, directions and contacts. Switchboard: {main_number}."
+    fr: "Je n'ai pas trouvé cette information sur l'hôpital. Je peux vous renseigner sur les services, les horaires, les heures de visite, les documents à apporter, l'accès et les contacts. Standard : {main_number}."
+    ar: "لم أجد ذلك في معلومات المستشفى. يمكنني المساعدة في الأقسام ومواعيد العمل وأوقات الزيارة والوثائق المطلوبة والاتجاهات وأرقام التواصل. المقسم: {main_number}."
+  appointment_intro:
+    en: "I can't book appointments myself, but you can send a request to the hospital team with this form. They will contact you to confirm. Your details go to hospital staff only, never to the AI."
+    fr: "Je ne peux pas prendre de rendez-vous moi-même, mais vous pouvez envoyer une demande à l'équipe de l'hôpital avec ce formulaire. Elle vous contactera pour confirmer. Vos coordonnées sont transmises uniquement au personnel de l'hôpital, jamais à l'IA."
+    ar: "لا أستطيع حجز المواعيد بنفسي، لكن يمكنك إرسال طلب إلى فريق المستشفى عبر هذا النموذج. سيتصلون بك للتأكيد. تصل بياناتك إلى موظفي المستشفى فقط، وليس إلى الذكاء الاصطناعي أبدًا."
+  appointment_unavailable:
+    en: "Appointment requests are not available right now. Please call {main_number}."
+    fr: "Les demandes de rendez-vous ne sont pas disponibles pour le moment. Appelez le {main_number}."
+    ar: "طلبات المواعيد غير متاحة حاليًا. يرجى الاتصال بالرقم {main_number}."
+  appointment_confirmed:
+    en: "Your request {request_id} has been sent to the hospital team. They will contact you to confirm a date. This is a request, not a confirmed appointment."
+    fr: "Votre demande {request_id} a été transmise à l'équipe de l'hôpital. Elle vous contactera pour fixer une date. Il s'agit d'une demande, pas d'un rendez-vous confirmé."
+    ar: "تم إرسال طلبك {request_id} إلى فريق المستشفى. سيتصلون بك لتحديد موعد. هذا طلب وليس موعدًا مؤكدًا."
+notices:
+  demo_mode:
+    en: "Demo mode: this assistant uses a fictional hospital and is not for real medical decisions."
+    fr: "Mode démonstration : cet assistant utilise un hôpital fictif et ne doit pas servir à de vraies décisions médicales."
+    ar: "وضع العرض: يستخدم هذا المساعد مستشفى وهميًا ولا يصلح لاتخاذ قرارات طبية حقيقية."
+  session_limit_near:
+    en: "You have {turns_left} messages left in this conversation."
+    fr: "Il vous reste {turns_left} messages dans cette conversation."
+    ar: "تبقى لك {turns_left} رسائل في هذه المحادثة."
+  source_language:
+    en: "Some sources are in another language; this answer is a translation of them."
+    fr: "Certaines sources sont dans une autre langue ; cette réponse en est une traduction."
+    ar: "بعض المصادر بلغة أخرى؛ هذه الإجابة ترجمة لها."
+  degraded:
+    en: "Some features are temporarily limited."
+    fr: "Certaines fonctions sont temporairement limitées."
+    ar: "بعض الميزات محدودة مؤقتًا."
+  handoff_available:
+    en: "You can talk to a member of staff: {handoff_label}, {handoff_number}."
+    fr: "Vous pouvez parler à un membre du personnel : {handoff_label}, {handoff_number}."
+    ar: "يمكنك التحدث إلى أحد الموظفين: {handoff_label}، {handoff_number}."
+frontdesk:
+  hours: {en: "Hours", fr: "Horaires", ar: "مواعيد العمل"}
+  phone: {en: "Phone", fr: "Téléphone", ar: "الهاتف"}
+  location: {en: "Location", fr: "Emplacement", ar: "المكان"}
+  appointments_yes: {en: "Appointment requests: yes", fr: "Demandes de rendez-vous : oui", ar: "طلبات المواعيد: نعم"}
+  appointments_no: {en: "Appointment requests: not needed or not available", fr: "Demandes de rendez-vous : non nécessaires ou non disponibles", ar: "طلبات المواعيد: غير ضرورية أو غير متاحة"}
+  visiting_hours: {en: "Visiting hours", fr: "Heures de visite", ar: "أوقات الزيارة"}
+  documents_to_bring: {en: "Documents to bring", fr: "Documents à apporter", ar: "الوثائق المطلوبة"}
+  insurance: {en: "Insurance and payment", fr: "Assurance et paiement", ar: "التأمين والدفع"}
+  directions: {en: "Getting here", fr: "Accès", ar: "كيفية الوصول"}
+  address: {en: "Address", fr: "Adresse", ar: "العنوان"}
+  contacts: {en: "Contacts", fr: "Contacts", ar: "أرقام التواصل"}
+  departments: {en: "Departments", fr: "Services", ar: "الأقسام"}
+  emergency: {en: "Emergency", fr: "Urgence", ar: "الطوارئ"}
+form:
+  title: {en: "Appointment request", fr: "Demande de rendez-vous", ar: "طلب موعد"}
+  description:
+    en: "Send a request to the hospital team. They will call you back to confirm. Do not use this form for emergencies."
+    fr: "Envoyez une demande à l'équipe de l'hôpital. Elle vous rappellera pour confirmer. N'utilisez pas ce formulaire en cas d'urgence."
+    ar: "أرسل طلبًا إلى فريق المستشفى. سيعاودون الاتصال بك للتأكيد. لا تستخدم هذا النموذج في حالات الطوارئ."
+  fields:
+    full_name: {en: "Full name", fr: "Nom complet", ar: "الاسم الكامل"}
+    phone: {en: "Phone number", fr: "Numéro de téléphone", ar: "رقم الهاتف"}
+    email: {en: "E-mail (optional)", fr: "E-mail (facultatif)", ar: "البريد الإلكتروني (اختياري)"}
+    department_id: {en: "Department", fr: "Service", ar: "القسم"}
+    preferred_dates: {en: "Preferred dates and times", fr: "Dates et horaires souhaités", ar: "التواريخ والأوقات المفضلة"}
+    reason: {en: "Reason (optional, no medical details needed)", fr: "Motif (facultatif, sans détails médicaux)", ar: "السبب (اختياري، دون تفاصيل طبية)"}
+    consent: {en: "I agree that the hospital may contact me about this request", fr: "J'accepte que l'hôpital me contacte au sujet de cette demande", ar: "أوافق على أن يتصل بي المستشفى بخصوص هذا الطلب"}
+errors:
+  invalid_input: {en: "Your request could not be processed. Please check it and try again.", fr: "Votre demande n'a pas pu être traitée. Vérifiez-la et réessayez.", ar: "تعذرت معالجة طلبك. يرجى التحقق منه والمحاولة مرة أخرى."}
+  unauthorized: {en: "Your session has expired. Please start a new conversation.", fr: "Votre session a expiré. Veuillez commencer une nouvelle conversation.", ar: "انتهت صلاحية جلستك. يرجى بدء محادثة جديدة."}
+  not_found: {en: "Not found.", fr: "Introuvable.", ar: "غير موجود."}
+  rate_limited: {en: "Too many messages. Please wait a moment and try again.", fr: "Trop de messages. Patientez un instant et réessayez.", ar: "رسائل كثيرة جدًا. يرجى الانتظار قليلًا والمحاولة مرة أخرى."}
+  session_exhausted: {en: "This conversation has reached its message limit. Please start a new conversation.", fr: "Cette conversation a atteint sa limite de messages. Veuillez en commencer une nouvelle.", ar: "وصلت هذه المحادثة إلى الحد الأقصى للرسائل. يرجى بدء محادثة جديدة."}
+  overloaded: {en: "The assistant is very busy. Please try again in a few seconds. In an emergency, call your local emergency number.", fr: "L'assistant est très sollicité. Réessayez dans quelques secondes. En cas d'urgence, appelez le numéro d'urgence local.", ar: "المساعد مشغول جدًا. يرجى المحاولة بعد بضع ثوانٍ. في حالة الطوارئ، اتصل برقم الطوارئ المحلي."}
+  service_paused: {en: "The assistant is paused for maintenance. In an emergency, call your local emergency number.", fr: "L'assistant est en pause pour maintenance. En cas d'urgence, appelez le numéro d'urgence local.", ar: "المساعد متوقف مؤقتًا للصيانة. في حالة الطوارئ، اتصل برقم الطوارئ المحلي."}
+  dependency_unavailable: {en: "A service is temporarily unavailable. Please try again later.", fr: "Un service est temporairement indisponible. Réessayez plus tard.", ar: "إحدى الخدمات غير متاحة مؤقتًا. يرجى المحاولة لاحقًا."}
+  turn_in_progress: {en: "Your previous message is still being answered.", fr: "Votre message précédent est encore en cours de traitement.", ar: "ما زالت رسالتك السابقة قيد المعالجة."}
+  payload_too_large: {en: "Your message is too long.", fr: "Votre message est trop long.", ar: "رسالتك طويلة جدًا."}
+  upstream_error: {en: "The assistant could not answer right now. Please try again.", fr: "L'assistant n'a pas pu répondre pour le moment. Réessayez.", ar: "لم يتمكن المساعد من الرد الآن. يرجى المحاولة مرة أخرى."}
+  internal_error: {en: "Something went wrong. Please try again.", fr: "Une erreur s'est produite. Réessayez.", ar: "حدث خطأ ما. يرجى المحاولة مرة أخرى."}

@@ -1,0 +1,583 @@
+# Emergency lexicon (possible acute medical emergency happening now).
+# STATUS: draft-unreviewed. A clinician must review this list before any pilot use (docs/intended-purpose.md).
+#
+# Matching (app/guardrails/lexicon.py) runs on core.text.detection_form; `arabizi` entries are also folded
+# (3->a, 7->h, 9->q, ...). Two kinds of entries:
+#   terms            acute / first-person phrasings; ignored only when negated or clearly historical
+#   condition_terms  names of conditions or symptoms; ALSO ignored inside a general informational question
+#                    without any personal cue ("what are the signs of a stroke?")
+# Recall matters more than precision: the router ORs this lexicon with the classifier. Ambiguous everyday words
+# (food poisoning, muscle cramps, figurative "choked", heartburn) are deliberately left out.
+version: draft-unreviewed
+kind: emergency
+review:
+  status: draft-unreviewed
+  reviewed_by: null
+  reviewed_on: null
+  note: "Draft written by the engineering track. Requires clinician and native-speaker review."
+# Old episodes ("my chest pain last month was diagnosed as reflux") do not trigger the emergency template.
+suppress_historical: true
+# Idioms blanked out before matching (figurative uses of a term).
+exclusions:
+  - dying to know
+  - dying to see
+  - dying to try
+  - dying to meet
+  - dying to go
+  - dying for a
+  - dying of laughter
+  - dying laughing
+  - je meurs d'envie
+  - je meurs de rire
+  - mort de rire
+terms:
+  en:
+    - clutching his chest
+    - clutching her chest
+    - clutching my chest
+    - can't move his arm
+    - can't move her arm
+    - can't move his right arm
+    - can't move his left arm
+    - can't move her right arm
+    - can't move her left arm
+    - can't move my right arm
+    - can't move my left arm
+    - suddenly can't move
+    - pregnant and severe pain
+    - pregnant and in severe pain
+    - weeks pregnant and severe pain
+    - hit his head hard
+    - hit her head hard
+    - hit my head hard
+    - vomiting and very sleepy
+    - had a fit
+    - having a fit
+    - hasn't woken up
+    - hasnt woken up
+    - pain in my chest
+    - pain in his chest
+    - pain in her chest
+    - crushing pain in my chest
+    - tightness in my chest
+    - pressure in my chest
+    - my chest hurts
+    - my chest is hurting
+    - chest is killing me
+    - having a heart attack
+    - think i'm having a heart attack
+    - heart stopped
+    - pain spreading to my left arm
+    - pain going down my left arm
+    - pain in my left arm and jaw
+    - can't breathe
+    - cant breathe
+    - cant breath
+    - can't breath
+    - cannot breath
+    - cant brethe
+    - cannot breathe
+    - can not breathe
+    - can barely breathe
+    - unable to breathe
+    - struggling to breathe
+    - having trouble breathing
+    - so short of breath
+    - suddenly short of breath
+    - gasping for air
+    - gasping for breath
+    - not breathing
+    - stopped breathing
+    - isn't breathing
+    - isnt breathing
+    - is choking
+    - turning blue
+    - lips are blue
+    - lips turning blue
+    - throat is closing
+    - throat closing up
+    - throat is swelling
+    - tongue is swelling
+    - having a stroke
+    - face is drooping
+    - one side of my face
+    - speech is slurred
+    - can't speak properly
+    - can't move my arm
+    - can't move my leg
+    - can't move one side
+    - numb on one side
+    - one side of my body
+    - worst headache of my life
+    - sudden severe headache
+    - lost my vision suddenly
+    - suddenly can't see
+    - having a seizure
+    - is convulsing
+    - won't wake up
+    - wont wake up
+    - not waking up
+    - can't wake him
+    - can't wake her
+    - not responding
+    - lost consciousness
+    - bleeding heavily
+    - bleeding a lot
+    - won't stop bleeding
+    - wont stop bleeding
+    - bleeding won't stop
+    - losing a lot of blood
+    - blood in my vomit
+    - been stabbed
+    - got stabbed
+    - been shot
+    - hit by a car
+    - bone sticking out
+    - badly burned
+    - took too many pills
+    - took too many tablets
+    - swallowed too many
+    - swallowed bleach
+    - drank bleach
+    - swallowed poison
+    - swallowed a battery
+    - swallowed a button battery
+    - swallowed a magnet
+    - baby is not breathing
+    - baby isn't breathing
+    - baby is blue
+    - baby won't wake
+    - baby is limp
+    - child is not breathing
+    - pregnant and bleeding
+    - bleeding while pregnant
+    - pregnant with severe pain
+    - i think i'm dying
+    - i'm dying
+    - im dying
+    - going to die
+    - call an ambulance
+    - need an ambulance
+    - send an ambulance
+  fr:
+    - douleur à la poitrine
+    - douleurs à la poitrine
+    - se tient la poitrine
+    - poitrine qui serre fort
+    - langue gonfle
+    - langue qui gonfle
+    - bébé est tout mou
+    - bébé est tout bleu
+    - impression de mourir
+    - je suffoque
+    - il suffoque
+    - elle suffoque
+    - cogné la tête
+    - vomit et somnole
+    - peux plus respirer
+    - peut plus respirer
+    - il respire plus
+    - elle respire plus
+    - jarrive pas a respirer
+    - jarrive plus a respirer
+    - ne peut plus bouger le bras
+    - ne peux plus bouger le bras
+    - peut plus bouger le bras
+    - douleur dans la poitrine
+    - douleurs dans la poitrine
+    - mal à la poitrine
+    - mal dans la poitrine
+    - j'ai mal au thorax
+    - serrement dans la poitrine
+    - poitrine serrée
+    - poitrine qui serre
+    - douleur qui irradie dans le bras gauche
+    - douleur dans le bras gauche et la mâchoire
+    - je fais une crise cardiaque
+    - je n'arrive pas à respirer
+    - j'arrive pas à respirer
+    - je n'arrive plus à respirer
+    - j'arrive plus à respirer
+    - je ne peux pas respirer
+    - je peux pas respirer
+    - je ne peux plus respirer
+    - j'étouffe
+    - il s'étouffe
+    - elle s'étouffe
+    - du mal à respirer
+    - essoufflé au repos
+    - il ne respire plus
+    - elle ne respire plus
+    - ne respire pas
+    - ne respire plus
+    - lèvres bleues
+    - devient bleu
+    - gorge qui gonfle
+    - ma gorge se ferme
+    - la gorge qui se serre
+    - langue gonflée
+    - bouche de travers
+    - visage qui tombe
+    - moitié du visage
+    - n'arrive plus à parler
+    - je ne sens plus mon bras
+    - je ne sens plus ma jambe
+    - bras engourdi soudainement
+    - paralysie soudaine
+    - pire mal de tête de ma vie
+    - mal de tête violent et soudain
+    - je ne vois plus rien
+    - perte de vue soudaine
+    - il convulse
+    - elle convulse
+    - ne se réveille pas
+    - ne se réveille plus
+    - ne réagit plus
+    - ne répond plus
+    - s'est effondré
+    - s'est effondrée
+    - perdu connaissance
+    - saigne beaucoup
+    - ne s'arrête pas de saigner
+    - je crache du sang
+    - vomit du sang
+    - poignardé
+    - blessé par balle
+    - renversé par une voiture
+    - os qui sort
+    - gravement brûlé
+    - j'ai pris trop de médicaments
+    - pris trop de comprimés
+    - avalé trop de comprimés
+    - avalé de l'eau de javel
+    - bu de la javel
+    - avalé une pile
+    - avalé un aimant
+    - bébé ne respire pas
+    - bébé ne respire plus
+    - bébé tout bleu
+    - bébé tout mou
+    - enceinte et je saigne
+    - enceinte avec une douleur violente
+    - je vais mourir
+    - je crois que je meurs
+    - je suis en train de mourir
+    - appelez une ambulance
+    - appeler une ambulance
+    - besoin d'une ambulance
+    - appeler le samu
+    - appelez le samu
+    - appelez les pompiers
+  ar:
+    # MSA
+    - ألم شديد في صدري
+    - وجهه مائل
+    - وجهها مائل
+    - فمه مائل
+    - فمها مائل
+    - لا تستطيع الكلام
+    - النزيف لا يتوقف
+    - أتقيأ دما
+    - أتقيأ الدم
+    - يتقيأ دما
+    - شربت ماء جافيل
+    - شرب ماء جافيل
+    - طعن بسكين
+    - تعرض للطعن
+    - صدمته سيارة
+    - صدمتها سيارة
+    - حامل وأنزف
+    - أنزف بشدة
+    - لا تتنفس
+    - ألم في صدري
+    - ألم شديد في الصدر
+    - ضغط على صدري
+    - ألم يمتد إلى الذراع اليسرى
+    - لا أستطيع التنفس
+    - لا استطيع ان اتنفس
+    - لا يتنفس
+    - توقف عن التنفس
+    - شفتاه زرقاوان
+    - حلقي ينغلق
+    - لا يستطيع الكلام
+    - أسوأ صداع في حياتي
+    - صداع مفاجئ وشديد
+    - فقد الوعي
+    - فاقد الوعي
+    - مغمى عليه
+    - مغمى عليها
+    - لا يستجيب
+    - نزيف لا يتوقف
+    - ابتلع سما
+    - شرب ماء جافيل
+    - ابتلع بطارية
+    - الطفل لا يتنفس
+    - الرضيع لا يتنفس
+    - سأموت
+    - اتصلوا بالإسعاف
+    # Darija (Morocco)
+    - كيتخنق
+    - كتتخنق
+    - شرب جافيل
+    - فمها مايل
+    - فمه مايل
+    - كتشنج
+    - كيتشنج
+    - ضرباتو طوموبيل
+    - ضربتو طوموبيل
+    - وجع فالصدر
+    - وجع في صدري
+    - صدري كيضرني
+    - صدري كيوجعني
+    - قلبي كيضرني
+    - ما قدرتش نتنفس
+    - مانقدرش نتنفس
+    - ما نقدرش نتنفس
+    - ما كنقدرش نتنفس
+    - كنتخنق
+    - ما كيتنفسش
+    - ما كتتنفسش
+    - طاح وما فاقش
+    - طاحت وما فاقتش
+    - ما كيفيقش
+    - داخ وطاح
+    - الدم ما بغاش يحبس
+    - الدم ما بغاش يوقف
+    - كنتقيا الدم
+    - كنكح الدم
+    - شربت جافيل
+    - كليت بزاف ديال الدوا
+    - خديت بزاف ديال الدوا
+    - خديت بزاف ديال الكينة
+    - بلع بيلة
+    - وجهو مايل
+    - فمو مايل
+    - ما بقيتش كنحس بيدي
+    - ما بقيتش كنشوف
+    - حامل وكننزف
+    - غادي نموت
+    - عيطو للإسعاف
+    - عيط للإسعاف
+    - جيبو لابيلانص
+    # Algerian
+    - صدري يوجعني
+    - راني نموت
+    - راني نتخنق
+    - الدم ما حبسش
+    - عيطو للحماية
+    # Tunisian
+    - ما نجمش نتنفس
+    - ما نجمتش نتنفس
+    - صدري يوجع فيا
+    - قلبي يوجع فيا
+    - باش نموت
+    - الدم ما وقفش
+  arabizi:
+    - kayetkhne9
+    - kaytkhne9
+    - katetkhne9
+    - fmha mayl
+    - fmmha mayl
+    - 3andi wja3 f sder
+    - 3andi wja3 f sdri
+    - 3ndi wja3 f sder
+    - wja3 f sder
+    - wja3 fsder
+    - lwja3 f sdri
+    - sdri kayderni
+    - sdri kaydrni
+    - sdri kaywje3ni
+    - sdri yewja3ni
+    - sdri youje3ni
+    - galbi kayderni
+    - 9albi kayderni
+    - alam fi sadri
+    - ma9dertch ntnfes
+    - ma9dertch netnefes
+    - ma9dertch ntnafes
+    - man9derch ntnfes
+    - ma n9derch ntnafes
+    - ma kan9derch ntnfes
+    - ma nnajemch ntnaffes
+    - ma najemch netnafes
+    - mannajamch nitnaffas
+    - kantkhne9
+    - kantkhnaq
+    - rani ntkhne9
+    - makaytnfsch
+    - ma kaytneffesch
+    - ma yetnaffesch
+    - ta7 o ma fa9ch
+    - ta7 w ma fa9ch
+    - ma kayfi9ch
+    - dakh w ta7
+    - ghayeb 3la lwa3i
+    - ddem ma bghach i7bes
+    - ddem ma bghach ywqef
+    - kan9ya ddem
+    - kanteqeya ddem
+    - kankoh ddem
+    - chrebt javel
+    - shrebt javel
+    - khdit bzaf dyal dwa
+    - kliit bzaf dyal dwa
+    - khdit bzaf dyal l7bob
+    - bla3 pile
+    - wjhou mayl
+    - fmmou mayl
+    - ma b9itch kan7ess b yddi
+    - ma b9itch kanchouf
+    - 7amla w kanenzef
+    - ghadi nmout
+    - rani nmout
+    - bech nmout
+    - 3ayto l ambulance
+    - 3ayto lisa3af
+condition_terms:
+  en:
+    - chest pain
+    - chest pains
+    - chest tightness
+    - chest pressure
+    - heart attack
+    - cardiac arrest
+    - difficulty breathing
+    - trouble breathing
+    - hard to breathe
+    - shortness of breath at rest
+    - choking
+    - anaphylaxis
+    - anaphylactic shock
+    - severe allergic reaction
+    - stroke
+    - face drooping
+    - slurred speech
+    - sudden numbness
+    - sudden weakness
+    - thunderclap headache
+    - sudden loss of vision
+    - seizure
+    - convulsions
+    - stiff neck and fever
+    - fever and stiff neck
+    - rash that doesn't fade
+    - unconscious
+    - passed out
+    - unresponsive
+    - collapsed
+    - severe bleeding
+    - heavy bleeding
+    - coughing up blood
+    - vomiting blood
+    - throwing up blood
+    - stab wound
+    - gunshot
+    - car accident
+    - head injury
+    - severe burn
+    - electrocuted
+    - electric shock
+    - overdose
+    - overdosed
+    - poisoned
+    - bleeding during pregnancy
+    - heatstroke
+    - heat stroke
+    - hypothermia
+    - ambulance
+  fr:
+    - s'étouffe
+    - convulse
+    - douleur violente au ventre
+    - douleur violente dans le ventre
+    - douleur thoracique
+    - douleurs thoraciques
+    - oppression thoracique
+    - crise cardiaque
+    - infarctus
+    - arrêt cardiaque
+    - difficulté à respirer
+    - difficultés à respirer
+    - manque d'air
+    - œdème de quincke
+    - choc anaphylactique
+    - réaction allergique grave
+    - avc
+    - accident vasculaire cérébral
+    - visage paralysé
+    - céphalée brutale
+    - crise d'épilepsie
+    - convulsions
+    - nuque raide et fièvre
+    - fièvre et nuque raide
+    - taches qui ne s'effacent pas
+    - inconscient
+    - inconsciente
+    - perte de connaissance
+    - malaise grave
+    - saignement abondant
+    - hémorragie
+    - crache du sang
+    - vomissements de sang
+    - coup de couteau
+    - accident de voiture
+    - traumatisme crânien
+    - brûlure grave
+    - électrocuté
+    - overdose
+    - surdose
+    - empoisonné
+    - saignement pendant la grossesse
+    - coup de chaleur
+    - hypothermie
+    - ambulance
+  ar:
+    - يختنق
+    - تختنق
+    - يتشنج
+    - تتشنج
+    - ألم في الصدر
+    - ضيق في الصدر
+    - نوبة قلبية
+    - أزمة قلبية
+    - جلطة قلبية
+    - سكتة قلبية
+    - توقف القلب
+    - صعوبة في التنفس
+    - ضيق في التنفس
+    - تورم الحلق
+    - تورم اللسان
+    - حساسية شديدة
+    - صدمة تحسسية
+    - جلطة دماغية
+    - سكتة دماغية
+    - شلل مفاجئ
+    - تنميل مفاجئ
+    - ثقل في اللسان
+    - فقدان البصر المفاجئ
+    - نوبة صرع
+    - نوبة تشنج
+    - تصلب الرقبة مع حمى
+    - نزيف حاد
+    - نزيف شديد
+    - تقيؤ دم
+    - سعال دموي
+    - طعنة سكين
+    - طلق ناري
+    - حادث سير
+    - حادث سيارة
+    - إصابة في الرأس
+    - حروق شديدة
+    - صعقة كهربائية
+    - جرعة زائدة
+    - نزيف أثناء الحمل
+    - ضربة شمس
+    - سيارة الإسعاف
+    - الإسعاف
+  arabizi:
+    - crise cardiaque
+    - avc
+    - overdose
+    - jalta
+    - sakta 9albiya
+    - nazif

@@ -29,6 +29,8 @@ PATTERNS: dict[str, re.Pattern[str]] = {
 
 # Files that legitimately mention the patterns (docs about the scanner itself).
 ALLOWLIST_PATHS = {"scripts/secret_scan.py", "tests/scripts/test_secret_scan.py"}
+# Explicit, reviewable opt-out for test fixtures, e.g.  KEY = "test-only"  # secret-scan: allow
+ALLOW_MARKER = "secret-scan: allow"
 BLOCKED_FILENAMES = re.compile(r"(^|/)\.env($|\.(?!example$)[^/]+$)")
 
 
@@ -44,6 +46,8 @@ def scan_text(path: str, text: str) -> list[Finding]:
         return []
     findings: list[Finding] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
+        if ALLOW_MARKER in line:
+            continue
         for rule, pattern in PATTERNS.items():
             if pattern.search(line):
                 findings.append(Finding(path=path, line=lineno, rule=rule))
