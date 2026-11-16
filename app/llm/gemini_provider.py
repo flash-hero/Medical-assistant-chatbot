@@ -11,10 +11,11 @@ Guarantees:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import time
-from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import Any
+from collections.abc import AsyncIterator, Awaitable, Mapping, Sequence
+from typing import Any, TypeVar
 
 from google import genai
 from google.genai import types
@@ -35,6 +36,7 @@ from core.ports import (
     SpendMeter,
 )
 
+T = TypeVar("T")
 STREAM_IDLE_TIMEOUT_S = 15.0
 FREE_TIER_EMBED_TEXTS_PER_MIN = 90.0  # measured quota: 100 texts/min on the free tier
 _HC = types.HarmCategory
@@ -178,7 +180,7 @@ class GeminiProvider:
         try:
 
             async def call() -> types.GenerateContentResponse:
-                return await asyncio.wait_for(
+                return await _bounded(
                     self._client.aio.models.generate_content(
                         model=spec.model_id, contents=request.prompt, config=cfg
                     ),
@@ -210,7 +212,7 @@ class GeminiProvider:
         tokens_out = 0
 
         async def open_and_first() -> tuple[Any, types.GenerateContentResponse | None]:
-            it = await asyncio.wait_for(
+            it = await _bounded(
                 self._client.aio.models.generate_content_stream(
                     model=spec.model_id, contents=request.prompt, config=cfg
                 ),
@@ -218,7 +220,7 @@ class GeminiProvider:
             )
             agen = it.__aiter__()
             try:
-                return agen, await asyncio.wait_for(agen.__anext__(), first_timeout)
+                return agen, await _bounded(agen.__anext__(), first_timeout)
             except StopAsyncIteration:
                 return agen, None
             except BaseException:
@@ -237,7 +239,7 @@ class GeminiProvider:
                 if text or finish:
                     yield GenerationChunk(text=text, finish_reason=finish)
                 try:
-                    chunk = await asyncio.wait_for(agen.__anext__(), STREAM_IDLE_TIMEOUT_S)
+                    chunk = await _bounded(agen.__anext__(), STREAM_IDLE_TIMEOUT_S)
                 except StopAsyncIteration:
                     chunk = None
                 except asyncio.CancelledError:
@@ -256,7 +258,7 @@ class GeminiProvider:
         t0 = time.perf_counter()
 
         async def call() -> Any:
-            return await asyncio.wait_for(
+            return await _bounded(
                 self._client.aio.decisions.create(model=spec.model_id, input=input_text, questions=params),
                 spec.timeout_s,
             )
@@ -292,7 +294,7 @@ class GeminiProvider:
             contents = [types.Content(parts=[types.Part(text=t)]) for t in batch]
 
             async def call(contents: list[types.Content] = contents) -> types.EmbedContentResponse:
-                return await asyncio.wait_for(
+                return await _bounded(
                     self._client.aio.models.embed_content(model=spec.model_id, contents=contents, config=cfg),
                     spec.timeout_s,
                 )
@@ -313,7 +315,16 @@ def _unit(v: list[float]) -> list[float]:
 async def _aclose(agen: Any) -> None:
     closer = getattr(agen, "aclose", None)
     if closer is not None:
-        try:
+        with contextlib.suppress(Exception):  # best-effort close of a dead stream
             await closer()
-        except Exception:  # noqa: S110 - best-effort close of a dead stream
-            pass
+
+
+async def _bounded(awaitable: Awaitable[T], seconds: float) -> T:
+    """Timeout that never swallows an outer cancellation.
+
+    On Python 3.11, asyncio.wait_for can drop a task.cancel() when the inner awaitable completes in the same
+    loop iteration, which would leave an upstream stream open after a client disconnect.
+    asyncio.timeout() has no such race. Expiry raises TimeoutError (mapped to UpstreamTimeout).
+    """
+    async with asyncio.timeout(seconds):
+        return await awaitable
