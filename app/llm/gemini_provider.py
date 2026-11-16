@@ -15,7 +15,7 @@ import contextlib
 import math
 import time
 from collections.abc import AsyncIterator, Awaitable, Mapping, Sequence
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from google import genai
 from google.genai import types
@@ -152,7 +152,9 @@ class GeminiProvider:
             "store": False,
         }
         if spec.thinking_level:
-            kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=spec.thinking_level)
+            kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel(spec.thinking_level.upper())
+            )
         if request.json_schema is not None:
             kwargs["response_mime_type"] = "application/json"
             kwargs["response_json_schema"] = dict(request.json_schema)
@@ -176,7 +178,7 @@ class GeminiProvider:
         timeout = request.timeout_s or spec.timeout_s
         rid, est_in = await self._reserve(spec, request)
         t0 = time.perf_counter()
-        tokens_out = 0
+        tokens_in, tokens_out = 0, 0  # a failed request is not billed; set from usage on success
         try:
 
             async def call() -> types.GenerateContentResponse:
@@ -202,14 +204,15 @@ class GeminiProvider:
                 latency_ms=(time.perf_counter() - t0) * 1000,
             )
         finally:
-            await self._settle(rid, spec, est_in, tokens_out)
+            await asyncio.shield(self._settle(rid, spec, tokens_in, tokens_out))
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[GenerationChunk]:
         spec = self._spec(request.role)
         cfg = self._config(spec, request)
         first_timeout = request.timeout_s or spec.timeout_s
         rid, est_in = await self._reserve(spec, request)
-        tokens_out = 0
+        usage = [0, 0]  # [tokens_in, tokens_out]: nothing is billed until the stream opens
+        agen: Any = None
 
         async def open_and_first() -> tuple[Any, types.GenerateContentResponse | None]:
             it = await _bounded(
@@ -227,13 +230,17 @@ class GeminiProvider:
                 await _aclose(agen)
                 raise
 
-        agen, chunk = await with_retry(open_and_first, self._policy)
+        # The try starts right after the reservation: a failed or cancelled open must still settle
+        # (review P1/S2); cleanup is shielded so a repeated cancel cannot skip settle or close (review P4).
         try:
+            agen, chunk = await with_retry(open_and_first, self._policy)
+            usage[0] = est_in
             while chunk is not None:
                 _raise_if_blocked(chunk)
                 if chunk.usage_metadata:
                     um = chunk.usage_metadata
-                    tokens_out = (um.candidates_token_count or 0) + (um.thoughts_token_count or 0)
+                    usage[0] = um.prompt_token_count or usage[0]
+                    usage[1] = (um.candidates_token_count or 0) + (um.thoughts_token_count or 0)
                 text = _visible_text(chunk)
                 finish = _finish(chunk)
                 if text or finish:
@@ -247,8 +254,16 @@ class GeminiProvider:
                 except Exception as exc:
                     raise map_exception(exc) from exc
         finally:
-            await _aclose(agen)
-            await self._settle(rid, spec, est_in, tokens_out)
+            await asyncio.shield(self._cleanup(rid, spec, usage[0], usage[1], agen))
+
+    async def _cleanup(
+        self, rid: str | None, spec: ModelSpec, tokens_in: int, tokens_out: int, agen: Any
+    ) -> None:
+        try:
+            await self._settle(rid, spec, tokens_in, tokens_out)
+        finally:
+            if agen is not None:
+                await _aclose(agen)
 
     async def decide(
         self, role: ModelRole, input_text: str, questions: Mapping[str, DecisionQuestion]
@@ -259,7 +274,9 @@ class GeminiProvider:
 
         async def call() -> Any:
             return await _bounded(
-                self._client.aio.decisions.create(model=spec.model_id, input=input_text, questions=params),
+                self._client.aio.decisions.create(
+                    model=spec.model_id, input=input_text, questions=cast(Any, params)
+                ),
                 spec.timeout_s,
             )
 

@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = Field(default=None, alias="GEMINI_API_KEY")
     gemini_tier: Literal["free", "paid"] = Field(default="free", alias="GEMINI_TIER")
     llm_backend: Literal["gemini", "fake"] = Field(default="gemini", alias="AUSCULTA_LLM_BACKEND")
+    embed_backend: Literal["local", "gemini", "fake"] = Field(default="local", alias="AUSCULTA_EMBED_BACKEND")
+    embed_threads: int | None = Field(default=None, alias="AUSCULTA_EMBED_THREADS", ge=1, le=64)
+    # Fake LLM/embedding backends are refused in staging/prod unless explicitly allowed (CI smoke stack only).
+    allow_fake: bool = Field(default=False, alias="AUSCULTA_ALLOW_FAKE")
 
     # Runtime
     env: Literal["dev", "test", "staging", "prod"] = Field(default="dev", alias="AUSCULTA_ENV")
@@ -62,6 +66,29 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             return tuple(o.strip() for o in v.split(",") if o.strip())
         return v
+
+    @model_validator(mode="after")
+    def _production_guards(self) -> Settings:
+        """Refuse configurations that are unsafe outside dev/test (review P11/S14)."""
+        if self.env not in ("staging", "prod"):
+            return self
+        problems = []
+        if "fake" in (self.llm_backend, self.embed_backend) and not self.allow_fake:
+            problems.append("fake LLM/embedding backend (set AUSCULTA_ALLOW_FAKE=1 only for CI smoke stacks)")
+        if not self.redis_url:
+            problems.append("REDIS_URL is required (limits, sessions and spend are shared across workers)")
+        if self.database_url.startswith("sqlite"):
+            problems.append("DATABASE_URL must not be SQLite")
+        if self.session_secret is None or len(self.session_secret.get_secret_value()) < 32:
+            problems.append("AUSCULTA_SESSION_SECRET must be set (>= 32 characters)")
+        if problems:
+            raise ValueError(f"unsafe {self.env} configuration: " + "; ".join(problems))
+        return self
+
+    @property
+    def models_dir(self) -> Path:
+        """Local model weights (embedding model), outside the repo."""
+        return self.data_root / "models"
 
     @property
     def is_free_tier(self) -> bool:

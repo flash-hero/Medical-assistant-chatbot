@@ -92,6 +92,14 @@ class LLMProvider(Protocol):
         ...
 
 
+@runtime_checkable
+class EmbeddingProvider(Protocol):
+    """Embeds already-prefixed texts; one unit-norm vector per input, in order. Implementations:
+    app/llm/local_embedder.py (default, ONNX on this machine), GeminiProvider.embed, FakeLLMProvider.embed."""
+
+    async def embed(self, texts: Sequence[str], *, dim: int) -> list[list[float]]: ...
+
+
 # ---- Retrieval ---------------------------------------------------------------------------------
 @runtime_checkable
 class Retriever(Protocol):
