@@ -46,40 +46,40 @@ export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
 
   return (
     <ChatProvider value={actions}>
-          <div className="flex min-h-dvh flex-col">
-            <ChatHeader locale={locale} onHandoff={actions.openHandoff} onNewConversation={actions.newConversation} />
-            {demoMode ? <DemoBanner /> : null}
-            <SafetyBanner safety={safety} />
-            <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl flex-1 px-4 outline-none sm:px-6">
-              <h1 className="sr-only">{t("title")}</h1>
-              {state.turns.length === 0 ? (
-                <EmptyState onPick={pick} disabled={!ready} />
-              ) : (
-                <ol className="grid gap-10 py-8" aria-label={t("title")} data-testid="conversation">
-                  {state.turns.map((turn) => (
-                    <TurnView key={turn.id} turn={turn} />
-                  ))}
-                </ol>
-              )}
-              {session.status === "error" ? (
-                <div className="pb-6" data-testid="session-error">
-                  <ErrorNotice error={{ code: session.code, message: t("sessionError"), retryAfterS: session.retryAfterS }} onRetry={renew} onNewConversation={renew} />
-                </div>
-              ) : null}
-              {session.status === "loading" && state.turns.length === 0 ? <p className="pb-4 text-sm text-ink-2">{t("connecting")}</p> : null}
-              <div ref={sentinel} className="h-px" />
-            </main>
-            <div className="sticky bottom-0 z-[var(--z-sticky)] border-t border-line bg-bg">
-              <div className="mx-auto max-w-3xl px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
-                <Composer inputRef={inputRef} active={active} ready={ready} turnsLeft={turnsLeft} onSend={actions.send} onStop={stop} />
-              </div>
+      <div className="flex min-h-dvh flex-col">
+        <ChatHeader locale={locale} onHandoff={actions.openHandoff} onNewConversation={actions.newConversation} />
+        {demoMode ? <DemoBanner /> : null}
+        <SafetyBanner safety={safety} />
+        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl flex-1 px-4 outline-none sm:px-6">
+          <h1 className="sr-only">{t("title")}</h1>
+          {state.turns.length === 0 ? (
+            <EmptyState onPick={pick} disabled={!ready} />
+          ) : (
+            <ol className="grid gap-10 py-8" aria-label={t("title")} data-testid="conversation">
+              {state.turns.map((turn) => (
+                <TurnView key={turn.id} turn={turn} />
+              ))}
+            </ol>
+          )}
+          {session.status === "error" ? (
+            <div className="pb-6" data-testid="session-error">
+              <ErrorNotice error={{ code: session.code, message: t("sessionError"), retryAfterS: session.retryAfterS }} onRetry={renew} onNewConversation={renew} />
             </div>
-            <div aria-live="polite" aria-atomic="true" className="sr-only" data-testid="live-region">
-              <span key={announcement.id}>{announcement.text}</span>
-            </div>
-            <SourceDrawer source={source} onClose={closeSource} />
-            <HandoffDialog ref={handoffRef} hospital={hospital} onClose={closeHandoff} />
+          ) : null}
+          {session.status === "loading" && state.turns.length === 0 ? <p className="pb-4 text-sm text-ink-2">{t("connecting")}</p> : null}
+          <div ref={sentinel} className="h-px" />
+        </main>
+        <div className="sticky bottom-0 z-[var(--z-sticky)] border-t border-line bg-bg">
+          <div className="mx-auto max-w-3xl px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+            <Composer inputRef={inputRef} active={active} ready={ready} turnsLeft={turnsLeft} onSend={actions.send} onStop={stop} />
           </div>
+        </div>
+        <div aria-live="polite" aria-atomic="true" className="sr-only" data-testid="live-region">
+          <span key={announcement.id}>{announcement.text}</span>
+        </div>
+        <SourceDrawer source={source} onClose={closeSource} />
+        <HandoffDialog ref={handoffRef} hospital={hospital} onClose={closeHandoff} />
+      </div>
     </ChatProvider>
   );
 }

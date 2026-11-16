@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { isDemoMode } from "@/lib/chat/demo-mode";
 import type { Turn } from "@/lib/chat/reducer";
 import type { ChatLocale, Citation } from "@/lib/chat/types";
 import type { ChatActions } from "../ChatContext";
@@ -17,7 +18,7 @@ export function useChatController(locale: ChatLocale) {
   const handoffRef = useRef<HTMLDialogElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [source, setSource] = useState<OpenSource | null>(null);
-  const demoMode = (session.status === "ready" && session.session.demoMode) || turns.state.demoMode === true;
+  const demoMode = isDemoMode(session.status === "ready" ? session.session.demoMode : null, turns.state.demoMode);
   const turnsLeft = turns.state.turnsLeft ?? (session.status === "ready" ? session.session.turnsLeft : null);
 
   const { send, reset } = turns;

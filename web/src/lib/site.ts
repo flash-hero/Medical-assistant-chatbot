@@ -23,3 +23,6 @@ export function alternatesFor(locale: Locale, path: SitePath): Metadata["alterna
 }
 
 export const MAX_MESSAGE_CHARS = 2000;
+
+/** Questions per session by default (docs/contracts/api.md, POST /session `turns_left`). */
+export const DEFAULT_TURNS_PER_SESSION = 20;

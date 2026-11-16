@@ -3,7 +3,7 @@
 import { PaperPlaneRightIcon, StopIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useId, useState, type KeyboardEvent, type RefObject } from "react";
-import { MAX_MESSAGE_CHARS } from "@/lib/site";
+import { DEFAULT_TURNS_PER_SESSION, MAX_MESSAGE_CHARS } from "@/lib/site";
 
 interface ComposerProps {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -72,8 +72,15 @@ export function Composer({ inputRef, active, ready, turnsLeft, onSend, onStop }:
       <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-2 text-sm text-ink-2">
         <span id={`${id}-hint`}>{t("hint")}</span>
         <span className="flex gap-4">
-          {turnsLeft !== null ? <span data-testid="turns-left">{t("turnsLeft", { count: turnsLeft })}</span> : null}
-          <span id={`${id}-count`} className={`tabular-nums ${text.length >= WARN_AT ? "font-bold text-warn-ink" : ""}`} data-testid="char-count">
+          {turnsLeft !== null ? (
+            <span data-testid="turns-left">{t("turnsLeft", { count: turnsLeft })}</span>
+          ) : (
+            // Until the session answers, an invisible copy holds the slot so the row does not shift or wrap later.
+            <span className="invisible" aria-hidden="true">
+              {t("turnsLeft", { count: DEFAULT_TURNS_PER_SESSION })}
+            </span>
+          )}
+          <span id={`${id}-count`} className={`whitespace-nowrap tabular-nums ${text.length >= WARN_AT ? "font-bold text-warn-ink" : ""}`} data-testid="char-count">
             {t("counter", { count: text.length, max: MAX_MESSAGE_CHARS })}
           </span>
         </span>
