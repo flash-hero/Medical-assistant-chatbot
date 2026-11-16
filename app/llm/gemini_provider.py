@@ -280,22 +280,30 @@ class GeminiProvider:
                 spec.timeout_s,
             )
 
-        res = await with_retry(call, self._policy)
-        pf = getattr(res, "prompt_feedback", None)
-        if pf is not None and getattr(pf, "block_reason", None):
-            reason = str(getattr(pf.block_reason, "value", pf.block_reason)).lower()
-            raise UpstreamBlocked("decision input blocked", reason=reason, stage="prompt")
-        raw = dict(res.answers or {})
-        missing = set(questions) - set(raw)
-        if missing:
-            raise UpstreamError(f"decision response missing answers: {sorted(missing)}")
-        usage = getattr(res, "usage", None)
-        return DecisionResult(
-            answers={k: _answer(raw[k]) for k in questions},
-            model_id=spec.model_id,
-            input_tokens=int(getattr(usage, "total_input_tokens", 0) or 0),
-            latency_ms=(time.perf_counter() - t0) * 1000,
-        )
+        # Metered like generation (review S12): reserve an estimate, settle actual input tokens, 0 on failure.
+        est_in = _estimate_tokens(input_text + "".join(q.instructions for q in questions.values()))
+        rid = await self._spend.reserve(_cost(spec, est_in, 0)) if self._spend is not None else None
+        tokens_in = 0
+        try:
+            res = await with_retry(call, self._policy)
+            usage = getattr(res, "usage", None)
+            tokens_in = int(getattr(usage, "total_input_tokens", 0) or est_in)
+            pf = getattr(res, "prompt_feedback", None)
+            if pf is not None and getattr(pf, "block_reason", None):
+                reason = str(getattr(pf.block_reason, "value", pf.block_reason)).lower()
+                raise UpstreamBlocked("decision input blocked", reason=reason, stage="prompt")
+            raw = dict(res.answers or {})
+            missing = set(questions) - set(raw)
+            if missing:
+                raise UpstreamError(f"decision response missing answers: {sorted(missing)}")
+            return DecisionResult(
+                answers={k: _answer(raw[k]) for k in questions},
+                model_id=spec.model_id,
+                input_tokens=tokens_in,
+                latency_ms=(time.perf_counter() - t0) * 1000,
+            )
+        finally:
+            await asyncio.shield(self._settle(rid, spec, tokens_in, 0))
 
     async def embed(self, texts: Sequence[str], *, dim: int) -> list[list[float]]:
         spec = self._spec(ModelRole.EMBED)

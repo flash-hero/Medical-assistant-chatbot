@@ -148,3 +148,39 @@ async def test_cancel_during_stream_open_settles_the_reservation() -> None:
         await task
     await asyncio.sleep(0)  # let the shielded cleanup finish
     assert await meter.spent_today() == pytest.approx(0.0, abs=1e-6)
+
+
+# ---- decide() metering (review S12) ----------------------------------------------------------------
+class _Decisions:
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+
+    async def create(self, **kwargs: Any) -> Any:
+        if self.fail:
+            raise RuntimeError("503 unavailable")
+        answers = {k: SimpleNamespace(type="noul", noul=0.2, confidence=0.8) for k in kwargs["questions"]}
+        return SimpleNamespace(
+            answers=answers, usage=SimpleNamespace(total_input_tokens=10_000), prompt_feedback=None
+        )
+
+
+def _decide_provider(decisions: _Decisions, meter: MemorySpendMeter) -> GeminiProvider:
+    from app.llm.retry import RetryPolicy
+
+    client = SimpleNamespace(aio=SimpleNamespace(decisions=decisions))
+    settings = Settings(GEMINI_API_KEY="unused-test-key")  # secret-scan: allow (test value)
+    return GeminiProvider(settings, spend=meter, client=client, policy=RetryPolicy(attempts=1))  # type: ignore[arg-type]
+
+
+async def test_decide_is_metered_on_success_and_free_on_failure() -> None:
+    from core.ports import DecisionQuestion
+
+    questions = {"emergency": DecisionQuestion("noul", "Is this an emergency?")}
+    meter = MemorySpendMeter(cap_usd=5.0)
+    res = await _decide_provider(_Decisions(), meter).decide(ModelRole.GUARD, "hello", questions)
+    assert res.input_tokens == 10_000
+    assert await meter.spent_today() == pytest.approx(10_000 * 0.10 / 1_000_000)
+    failing = MemorySpendMeter(cap_usd=5.0)
+    with pytest.raises(Exception):  # noqa: B017 - mapped upstream error
+        await _decide_provider(_Decisions(fail=True), failing).decide(ModelRole.GUARD, "hello", questions)
+    assert await failing.spent_today() == pytest.approx(0.0, abs=1e-9)
