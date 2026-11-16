@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  // `next dev` would otherwise write an AGENTS.md into the project.
+  agentRules: false,
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_ORIGIN}/api/:path*` }];
   },

@@ -1,6 +1,7 @@
 """Guard and router: deterministic signals (lexicon + injection heuristics) OR one GUARD decide call.
 
-Final verdict = lexicon OR classifier OR upstream block. A provider block on the guard input is a risk signal, never
+Final verdict = lexicon OR classifier OR upstream block. A provider block on the guard input is a risk signal,
+never
 a crash. When the decide call fails, a GUARD_FALLBACK JSON classifier runs; when both fail the verdict has
 classifier_available=False and relies on deterministic signals and heuristics only.
 """
@@ -79,11 +80,12 @@ class GuardRouter:
         return self._cfg
 
     def precheck(self, text: str, sanitize_flags: Iterable[str] = ()) -> Precheck:
-        signals = list(self._lexicon.signals(text))
+        lex = self._lexicon.assess(text)  # one scan for both signals and languages
+        signals = list(lex.signals)
         inj = detect_injection(text, smuggling_flags=sanitize_flags)
         if inj.flagged(self._cfg.injection_min_score):
             signals.append(inj.signal())
-        return Precheck(signals=tuple(signals), lexicon_langs=self._lexicon.hit_languages(text))
+        return Precheck(signals=tuple(signals), lexicon_langs=lex.languages)
 
     async def route(self, inp: RouterInput, pre: Precheck) -> RouteResult:
         payload = classifier_input(self._prompts.preamble, inp.text, inp.history[-MAX_HISTORY_TURNS:])
@@ -104,7 +106,9 @@ class GuardRouter:
         base = self._combine(inp, pre, None)
         current = (*base.current, block)
         verdict = base.verdict.model_copy(update={"risks": (*base.verdict.risks, block)})
-        return RouteResult(verdict=verdict, current=current, blocked=True, classifier="none", error="upstream_blocked")
+        return RouteResult(
+            verdict=verdict, current=current, blocked=True, classifier="none", error="upstream_blocked"
+        )
 
     def _combine(self, inp: RouterInput, pre: Precheck, out: ClassifierOutput | None) -> RouteResult:
         current = list(pre.signals)
@@ -135,7 +139,9 @@ class GuardRouter:
         signals: list[Signal] = []
         for kind, prob in out.risks.items():
             if prob >= self._cfg.threshold(kind) and not pre.has(kind):
-                signals.append(Signal(kind=kind, source="classifier", score=round(prob, 3), detail=out.source))
+                signals.append(
+                    Signal(kind=kind, source="classifier", score=round(prob, 3), detail=out.source)
+                )
         return signals
 
     def _intent(self, inp: RouterInput, out: ClassifierOutput | None) -> tuple[Intent, float]:
@@ -161,13 +167,17 @@ def _neutralise(text: str) -> str:
 
 
 def classifier_input(preamble: str, current: str, history: Sequence[str]) -> str:
-    """Flatten the current message and up to 3 earlier user turns into labelled, nonce-delimited data blocks."""
+    """Flatten the current message and up to 3 earlier user turns into nonce-delimited data blocks."""
     nonce = secrets.token_hex(6)
     blocks = [
-        f'<user_message role="earlier" n="{i}" nonce="{nonce}">\n{_neutralise(t)}\n</user_message nonce="{nonce}">'
+        f'<user_message role="earlier" n="{i}" nonce="{nonce}">\n{_neutralise(t)}\n'
+        f'</user_message nonce="{nonce}">'
         for i, t in enumerate(history, 1)
     ]
-    blocks.append(f'<user_message role="current" nonce="{nonce}">\n{_neutralise(current)}\n</user_message nonce="{nonce}">')
+    blocks.append(
+        f'<user_message role="current" nonce="{nonce}">\n{_neutralise(current)}\n'
+        f'</user_message nonce="{nonce}">'
+    )
     return preamble + "\n\n" + "\n".join(blocks)
 
 

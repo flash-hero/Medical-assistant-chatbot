@@ -1,6 +1,7 @@
 """Deterministic intent and language heuristics, used when the GUARD classifier is unavailable or unsure.
 
-They are deliberately conservative: anything that is not clearly front-desk, appointment, greeting or a question
+They are deliberately conservative: anything that is not clearly front-desk, appointment, greeting or a
+question
 about the assistant is treated as a medical question (which then takes the verify-then-release path).
 """
 
@@ -31,7 +32,8 @@ _GREETING = re.compile(
     r"مرحبا|السلام عليكم|السلام|اهلا|شكرا|بارك الله فيك|صباح الخير|مساء الخير)(?:\s+\w+)?$"
 )
 _META = re.compile(
-    r"\b(?:are you (?:a |an )?(?:human|bot|robot|ai|real|doctor|person)|who are you|what are you|what can you do|"
+    r"\b(?:are you (?:a |an )?(?:human|bot|robot|ai|real|doctor|person)|who are you|what are you|"
+    r"what can you do|"
     r"t es qui|qui es tu|es tu un robot|tu es un robot|tu es humain|que peux tu faire|chkoun nta|chkon nta|"
     r"nta robot)\b|من انت|شكون نتا|شكون انت|واش نتا روبو|هل انت انسان|ماذا يمكنك"
 )
@@ -46,8 +48,36 @@ _SYMPTOM = re.compile(
     r"3andi|kayderni|kaywje3ni)\b|عندي|كيضرني|كيوجعني|اشعر ب|احس ب"
 )
 _ARABIZI_WORDS = frozenset(
-    "bghit wach dyal dial 3andi 3ndi kifach chno chnou rani bzaf mzyan daba kayderni wa9t sa3a fin kayn "
-    "nmout lyoum ghadi khasni bach mn m3a 3la lwa9t ndir".split()
+    [
+        "bghit",
+        "wach",
+        "dyal",
+        "dial",
+        "3andi",
+        "3ndi",
+        "kifach",
+        "chno",
+        "chnou",
+        "rani",
+        "bzaf",
+        "mzyan",
+        "daba",
+        "kayderni",
+        "wa9t",
+        "sa3a",
+        "fin",
+        "kayn",
+        "nmout",
+        "lyoum",
+        "ghadi",
+        "khasni",
+        "bach",
+        "mn",
+        "m3a",
+        "3la",
+        "lwa9t",
+        "ndir",
+    ]
 )
 _ARABIZI_TOKEN = re.compile(r"^(?=.*[a-z])(?=.*[2379])[a-z2379']{3,}$")
 

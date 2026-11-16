@@ -68,11 +68,13 @@ class Texts:
 
     def values(self, profile: HospitalProfile | None, locale: str, **extra: object) -> dict[str, str]:
         fallback = self.fallback_number.get(locale) or self.fallback_number["en"]
-        vals = {k: fallback for k in ("emergency_number", "crisis_number", "handoff_number", "main_number")}
+        vals = dict.fromkeys(("emergency_number", "crisis_number", "handoff_number", "main_number"), fallback)
         vals.update({"handoff_label": fallback, "main_label": fallback})
         if profile is not None:
             vals["emergency_number"] = profile.emergency.number
-            vals["crisis_number"] = profile.crisis_lines[0].number if profile.crisis_lines else profile.emergency.number
+            vals["crisis_number"] = (
+                profile.crisis_lines[0].number if profile.crisis_lines else profile.emergency.number
+            )
             vals["handoff_number"] = profile.handoff.number
             vals["handoff_label"] = profile.handoff.label.get(locale)
             vals["main_number"] = profile.main_phone.number
@@ -91,7 +93,9 @@ class _Defaults(dict[str, str]):
         return ""
 
 
-def contacts_for(selectors: tuple[str, ...], profile: HospitalProfile | None, locale: str) -> tuple[Contact, ...]:
+def contacts_for(
+    selectors: tuple[str, ...], profile: HospitalProfile | None, locale: str
+) -> tuple[Contact, ...]:
     """Resolve template contact selectors against the profile (no profile -> no contacts)."""
     if profile is None:
         return ()
@@ -104,7 +108,9 @@ def contacts_for(selectors: tuple[str, ...], profile: HospitalProfile | None, lo
         if c.number in seen:
             continue
         seen.add(c.number)
-        out.append(Contact(label=c.label.get(locale), number=c.number, hours=c.hours.get(locale) if c.hours else ""))
+        out.append(
+            Contact(label=c.label.get(locale), number=c.number, hours=c.hours.get(locale) if c.hours else "")
+        )
     return tuple(out)
 
 
@@ -137,7 +143,10 @@ def _l10n_table(section: Any, where: str) -> Mapping[str, L10nText]:
     if not isinstance(section, Mapping):
         raise ConfigFileError(f"{where} must be a mapping")
     return MappingProxyType(
-        {str(k): _check_placeholders(require_locales(v, f"{where}.{k}"), f"{where}.{k}") for k, v in section.items()}
+        {
+            str(k): _check_placeholders(require_locales(v, f"{where}.{k}"), f"{where}.{k}")
+            for k, v in section.items()
+        }
     )
 
 
@@ -155,8 +164,12 @@ def _safety(raw: Mapping[str, Any]) -> Mapping[str, SafetyTemplate]:
             template_id=str(t["template_id"]),
             contacts=contacts,
             title=_check_placeholders(require_locales(t.get("title"), f"{kind}.title"), f"{kind}.title"),
-            message=_check_placeholders(require_locales(t.get("message"), f"{kind}.message"), f"{kind}.message"),
-            followup=_check_placeholders(require_locales(t.get("followup"), f"{kind}.followup"), f"{kind}.followup"),
+            message=_check_placeholders(
+                require_locales(t.get("message"), f"{kind}.message"), f"{kind}.message"
+            ),
+            followup=_check_placeholders(
+                require_locales(t.get("followup"), f"{kind}.followup"), f"{kind}.followup"
+            ),
         )
     return MappingProxyType(out)
 

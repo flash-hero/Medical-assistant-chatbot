@@ -1,7 +1,12 @@
 """Retrieval report files and the promotion gate.
 
 reports/retrieval/<stamp>.json          full report (ablations, calibration, rerank decision, latency)
-reports/retrieval/<stamp>.metrics.json  gate records in the evals.run format (read by `python -m evals.run`)
+reports/retrieval/<stamp>.gates.json    that run's gate records (evals.run format, deliberately NOT named
+                                        *.metrics.json: `python -m evals.run` reads every *.metrics.json and
+                                        keeps the newest record per gate, so an offline run or an eval of a
+                                        validation collection would otherwise replace the live numbers)
+reports/rag.metrics.json                gate records of the LIVE collection: written only by an online eval
+                                        of the alias target (publish_metrics)
 
 Promotion (`python -m rag promote`) requires the collection's latest report to have every rag.* gate PASS or
 PROVISIONAL (free tier). Offline reports (no query embeddings) cannot promote: their recall and abstention
@@ -25,6 +30,7 @@ from rag.paths import GATES_PATH
 REPORT_SCHEMA = "ausculta.retrieval_report.v1"
 RAG_GATE_PREFIX = "rag."
 SOURCE = "rag.eval"
+RUN_RECORDS_SUFFIX = ".gates.json"
 
 
 def stamp(when: datetime) -> str:
@@ -112,8 +118,16 @@ def gate_rows(results: Sequence[GateResult]) -> list[dict[str, str]]:
 def write_report(reports_dir: Path, report: Mapping[str, Any], when: datetime) -> tuple[Path, Path]:
     base = reports_dir / stamp(when)
     full = atomic_write_json(base.with_suffix(".json"), dict(report))
-    metrics = atomic_write_json(Path(f"{base}.metrics.json"), list(report.get("gate_records", [])))
-    return full, metrics
+    records = atomic_write_json(Path(f"{base}{RUN_RECORDS_SUFFIX}"), list(report.get("gate_records", [])))
+    return full, records
+
+
+def publish_metrics(path: Path, report: Mapping[str, Any]) -> Path:
+    """Write the report's gate records as the live rag.* metrics. Only an online report qualifies: an offline
+    report has no recall or abstention records and describes a stand-in retriever."""
+    if report.get("mode") != "online":
+        raise ValueError("only an online retrieval report can be published as the rag gate metrics")
+    return atomic_write_json(path, list(report.get("gate_records", [])))
 
 
 @dataclass(frozen=True)
@@ -127,7 +141,7 @@ class PromotionCheck:
 def latest_report(reports_dir: Path, collection: str) -> tuple[Path, dict[str, Any]] | None:
     found: list[tuple[str, Path, dict[str, Any]]] = []
     for path in reports_dir.glob("*.json"):
-        if path.name.endswith(".metrics.json"):
+        if path.name.endswith((".metrics.json", RUN_RECORDS_SUFFIX)):
             continue
         try:
             data = read_json(path)

@@ -1,5 +1,6 @@
-"""Query rewrite (REWRITE role, JSON schema): standalone query in the user's language, English search queries and
-content-type filters. Skipped (no model call) when the message is already standalone English, to save quota."""
+"""Query rewrite (REWRITE role, JSON schema): standalone query in the user's language, English search queries
+and content-type filters. Skipped (no model call) when the message is already standalone English, to save
+quota."""
 
 from __future__ import annotations
 
@@ -25,7 +26,10 @@ _ANAPHORA = re.compile(
     r"\b(?:it|its|this|that|these|those|they|them|their|he|she|him|her|the same|what about|and for|also)\b",
     re.IGNORECASE,
 )
-_ALLOWED_TYPES = frozenset(t.value for t in ContentType) - {ContentType.HOSPITAL.value, ContentType.TEXTBOOK.value}
+_ALLOWED_TYPES = frozenset(t.value for t in ContentType) - {
+    ContentType.HOSPITAL.value,
+    ContentType.TEXTBOOK.value,
+}
 MAX_QUERY_CHARS = 500
 
 
@@ -70,14 +74,18 @@ def _filters(types: Sequence[str], intent: Intent) -> dict[str, list[str]]:
 
 
 class QueryRewriter:
-    def __init__(self, llm: LLMProvider, system_prompt: str, *, timeout_s: float = 6.0, top_k: int = 8) -> None:
+    def __init__(
+        self, llm: LLMProvider, system_prompt: str, *, timeout_s: float = 6.0, top_k: int = 8
+    ) -> None:
         self._llm = llm
         self._system = system_prompt
         self._timeout = timeout_s
         self._top_k = top_k
 
     def plain(self, message: str, language: Locale) -> RetrievalQuery:
-        return RetrievalQuery(standalone_query=message[:MAX_QUERY_CHARS], language=language, top_k=self._top_k)
+        return RetrievalQuery(
+            standalone_query=message[:MAX_QUERY_CHARS], language=language, top_k=self._top_k
+        )
 
     async def rewrite(
         self, message: str, history: Sequence[str], language: Locale, intent: Intent
@@ -92,11 +100,15 @@ class QueryRewriter:
             timeout_s=self._timeout,
         )
         try:
-            out = await asyncio.wait_for(self._llm.generate(request), self._timeout + 1)
+            # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow a turn cancellation
+            async with asyncio.timeout(self._timeout + 1):
+                out = await self._llm.generate(request)
             data = _RewriteJSON.model_validate(json.loads(out.text))
         except (UpstreamError, TimeoutError, ValueError, ValidationError) as exc:
             log.warning("rewrite_failed", error=type(exc).__name__)
-            return RewriteOutcome(query=self.plain(message, language), used_model=True, error=type(exc).__name__)
+            return RewriteOutcome(
+                query=self.plain(message, language), used_model=True, error=type(exc).__name__
+            )
         extra = tuple(q.strip()[:200] for q in data.search_queries_en if q.strip())[:3]
         query = RetrievalQuery(
             standalone_query=data.standalone_query.strip()[:MAX_QUERY_CHARS] or message[:MAX_QUERY_CHARS],

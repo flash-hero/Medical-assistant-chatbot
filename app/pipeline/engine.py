@@ -1,13 +1,12 @@
 """Turn orchestrator: emits core.schemas.events in the order the SSE contract requires.
 
-  meta -> [notice(demo)] -> [safety ...] -> status(checking) -> [safety ...] -> route -> answer path -> done
+  meta -> [safety ...] -> [notice(demo)] -> status(checking) -> [safety ...] -> route -> answer path -> done
 
-Safety events come from the deterministic precheck BEFORE any model call, so the emergency and self-harm templates
-need no model at all (they return in milliseconds even when every model call fails). Emergency and self-harm turns
-carry NO further medical content. Injection / harmful / abusive turns get a refusal and a strike; 3 strikes lock
-the session. Session state (sticky risks, strikes, history) is saved before any long-running step so a cancelled
-turn never loses a safety decision.
-"""
+Safety events come from the deterministic precheck BEFORE any model call, so the emergency and self-harm
+templates need no model at all (they return in milliseconds even when every model call fails). Emergency
+and self-harm turns carry NO further medical content. Injection / harmful / abusive turns get a refusal
+and a strike; 3 strikes lock the session. Session state (sticky risks, strikes, history) is saved before
+any long-running step so a cancelled turn never loses a safety decision."""
 
 from __future__ import annotations
 
@@ -29,6 +28,7 @@ from app.pipeline.record import TurnTrace
 from app.pipeline.session import SessionState, SessionStore
 from app.pipeline.texts import Texts, contacts_for, render
 from core.config import Settings
+from core.errors import AusculaError
 from core.schemas.chat import GuardVerdict, Intent, Locale, RiskKind
 from core.schemas.events import (
     AnswerEvent,
@@ -103,6 +103,10 @@ class TurnEngine:
     def release(self) -> ReleaseInfo:
         return self._release
 
+    @property
+    def texts(self) -> Texts:
+        return self._texts
+
     def precheck(self, message: IngressResult) -> Precheck:
         return self._router.precheck(message.text, message.sanitize_flags)
 
@@ -119,26 +123,40 @@ class TurnEngine:
         try:
             async for ev in self._body(ctx):
                 yield ev
-        except Exception as exc:  # noqa: BLE001 - the stream must end with error + done, never a traceback
-            log.exception("turn_failed", turn_id=req.turn_id)
-            trace.update(error_code=getattr(exc, "code", "internal_error"))
-            yield ErrorEvent(code="internal_error", message=self._texts.error("internal_error", req.locale))
-        session = await self._sessions.get(req.session.session_id) or req.session
-        turns_left = max(0, self._settings.max_turns_per_session - session.turns_used)
-        yield DoneEvent(turn_id=req.turn_id, turns_left=turns_left)
+        except Exception as exc:
+            code = exc.code if isinstance(exc, AusculaError) else "internal_error"
+            log.error("turn_failed", turn_id=req.turn_id, error=type(exc).__name__, code=code)
+            trace.update(error_code=code)
+            retry = exc.detail.get("retry_after_s") if isinstance(exc, AusculaError) else None
+            yield ErrorEvent(
+                code=code,
+                message=self._texts.error(code, req.locale),
+                retry_after_s=float(retry) if isinstance(retry, (int, float)) else None,
+            )
+        yield DoneEvent(turn_id=req.turn_id, turns_left=await self._turns_left(req))
+
+    async def _turns_left(self, req: TurnRequest) -> int:
+        try:
+            session = await self._sessions.get(req.session.session_id) or req.session
+        except Exception as exc:
+            log.warning("session_reload_failed", error=type(exc).__name__)
+            session = req.session.with_turn("", window=0)
+        return max(0, self._settings.max_turns_per_session - session.turns_used)
 
     # ---- body ------------------------------------------------------------------------------------
     async def _body(self, ctx: _Ctx) -> AsyncIterator[ChatEvent]:
         req, trace = ctx.req, ctx.trace
         lang = req.locale
+        pre_kinds = req.precheck.safety_kinds
+        for ev in self._safety_events(pre_kinds, ctx, lang):  # life-critical text first, right after meta
+            yield ev
         if self._settings.demo_mode and req.session.turns_used == 0:
             yield NoticeEvent(code="demo_mode", message=self._texts.notice("demo_mode", lang, ctx.profile))
-        pre_kinds = req.precheck.safety_kinds
-        for ev in self._safety_events(pre_kinds, ctx, lang):
-            yield ev
         session = req.session.with_turn(req.message.text, window=self._settings.history_window_turns)
         session = session.with_risks(pre_kinds)
-        trace.update(risk_kinds=_names(s.kind for s in req.precheck.signals), redactions=req.message.redaction_total)
+        trace.update(
+            risk_kinds=_names(s.kind for s in req.precheck.signals), redactions=req.message.redaction_total
+        )
         if pre_kinds & self._router.config.block_medical_after or session.locked:
             await self._sessions.put(session)
             yield self._closing_answer(ctx, session, pre_kinds, heuristic_intent(req.message.text), lang)
@@ -221,7 +239,9 @@ class TurnEngine:
                 message=ctx.req.message.text,
                 history=ctx.req.session.user_history(),
                 verdict=v,
-                high_risk=v.high_risk_medical or not v.classifier_available or bool(ctx.req.session.sticky_risks),
+                high_risk=v.high_risk_medical
+                or not v.classifier_available
+                or bool(ctx.req.session.sticky_risks),
                 profile=ctx.profile,
             )
             async for ev in self._medical.respond(turn, ctx.trace):

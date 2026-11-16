@@ -138,7 +138,11 @@ async def fetch(fetcher: Fetcher, _paths: DataPaths | None = None, *, limit: int
 
 
 def _content_type(path: str) -> ContentType:
-    return ContentType.WELLNESS if "healthy-vision" in path or "/health/heart-healthy-living" in path else ContentType.CONDITION
+    return (
+        ContentType.WELLNESS
+        if "healthy-vision" in path or "health/heart-healthy-living" in path
+        else ContentType.CONDITION
+    )
 
 
 def parse(paths: DataPaths, record: SourceRecord) -> Iterator[Document]:

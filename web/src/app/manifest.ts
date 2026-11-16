@@ -11,8 +11,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#0e5e44",
     icons: [
       { src: "/brand/ausculta-app-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-      { src: "/brand/ausculta-app-icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/brand/ausculta-app-icon-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/brand/ausculta-app-icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/brand/ausculta-app-icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/brand/ausculta-app-icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

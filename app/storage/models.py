@@ -1,8 +1,7 @@
 """Relational schema (SQLAlchemy 2, async). NO message text is stored anywhere in it.
 
-Personal data exists only in `appointment_contacts` (separate table, 30-day retention, purge_expired()) and, after
-deterministic redaction, in optional feedback comments.
-"""
+Personal data exists only in `appointment_contacts` (separate table, 30-day retention, purge_expired())
+and, after deterministic redaction, in optional feedback comments."""
 
 from __future__ import annotations
 

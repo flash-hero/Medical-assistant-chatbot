@@ -1,6 +1,7 @@
 """JSON error envelope and exception handlers.
 
-Envelope: {"error": {"code": "<stable code>", "message": "<localised, user-safe>", "retry_after_s": <number|null>}}
+Envelope: {"error": {"code": "<stable code>", "message": "<localised, user-safe>",
+           "retry_after_s": <number|null>}}
 429 and 503 also carry a Retry-After header (integer seconds). Internal details never reach the client.
 """
 
@@ -32,7 +33,13 @@ class PayloadTooLarge(AusculaError):
     code, http_status = "payload_too_large", 413
 
 
-_HTTP_CODES = {400: "invalid_input", 401: "unauthorized", 404: "not_found", 405: "not_found", 413: "payload_too_large"}
+_HTTP_CODES = {
+    400: "invalid_input",
+    401: "unauthorized",
+    404: "not_found",
+    405: "not_found",
+    413: "payload_too_large",
+}
 
 
 def request_locale(request: Request) -> str:
@@ -53,11 +60,15 @@ def envelope(
     return JSONResponse(body, status_code=status, headers=headers)
 
 
+DEFAULT_RETRY_AFTER_S = {429: 60.0, 503: 30.0}
+
+
 def _retry_after(exc: AusculaError) -> float | None:
+    """Every 429 / 503 carries Retry-After (contract); other statuses never do."""
     value = exc.detail.get("retry_after_s")
-    if isinstance(value, (int, float)):
+    if isinstance(value, (int, float)) and exc.http_status in DEFAULT_RETRY_AFTER_S:
         return float(value)
-    return 30.0 if exc.http_status == 503 else None
+    return DEFAULT_RETRY_AFTER_S.get(exc.http_status)
 
 
 def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -> None:
@@ -65,7 +76,9 @@ def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -
         assert isinstance(exc, AusculaError)
         if exc.http_status >= 500:
             log.warning("request_failed", code=exc.code, path=request.url.path)
-        return envelope(texts_of(request), exc.code, exc.http_status, request_locale(request), _retry_after(exc))
+        return envelope(
+            texts_of(request), exc.code, exc.http_status, request_locale(request), _retry_after(exc)
+        )
 
     async def validation(request: Request, exc: Exception) -> JSONResponse:
         return envelope(texts_of(request), "invalid_input", 422, request_locale(request))

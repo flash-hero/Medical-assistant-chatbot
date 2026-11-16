@@ -55,7 +55,14 @@ class DataPaths:
         return self.quarantine / f"{source_id}.jsonl"
 
     def ensure(self) -> DataPaths:
-        for directory in (self.raw, self.normalized, self.ready, self.quarantine, self.reports, self.fetch_cache):
+        for directory in (
+            self.raw,
+            self.normalized,
+            self.ready,
+            self.quarantine,
+            self.reports,
+            self.fetch_cache,
+        ):
             directory.mkdir(parents=True, exist_ok=True)
         return self
 

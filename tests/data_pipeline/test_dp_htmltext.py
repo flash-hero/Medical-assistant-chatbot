@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+from dp_helpers import make_record
+
+from core.schemas.document import Section
+from core.schemas.source import ContentType, Language
 from data_pipeline.parsers.common import build_document, make_native_id, parse_us_date, unique_strings
 from data_pipeline.parsers.htmltext import (
     collapse_ws,
@@ -8,10 +14,6 @@ from data_pipeline.parsers.htmltext import (
     kind_from_heading,
     parse_fragment,
 )
-from dp_helpers import make_record
-from core.schemas.document import Section
-from core.schemas.source import ContentType, Language
-from datetime import UTC, datetime
 
 
 def _sections(markup: str, title: str = "T"):
@@ -23,7 +25,11 @@ def test_paragraphs_lists_and_headings_become_sections() -> None:
         "<p>Intro <a href='x'>link</a> text.</p><ul><li>One</li><li>Two<ul><li>Nested</li></ul></li></ul>"
         "<h3>Symptoms</h3><p>Fever.</p><h3>When to call your doctor</h3><p>Now.</p>"
     )
-    assert [s.heading_path for s in sections] == [("T",), ("T", "Symptoms"), ("T", "When to call your doctor")]
+    assert [s.heading_path for s in sections] == [
+        ("T",),
+        ("T", "Symptoms"),
+        ("T", "When to call your doctor"),
+    ]
     assert sections[0].text == "Intro link text.\n\n- One\n- Two\n  - Nested"
     assert [s.kind for s in sections] == ["summary", "symptoms", "when_to_seek_care"]
     assert [s.section_id for s in sections] == ["s0", "s1", "s2"]
@@ -59,17 +65,22 @@ def test_kind_from_heading_and_collapse() -> None:
     assert kind_from_heading("Preventing infection") == "prevention"
     assert kind_from_heading("Treatments") == "treatment"
     assert kind_from_heading("How tests work") == "diagnosis"
-    assert kind_from_heading("Overview") is None and kind_from_heading(None) is None
+    assert kind_from_heading("Overview") is None
+    assert kind_from_heading(None) is None
     assert collapse_ws(" a   b\n c ") == "a b c"
 
 
 def test_common_helpers() -> None:
     assert make_native_id(" a b/c ") == "a-b/c"
-    assert unique_strings(["Aspirin", "aspirin", " Bayer ", "", "Title"], exclude=["title"]) == ("Aspirin", "Bayer")
+    assert unique_strings(["Aspirin", "aspirin", " Bayer ", "", "Title"], exclude=["title"]) == (
+        "Aspirin",
+        "Bayer",
+    )
     assert parse_us_date("12/22/2015").isoformat() == "2015-12-22"
     assert parse_us_date("2020-09-08T00:00:00").isoformat() == "2020-09-08"
     assert parse_us_date("20250124").isoformat() == "2025-01-24"
-    assert parse_us_date("nonsense") is None and parse_us_date(None) is None
+    assert parse_us_date("nonsense") is None
+    assert parse_us_date(None) is None
     try:
         make_native_id("   ")
     except ValueError:
@@ -92,6 +103,10 @@ def test_build_document_copies_registry_fields() -> None:
         synonyms=["Title here", "Alt"],
         metadata={"empty": "", "none": None, "ok": ["a"]},
     )
-    assert doc.doc_id == "src_a:x-1" and doc.title == "Title here"
-    assert doc.license_id == "pd" and doc.attribution == "Source: A" and doc.checksum
-    assert doc.synonyms == ("Alt",) and doc.metadata == {"ok": ["a"]}
+    assert doc.doc_id == "src_a:x-1"
+    assert doc.title == "Title here"
+    assert doc.license_id == "pd"
+    assert doc.attribution == "Source: A"
+    assert doc.checksum
+    assert doc.synonyms == ("Alt",)
+    assert doc.metadata == {"ok": ["a"]}

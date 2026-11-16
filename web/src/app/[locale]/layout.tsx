@@ -1,6 +1,6 @@
 import "../globals.css";
 import type { Metadata, Viewport } from "next";
-import { hasLocale } from "next-intl";
+import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
@@ -36,9 +36,21 @@ export async function generateMetadata({ params }: Omit<LocaleLayoutProps, "chil
     referrer: "no-referrer",
     formatDetection: { telephone: false, email: false, address: false },
     icons: {
-      icon: [{ url: "/brand/ausculta-favicon.svg", type: "image/svg+xml" }],
+      icon: [
+        { url: "/favicon.ico", sizes: "48x48" },
+        { url: "/brand/ausculta-favicon.svg", type: "image/svg+xml" },
+      ],
       apple: [{ url: "/brand/ausculta-app-icon-180.png", sizes: "180x180" }],
     },
+    openGraph: {
+      type: "website",
+      siteName: "Ausculta",
+      title: t("Meta.title"),
+      description: t("Meta.description"),
+      locale,
+      images: [{ url: "/brand/ausculta-og.png", width: 1200, height: 630, alt: t("Common.tagline") }],
+    },
+    twitter: { card: "summary_large_image", images: ["/brand/ausculta-og.png"] },
     manifest: "/manifest.webmanifest",
     robots: { index: false, follow: false },
   };
@@ -66,7 +78,11 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
         <a href="#main" className="skip-link">
           {t("skipToContent")}
         </a>
-        {children}
+        {/* Locale context for client components (next-intl <Link>); no messages are serialised here.
+            Pages that render translated client islands nest their own provider with the namespaces they need. */}
+        <NextIntlClientProvider locale={locale} messages={{}} timeZone="UTC">
+          {children}
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -34,11 +34,21 @@ from data_pipeline.paths import DataPaths
 
 SOURCE_ID = "cdc"
 API_BASE = "https://tools.cdc.gov/api/v2/resources/media"
-LISTING_URL = API_BASE + "?max=100&format=json&mediatype=html&language=english&sort=datepublished&pagenum={page}"
+LISTING_URL = (
+    API_BASE + "?max=100&format=json&mediatype=html&language=english&sort=datepublished&pagenum={page}"
+)
 FETCH_CONFIG = FetchConfig(default_rps=1.0)
 BUILD_OPTIONS = {"min_chars": 300}
 _SKIP_SOURCE_PARTS = ("/niosh/",)
-_PROFESSIONAL_PARTS = ("/hcp/", "/php/", "/clinical", "/laboratory", "/lab/", "/public-health-", "/health-departments")
+_PROFESSIONAL_PARTS = (
+    "/hcp/",
+    "/php/",
+    "/clinical",
+    "/laboratory",
+    "/lab/",
+    "/public-health-",
+    "/health-departments",
+)
 RULES = PageRules(
     content_xpaths=("//div[@id='content']", "//body"),
     remove_xpaths=(
@@ -72,7 +82,9 @@ def is_wanted_item(item: dict[str, object]) -> bool:
     english = isinstance(language, dict) and language.get("isoCode2") == "en"
     if not (english and str(item.get("mediaType", "")).upper() == "HTML" and item.get("contentUrl")):
         return False
-    return source_url.startswith("https://www.cdc.gov/") and not any(p in source_url for p in _SKIP_SOURCE_PARTS)
+    return source_url.startswith("https://www.cdc.gov/") and not any(
+        p in source_url for p in _SKIP_SOURCE_PARTS
+    )
 
 
 def _listing_items(manifest: Manifest, raw_dir: Path) -> Iterator[dict[str, object]]:

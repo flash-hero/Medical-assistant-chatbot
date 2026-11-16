@@ -85,7 +85,9 @@ def _split_credit(markup: str) -> tuple[str, str]:
     return markup, ""
 
 
-def topic_to_document(el: etree._Element, record: SourceRecord, retrieved_at: datetime, source_file: str) -> Document | None:
+def topic_to_document(
+    el: etree._Element, record: SourceRecord, retrieved_at: datetime, source_file: str
+) -> Document | None:
     """One <health-topic> element -> Document, or None when it must be skipped."""
     if el.get("language") != "English":
         return None
@@ -100,7 +102,9 @@ def topic_to_document(el: etree._Element, record: SourceRecord, retrieved_at: da
         return None
     groups = [(g.text or "").strip() for g in el.findall("group")]
     descriptors = el.findall("mesh-heading/descriptor")
-    synonyms = [t.text or "" for t in el.findall("also-called")] + [t.text or "" for t in el.findall("see-reference")]
+    synonyms = [t.text or "" for t in el.findall("also-called")] + [
+        t.text or "" for t in el.findall("see-reference")
+    ]
     return build_document(
         record,
         native_id=el.get("id", ""),
@@ -126,7 +130,9 @@ def topic_to_document(el: etree._Element, record: SourceRecord, retrieved_at: da
     )
 
 
-def parse_file(xml_path: Path, record: SourceRecord, retrieved_at: datetime | None = None) -> Iterator[Document]:
+def parse_file(
+    xml_path: Path, record: SourceRecord, retrieved_at: datetime | None = None
+) -> Iterator[Document]:
     """Stream the (30 MB) topics file; elements are cleared as they are consumed."""
     stamp = retrieved_at or datetime.fromtimestamp(xml_path.stat().st_mtime, tz=UTC)
     parser_kwargs = {"tag": "health-topic", "load_dtd": False, "no_network": True, "resolve_entities": False}

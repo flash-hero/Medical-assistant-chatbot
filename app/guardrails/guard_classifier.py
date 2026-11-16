@@ -40,7 +40,10 @@ def decision_questions(prompts: GuardPrompts) -> dict[str, DecisionQuestion]:
         f"risk_{k.value}": DecisionQuestion(kind="noul", instructions=q) for k, q in prompts.risks.items()
     }
     questions.update(
-        {f"pop_{p.value}": DecisionQuestion(kind="noul", instructions=q) for p, q in prompts.populations.items()}
+        {
+            f"pop_{p.value}": DecisionQuestion(kind="noul", instructions=q)
+            for p, q in prompts.populations.items()
+        }
     )
     questions["intent"] = DecisionQuestion(
         kind="choice", instructions=prompts.intent_instructions, criteria=dict(prompts.intent_options)
@@ -96,7 +99,11 @@ def fallback_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "risks": {"type": "object", "properties": {k.value: prob for k in RiskKind}, "required": [k.value for k in RiskKind]},
+            "risks": {
+                "type": "object",
+                "properties": {k.value: prob for k in RiskKind},
+                "required": [k.value for k in RiskKind],
+            },
             "populations": {
                 "type": "object",
                 "properties": {p.value: prob for p in Population},
@@ -140,7 +147,10 @@ async def run_classifier(llm: LLMProvider, prompts: GuardPrompts, payload: str) 
     except (UpstreamError, KeyError, ValueError) as exc:
         log.warning("guard_decide_failed", error=type(exc).__name__)
     request = GenerationRequest(
-        role=ModelRole.GUARD_FALLBACK, system=fallback_system(prompts), prompt=payload, json_schema=fallback_schema()
+        role=ModelRole.GUARD_FALLBACK,
+        system=fallback_system(prompts),
+        prompt=payload,
+        json_schema=fallback_schema(),
     )
     try:
         out = await llm.generate(request)

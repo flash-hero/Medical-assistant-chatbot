@@ -70,10 +70,48 @@ CAPS: Mapping[str, int] = {"adverse_reactions": 6000}
 DEFAULT_CAP = 14000
 PRODUCT_RANK = {"HUMAN PRESCRIPTION DRUG": 0, "HUMAN OTC DRUG": 1}
 _SALT_WORDS = frozenset(
-    "hydrochloride hcl sodium potassium calcium magnesium sulfate sulphate phosphate maleate mesylate besylate "
-    "tartrate bitartrate succinate fumarate citrate acetate bromide hydrobromide chloride nitrate dihydrate "
-    "monohydrate anhydrous hemihydrate trihydrate disodium dipotassium tosylate hyclate lactate gluconate "
-    "oxide carbonate bicarbonate hydroxide propionate valerate dipropionate".split()
+    [
+        "hydrochloride",
+        "hcl",
+        "sodium",
+        "potassium",
+        "calcium",
+        "magnesium",
+        "sulfate",
+        "sulphate",
+        "phosphate",
+        "maleate",
+        "mesylate",
+        "besylate",
+        "tartrate",
+        "bitartrate",
+        "succinate",
+        "fumarate",
+        "citrate",
+        "acetate",
+        "bromide",
+        "hydrobromide",
+        "chloride",
+        "nitrate",
+        "dihydrate",
+        "monohydrate",
+        "anhydrous",
+        "hemihydrate",
+        "trihydrate",
+        "disodium",
+        "dipotassium",
+        "tosylate",
+        "hyclate",
+        "lactate",
+        "gluconate",
+        "oxide",
+        "carbonate",
+        "bicarbonate",
+        "hydroxide",
+        "propionate",
+        "valerate",
+        "dipropionate",
+    ]
 )
 _HEADING_PREFIX: Mapping[str, str] = {
     "boxed_warning": r"boxed warning|warning",
@@ -98,7 +136,8 @@ _HEADING_PREFIX: Mapping[str, str] = {
     "keep_out_of_reach_of_children": r"keep out of reach of children",
 }
 _PREFIX_RES = {
-    name: re.compile(rf"^\s*(?:{pattern})\b\s*[:.\-]?\s*", re.IGNORECASE) for name, pattern in _HEADING_PREFIX.items()
+    name: re.compile(rf"^\s*(?:{pattern})\b\s*[:.\-]?\s*", re.IGNORECASE)
+    for name, pattern in _HEADING_PREFIX.items()
 }
 _SUBSECTION_BREAK = re.compile(r"(?<=[.!?])\s+(?=\d{1,2}\.\d{1,2}(?:\.\d{1,2})?\s+[A-Z])")
 _THIRD_PARTY = re.compile(r"not in the public domain|third[- ]party copy ?rights may apply", re.IGNORECASE)
@@ -163,7 +202,12 @@ class LabelCandidate:
     truncated: tuple[str, ...] = ()
 
     def rank(self) -> tuple[int, int, int, str]:
-        return (-PRODUCT_RANK[self.product_type], len(self.sections), sum(len(t) for _, t in self.sections), self.effective_time)
+        return (
+            -PRODUCT_RANK[self.product_type],
+            len(self.sections),
+            sum(len(t) for _, t in self.sections),
+            self.effective_time,
+        )
 
 
 @dataclass
@@ -255,7 +299,11 @@ class IngredientIndex:
         if previous_time is None:
             group.merged += 1
         self._tally(group, candidate, openfda if isinstance(openfda, dict) else {})
-        if group.best is None or candidate.rank() > group.best.rank() or candidate.set_id == group.best.set_id:
+        if (
+            group.best is None
+            or candidate.rank() > group.best.rank()
+            or candidate.set_id == group.best.set_id
+        ):
             group.best = candidate
 
     @staticmethod

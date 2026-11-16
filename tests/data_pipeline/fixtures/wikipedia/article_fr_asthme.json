@@ -1,0 +1,25 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 1111,
+    "ns": 0,
+    "title": "Asthme",
+    "extract": "L'asthme est une maladie chronique des voies respiratoires qui se manifeste par des crises de difficultés à respirer, de toux et de sifflements. Les symptômes varient d'une personne à l'autre et peuvent s'aggraver la nuit ou à l'effort. Le diagnostic repose sur les symptômes et sur la mesure du souffle par spirométrie.\nLe traitement associe un traitement de fond, le plus souvent des corticoïdes inhalés, et un médicament de secours à action rapide pour les crises.\n\n== Symptômes ==\nLes crises associent toux, sifflements, oppression thoracique et essoufflement. Elles surviennent par épisodes, parfois plusieurs fois par jour, parfois quelques fois par semaine.\n== Traitement ==\n=== Traitement de fond ===\nLes corticoïdes inhalés réduisent l'inflammation des bronches et diminuent la fréquence des crises lorsqu'ils sont pris tous les jours.\n== Notes et références ==\nNote 1 qui ne doit pas être conservée.\n== Liens externes ==\nhttps://exemple.invalid",
+    "contentmodel": "wikitext",
+    "pagelanguage": "fr",
+    "lastrevid": 190000001,
+    "fullurl": "https://fr.wikipedia.org/wiki/Asthme",
+    "canonicalurl": "https://fr.wikipedia.org/wiki/Asthme",
+    "revisions": [
+     {
+      "revid": 190000001,
+      "parentid": 190000000,
+      "timestamp": "2026-10-30T08:00:00Z"
+     }
+    ]
+   }
+  ]
+ }
+}

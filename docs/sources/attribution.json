@@ -1,0 +1,145 @@
+[
+  {
+    "id": "cdc",
+    "name": "CDC web content (syndication API)",
+    "publisher": "Centers for Disease Control and Prevention",
+    "license_name": "Public domain (U.S. Government work) with CDC use conditions",
+    "attribution": "Source: Centers for Disease Control and Prevention (CDC). Reference to specific commercial products or companies does not constitute endorsement by CDC, HHS or the U.S. Government. This material is available at no charge on cdc.gov.",
+    "homepage": "https://www.cdc.gov/",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "cdc_vis",
+    "name": "CDC Vaccine Information Statements",
+    "publisher": "Centers for Disease Control and Prevention",
+    "license_name": "Public domain (U.S. Government work) with CDC use conditions",
+    "attribution": "Source: Centers for Disease Control and Prevention (CDC), Vaccine Information Statement. Reference to specific commercial products or companies does not constitute endorsement by CDC, HHS or the U.S. Government. This material is available at no charge on cdc.gov.",
+    "homepage": "https://www.cdc.gov/vaccines/hcp/current-vis/index.html",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "medlineplus_genetics",
+    "name": "MedlinePlus Genetics",
+    "publisher": "U.S. National Library of Medicine",
+    "license_name": "Public domain (U.S. Government work); acknowledge MedlinePlus",
+    "attribution": "Source: MedlinePlus, National Library of Medicine",
+    "homepage": "https://medlineplus.gov/genetics/",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "medlineplus_topics",
+    "name": "MedlinePlus Health Topics",
+    "publisher": "U.S. National Library of Medicine",
+    "license_name": "Public domain (U.S. Government work); acknowledge MedlinePlus",
+    "attribution": "Source: MedlinePlus, National Library of Medicine",
+    "homepage": "https://medlineplus.gov/",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nci_pdq",
+    "name": "NCI PDQ cancer information summaries (patient version)",
+    "publisher": "National Cancer Institute (NIH)",
+    "license_name": "Text free of copyright (NCI Reuse of NCI Information); credit NCI",
+    "attribution": "Source: National Cancer Institute (NCI), PDQ Cancer Information Summaries (Patient Version), cancer.gov",
+    "homepage": "https://www.cancer.gov/publications/pdq",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "niddk",
+    "name": "NIDDK health information",
+    "publisher": "National Institute of Diabetes and Digestive and Kidney Diseases (NIH)",
+    "license_name": "Copyright free (NIDDK copyright notice); acknowledge NIDDK",
+    "attribution": "Source: National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK), National Institutes of Health",
+    "homepage": "https://www.niddk.nih.gov/health-information",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "openfda_labels",
+    "name": "openFDA drug labels (SPL)",
+    "publisher": "U.S. Food and Drug Administration",
+    "license_name": "Public domain, CC0 1.0 Universal dedication (FDA openFDA Terms of Service)",
+    "attribution": "Data provided by the U.S. Food and Drug Administration (https://open.fda.gov)",
+    "homepage": "https://open.fda.gov/",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nccih",
+    "name": "NCCIH health information",
+    "publisher": "National Center for Complementary and Integrative Health (NIH)",
+    "license_name": "Public domain (NCCIH Website Information and Policies); credit NCCIH",
+    "attribution": "Source: National Center for Complementary and Integrative Health (NCCIH), National Institutes of Health",
+    "homepage": "https://www.nccih.nih.gov/health",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nei",
+    "name": "NEI eye health information",
+    "publisher": "National Eye Institute (NIH)",
+    "license_name": "Public domain (NEI Copyright Policy); courtesy credit requested",
+    "attribution": "Courtesy: National Eye Institute, National Institutes of Health (NEI/NIH)",
+    "homepage": "https://www.nei.nih.gov/eye-health-information",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nhlbi",
+    "name": "NHLBI health information",
+    "publisher": "National Heart, Lung, and Blood Institute (NIH)",
+    "license_name": "Public domain (NHLBI website policy), content to be used unchanged",
+    "attribution": "Source: National Heart, Lung, and Blood Institute (NHLBI), National Institutes of Health, HHS",
+    "homepage": "https://www.nhlbi.nih.gov/health",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "niams",
+    "name": "NIAMS health topics",
+    "publisher": "National Institute of Arthritis and Musculoskeletal and Skin Diseases (NIH)",
+    "license_name": "Public domain (NIAMS Disclaimer page); credit NIAMS",
+    "attribution": "Source: National Institute of Arthritis and Musculoskeletal and Skin Diseases (NIAMS), National Institutes of Health",
+    "homepage": "https://www.niams.nih.gov/health-topics",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nichd",
+    "name": "NICHD health topics",
+    "publisher": "Eunice Kennedy Shriver National Institute of Child Health and Human Development (NIH)",
+    "license_name": "Public domain (NICHD website disclaimer, Copyright and Reuse); credit NICHD",
+    "attribution": "Courtesy: Eunice Kennedy Shriver National Institute of Child Health and Human Development",
+    "homepage": "https://www.nichd.nih.gov/health/topics",
+    "languages": [
+      "en"
+    ]
+  },
+  {
+    "id": "nimh",
+    "name": "NIMH health information",
+    "publisher": "National Institute of Mental Health (NIH)",
+    "license_name": "Public domain (NIMH Copyright Policy); cite NIMH",
+    "attribution": "Source: National Institute of Mental Health (NIMH), National Institutes of Health",
+    "homepage": "https://www.nimh.nih.gov/health",
+    "languages": [
+      "en"
+    ]
+  }
+]

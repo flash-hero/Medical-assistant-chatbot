@@ -1,5 +1,6 @@
 """Sentence-level groundedness: one VERIFY decide call with one noul question per answer sentence
-("is this sentence supported by the passages?"). Unsupported sentences are removed; the caller abstains when too
+("is this sentence supported by the passages?"). Unsupported sentences are removed; the caller abstains when
+too
 little remains. Falls back to a GUARD_FALLBACK JSON classifier; when both fail the result is `available=False`
 (verify-then-release answers must then abstain).
 """
@@ -44,7 +45,10 @@ class GroundednessResult:
 
 
 def _passages_block(passages: Sequence[str], nonce: str) -> str:
-    parts = [f'<passage n="{i}" nonce="{nonce}">\n{p}\n</passage nonce="{nonce}">' for i, p in enumerate(passages, 1)]
+    parts = [
+        f'<passage n="{i}" nonce="{nonce}">\n{p}\n</passage nonce="{nonce}">'
+        for i, p in enumerate(passages, 1)
+    ]
     return "\n".join(parts)
 
 
@@ -74,7 +78,9 @@ class GroundednessVerifier:
             result = await self._verify_batch(batch, context)
             if not result.available or result.blocked:
                 return GroundednessResult(
-                    supported=tuple(False for _ in sentences), available=result.available, blocked=result.blocked
+                    supported=tuple(False for _ in sentences),
+                    available=result.available,
+                    blocked=result.blocked,
                 )
             flags.extend(result.supported)
             model_id = result.model_id
@@ -82,13 +88,18 @@ class GroundednessVerifier:
 
     async def _verify_batch(self, batch: Sequence[str], context: str) -> GroundednessResult:
         questions = {
-            f"s{i}": DecisionQuestion(kind="noul", instructions=self._prompts.question.format(sentence=_escape(s)))
+            f"s{i}": DecisionQuestion(
+                kind="noul", instructions=self._prompts.question.format(sentence=_escape(s))
+            )
             for i, s in enumerate(batch)
         }
         try:
-            res = await asyncio.wait_for(self._llm.decide(ModelRole.VERIFY, context, questions), self._timeout)
+            res = await asyncio.wait_for(
+                self._llm.decide(ModelRole.VERIFY, context, questions), self._timeout
+            )
             flags = tuple(
-                (res.answers[k].noul or 0.0) >= self._cfg.supported_min for k in sorted(questions, key=_key_index)
+                (res.answers[k].noul or 0.0) >= self._cfg.supported_min
+                for k in sorted(questions, key=_key_index)
             )
             return GroundednessResult(supported=flags, available=True, model_id=res.model_id)
         except (UpstreamError, TimeoutError, KeyError) as exc:

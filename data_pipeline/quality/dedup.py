@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from core.schemas.document import Document
-from core.text import detection_form
+from data_pipeline.quality.fastpath import fast_detection_form as detection_form
 
 NUM_PERM = 128
 BANDS = 16

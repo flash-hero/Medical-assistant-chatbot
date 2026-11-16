@@ -1,8 +1,9 @@
 """Deterministic PII redaction, applied to every user message BEFORE any model call or log line.
 
-Replaced with placeholders: e-mails [EMAIL], IBANs [IBAN], payment cards (Luhn-valid) [CARD], exact dates of birth
-[DOB] (age statements such as "I am 45" are kept), national-ID / medical-record-like numbers [ID], phone numbers
-[PHONE] (international +212/+213/+216/+33/+1 and national 0X / Tunisian 8-digit formats) and self-introduced names
+Replaced with placeholders: e-mails [EMAIL], IBANs [IBAN], payment cards (Luhn-valid) [CARD], exact dates of
+birth [DOB] (age statements such as "I am 45" are kept), national-ID / medical-record-like numbers [ID], phone
+numbers [PHONE] (international +212/+213/+216/+33/+1 and national 0X / Tunisian 8-digit formats) and
+self-introduced names
 [NAME] ("my name is", "je m'appelle", "اسمي", "ana smiti").
 """
 
@@ -77,8 +78,43 @@ _NAME_TRIGGER = re.compile(
 )
 _NAME_TOKEN = re.compile(r"[^\W\d_][\w'’\-]*", re.UNICODE)
 _NAME_STOP = frozenset(
-    "and but i i'm im am have has had with from et mais je j'ai suis ai avec de du w o and wa ana 3andi "
-    "عندي انا أنا و عمري من في كنعاني عندو".split()
+    [
+        "and",
+        "but",
+        "i",
+        "i'm",
+        "im",
+        "am",
+        "have",
+        "has",
+        "had",
+        "with",
+        "from",
+        "et",
+        "mais",
+        "je",
+        "j'ai",
+        "suis",
+        "ai",
+        "avec",
+        "de",
+        "du",
+        "w",
+        "o",
+        "and",
+        "wa",
+        "ana",
+        "3andi",
+        "عندي",
+        "انا",
+        "أنا",
+        "و",
+        "عمري",
+        "من",
+        "في",
+        "كنعاني",
+        "عندو",
+    ]
 )
 _MAX_NAME_TOKENS = 3
 
@@ -127,7 +163,9 @@ class _Redactor:
         self.today = today
         self.counts: Counter[str] = Counter()
 
-    def sub(self, pattern: re.Pattern[str], text: str, label: str, keep: Callable[[re.Match[str]], bool]) -> str:
+    def sub(
+        self, pattern: re.Pattern[str], text: str, label: str, keep: Callable[[re.Match[str]], bool]
+    ) -> str:
         def repl(m: re.Match[str]) -> str:
             if not keep(m):
                 return m.group(0)
@@ -166,8 +204,7 @@ class _Redactor:
 def _name_span_end(text: str, start: int) -> int:
     """End offset of up to _MAX_NAME_TOKENS name-like tokens starting at `start` (stops at stop words)."""
     end = start
-    taken = 0
-    for tok in _NAME_TOKEN.finditer(text, start):
+    for taken, tok in enumerate(_NAME_TOKEN.finditer(text, start)):  # taken = tokens accepted so far
         gap = text[end : tok.start()]
         if taken and (gap.strip() or "\n" in gap):
             break
@@ -177,8 +214,7 @@ def _name_span_end(text: str, start: int) -> int:
         if word in _NAME_STOP or (taken and word.startswith("و") and len(word) > 2):
             break
         end = tok.end()
-        taken += 1
-        if taken >= _MAX_NAME_TOKENS:
+        if taken + 1 >= _MAX_NAME_TOKENS:
             break
     return end
 

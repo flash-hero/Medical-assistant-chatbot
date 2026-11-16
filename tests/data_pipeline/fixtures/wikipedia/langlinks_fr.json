@@ -1,0 +1,23 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 44905,
+    "ns": 0,
+    "title": "Asthma",
+    "langlinks": [
+     {
+      "lang": "fr",
+      "title": "Asthme"
+     }
+    ]
+   },
+   {
+    "pageid": 8,
+    "ns": 0,
+    "title": "Gout"
+   }
+  ]
+ }
+}

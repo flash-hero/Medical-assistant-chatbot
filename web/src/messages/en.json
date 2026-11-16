@@ -189,6 +189,7 @@
     "sourceLanguage": "The sources for this answer are in English.",
     "sourcesHeading": "Sources",
     "citation": "Source {n}: {title}",
+    "sourceNumber": "Source {n}:",
     "seekCareTitle": "When to seek care",
     "seekCareUrgent": "If symptoms are severe, sudden or getting worse, call {number} now.",
     "seekCareUrgentNoNumber": "If symptoms are severe, sudden or getting worse, call your local emergency number now.",

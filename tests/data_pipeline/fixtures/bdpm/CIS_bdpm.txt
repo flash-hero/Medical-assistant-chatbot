@@ -1,0 +1,3 @@
+65198099	ABILIFY 10 mg, comprimé	comprimé	orale	Autorisation active	Procédure centralisée	Commercialisée	04/06/2004		EU/1/04/276	 OTSUKA PHARMACEUTICAL NETHERLANDS (PAYS BAS)	Non
+68371745	ACARBOSE ARROW LAB 100 mg, comprimé	comprimé	orale	Autorisation abrogée	Procédure décentralisée	Non commercialisée	31/05/2012	Warning disponibilité		 GENEVIDA (ALLEMAGNE)	Non
+60002283	ANASTROZOLE ACCORD 1 mg, comprimé pelliculé	comprimé pelliculé	orale	Autorisation active	Procédure de reconnaissance mutuelle	Commercialisée	28/10/2010			 ACCORD HEALTHCARE FRANCE	Non

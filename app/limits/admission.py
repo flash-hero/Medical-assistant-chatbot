@@ -3,8 +3,9 @@
   - at most `concurrency` turns hold a slot at once
   - at most `queue_max` requests wait for a slot; more are rejected at once (503 + Retry-After)
   - a waiting request gives up after `wait_s` (503 + Retry-After)
-Slots are released on every exit path (normal end, error, cancellation); `held` and `waiting` are exposed for the
-leak test and the readiness probe.
+
+Slots are released on every exit path (normal end, error, cancellation); `held` and `waiting` are exposed
+for the leak test and the readiness probe.
 """
 
 from __future__ import annotations

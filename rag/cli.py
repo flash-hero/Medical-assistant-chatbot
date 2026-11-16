@@ -35,9 +35,21 @@ def out(text: str = "") -> None:
     sys.stdout.flush()
 
 
+class _CurrentStderr:
+    """Writes to whatever `sys.stderr` is at call time. Binding the stream object itself would keep a
+    reference to a stream that may later be replaced and closed (pytest capture, redirection), and every
+    later log call would then fail with "I/O operation on closed file"."""
+
+    def write(self, text: str) -> int:
+        return sys.stderr.write(text)
+
+    def flush(self) -> None:
+        sys.stderr.flush()
+
+
 def configure_logging() -> None:
     structlog.configure(
-        logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
+        logger_factory=structlog.PrintLoggerFactory(file=_CurrentStderr()),  # type: ignore[arg-type]
         wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
     )
 
@@ -118,15 +130,18 @@ def _parser() -> argparse.ArgumentParser:
         "--cache-only", action="store_true", help="never call the embedding API; stop at the first cache miss"
     )
     from rag.cli_eval import add_eval_parsers
+    from rag.cli_plan import add_plan_parser
 
+    add_plan_parser(sub)
     add_eval_parsers(sub)
     return parser
 
 
 def _handlers() -> dict[str, Handler]:
     from rag.cli_eval import EVAL_HANDLERS
+    from rag.cli_plan import cmd_plan
 
-    return {"build": cmd_build, **EVAL_HANDLERS}
+    return {"build": cmd_build, "plan": cmd_plan, **EVAL_HANDLERS}
 
 
 def main(argv: Sequence[str] | None = None) -> int:

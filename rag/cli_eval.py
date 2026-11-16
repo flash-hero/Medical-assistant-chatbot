@@ -11,7 +11,7 @@ from typing import Any
 from qdrant_client import AsyncQdrantClient
 
 from core.config import Settings
-from rag.errors import GateFailed, IndexMismatch
+from rag.errors import EmbeddingQuotaExhausted, GateFailed, IndexMismatch
 from rag.index import alias_target, count_points, list_collections, switch_alias
 from rag.manifest import (
     ActivePointer,
@@ -24,6 +24,7 @@ from rag.manifest import (
 from rag.paths import COLLECTION_PREFIX, GOLD_DIR, DataPaths, validate_collection
 
 Handler = Callable[[argparse.Namespace, Settings], Awaitable[int]]
+MIN_OVERRIDE_REASON = 10
 
 
 def _now() -> datetime:
@@ -43,6 +44,8 @@ async def cmd_status(args: argparse.Namespace, settings: Settings) -> int:
         active = read_active(paths)
         if active is not None:
             out(f"active pointer: {active.collection} (corpus {active.corpus_version}, {active.promoted_at})")
+            if active.gate_override:
+                out(f"  promoted WITHOUT passing gates: {active.gate_override}")
         for name in await list_collections(client):
             if name.startswith(COLLECTION_PREFIX):
                 out(await _collection_line(client, paths, name))
@@ -130,7 +133,6 @@ def _corpus_version(paths: DataPaths, collection: str) -> str:
 
 # ---- eval --------------------------------------------------------------------------------------------
 async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
-    from evals.retrieval.report import write_report
     from evals.retrieval.runner import EvalContext, EvalOptions, run_eval
     from rag.cli import EXIT_GATE, EXIT_OK, close_llm, llm_provider, out, qdrant_client
     from rag.offline import CacheOnlyLLM
@@ -140,6 +142,7 @@ async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     client = qdrant_client(settings)
     llm = CacheOnlyLLM() if args.offline else llm_provider(settings)
     try:
+        live = await alias_target(client, settings.qdrant_alias)
         collection = validate_collection(args.collection or await default_collection(client, settings))
         opts = EvalOptions(
             collection=collection,
@@ -155,14 +158,38 @@ async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
         )
         ctx = EvalContext(client, llm, paths, SparseEncoder(paths.fastembed_dir), _now())
         report = await run_eval(ctx, opts)
+    except EmbeddingQuotaExhausted as exc:
+        from rag.cli import EXIT_QUOTA
+
+        out(f"Embedding quota exhausted ({exc.scope}) after {exc.embedded} new query embedding(s).")
+        out(f"They are saved in {paths.query_cache_db}; re-run the same command later (no repeats).")
+        return EXIT_QUOTA
     finally:
         await client.close()
         await close_llm(llm)
-    full, metrics = write_report(paths.reports_dir, report, ctx.when)
-    for line in render_report(report):
+    for line in save_eval_report(paths, report, ctx.when, live_collection=live):
         out(line)
-    out(f"Report: {full}\nGate records: {metrics}")
     return EXIT_GATE if any(g["verdict"] == "FAIL" for g in report["gates"]) else EXIT_OK
+
+
+def save_eval_report(
+    paths: DataPaths, report: dict[str, Any], when: datetime, *, live_collection: str | None
+) -> list[str]:
+    """Write the run's report; publish its gate records as reports/rag.metrics.json only when it is an online
+    evaluation of the collection the alias serves. Returns the lines to print."""
+    from evals.retrieval.report import publish_metrics, write_report
+
+    full, records = write_report(paths.reports_dir, report, when)
+    lines = [*render_report(report), f"Report: {full}", f"Run gate records: {records}"]
+    if report.get("mode") == "online" and report.get("collection") == live_collection:
+        published = publish_metrics(paths.rag_metrics_file, report)
+        lines.append(f"Published as the live rag gate metrics: {published}")
+    else:
+        lines.append(
+            f"Not published to {paths.rag_metrics_file.name}: only an online eval of the live collection "
+            f"({live_collection or 'no alias'}) is."
+        )
+    return lines
 
 
 def render_report(report: dict[str, Any]) -> list[str]:
@@ -212,7 +239,13 @@ async def verify_collection(client: AsyncQdrantClient, paths: DataPaths, collect
 
 
 async def _switch(
-    client: AsyncQdrantClient, paths: DataPaths, settings: Settings, collection: str, version: str
+    client: AsyncQdrantClient,
+    paths: DataPaths,
+    settings: Settings,
+    collection: str,
+    version: str,
+    *,
+    override: str | None = None,
 ) -> str:
     from rag.cli import out
 
@@ -225,6 +258,7 @@ async def _switch(
             corpus_version=version,
             promoted_at=_now(),
             previous_collection=previous if previous != collection else None,
+            gate_override=override,
         ),
     )
     out(f"alias {settings.qdrant_alias!r}: {previous or '(none)'} -> {collection} (corpus {version})")
@@ -242,17 +276,25 @@ async def cmd_promote(args: argparse.Namespace, settings: Settings) -> int:
         return EXIT_ERROR
     paths = DataPaths.from_settings(settings)
     collection = validate_collection(args.collection)
+    override = " ".join((args.override_gates or "").split()) or None
+    if override is not None and len(override) < MIN_OVERRIDE_REASON:
+        out(f"--override-gates needs a reason of at least {MIN_OVERRIDE_REASON} characters.")
+        return EXIT_ERROR
     check = promotion_check(paths.reports_dir, collection)
     for gate in check.gates:
         out(f"  {gate['verdict']:<12}{gate['gate']:<28}{gate['measured']}")
-    if not check.ok:
+    if check.ok:
+        override = None  # gates pass: a normal promotion, nothing to record
+    elif override is None:
         raise GateFailed(f"{collection}: {check.reason}")
+    else:
+        out(f"WARNING: promoting despite '{check.reason}'. Override recorded in {paths.active_pointer}")
     client = qdrant_client(settings, timeout=30)
-    try:
+    try:  # the signed-manifest check is never overridable
         version = await verify_collection(
             client, paths, collection, settings.session_secret.get_secret_value()
         )
-        await _switch(client, paths, settings, collection, version)
+        await _switch(client, paths, settings, collection, version, override=override)
     finally:
         await client.close()
     return EXIT_OK
@@ -307,6 +349,12 @@ def add_eval_parsers(sub: Any) -> None:
     e.add_argument("--no-resume-check", action="store_true")
     p = sub.add_parser("promote", help="switch the alias to a collection whose rag gates pass")
     p.add_argument("collection")
+    p.add_argument(
+        "--override-gates",
+        default=None,
+        metavar="REASON",
+        help="go live without a passing gate report (development seed only); the reason is recorded",
+    )
     sub.add_parser("rollback", help="switch the alias back to the previously promoted collection")
 
 

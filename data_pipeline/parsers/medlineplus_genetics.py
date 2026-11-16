@@ -67,7 +67,7 @@ def _html_to_fragment(html_el: etree._Element) -> str:
 
 def _parse_month(text: str) -> date | None:
     try:
-        return datetime.strptime(text.strip()[:7], "%Y-%m").date()  # noqa: DTZ007
+        return datetime.strptime(text.strip()[:7], "%Y-%m").date()
     except ValueError:
         return None
 
@@ -82,7 +82,11 @@ def _text_sections(el: etree._Element, title: str) -> list[Section]:
         heading = _ROLE_HEADINGS.get(role, role.replace("-", " ").capitalize() or None)
         parsed = html_to_sections(parse_fragment(_html_to_fragment(htmls[0])), title, intro_kind=None)
         for sec in parsed:
-            path = sec.heading_path if heading is None else (*sec.heading_path[:1], heading, *sec.heading_path[1:])
+            path = (
+                sec.heading_path
+                if heading is None
+                else (*sec.heading_path[:1], heading, *sec.heading_path[1:])
+            )
             kind = "summary" if heading is None else role.replace("-", "_")
             sections.append(sec.model_copy(update={"heading_path": path, "kind": kind}))
     return sections
@@ -92,23 +96,42 @@ def _extra_sections(el: etree._Element, title: str, offset: int) -> list[Section
     """Inheritance pattern (conditions) and cross-references, rendered as short labelled sections."""
     extra: list[Section] = []
     patterns = [
-        _child_text(p, "memo") for lst in _children(el, "inheritance-pattern-list") for p in _children(lst, "inheritance-pattern")
+        _child_text(p, "memo")
+        for lst in _children(el, "inheritance-pattern-list")
+        for p in _children(lst, "inheritance-pattern")
     ]
     if patterns:
         text = "Inheritance pattern: " + "; ".join(p for p in patterns if p) + "."
-        extra.append(Section(section_id=f"s{offset + len(extra)}", heading_path=(title, "Inheritance"), text=text, kind="inheritance"))
+        extra.append(
+            Section(
+                section_id=f"s{offset + len(extra)}",
+                heading_path=(title, "Inheritance"),
+                text=text,
+                kind="inheritance",
+            )
+        )
     genes = [
         _child_text(g, "gene-symbol") or _child_text(g, "name")
         for lst in _children(el, "related-gene-list")
         for g in _children(lst, "related-gene")
     ]
     conditions = [
-        _child_text(c, "name") for lst in _children(el, "related-health-condition-list") for c in _children(lst, "related-health-condition")
+        _child_text(c, "name")
+        for lst in _children(el, "related-health-condition-list")
+        for c in _children(lst, "related-health-condition")
     ]
-    for label, names, kind in (("Related genes", genes, "related_genes"), ("Related health conditions", conditions, "related_conditions")):
+    for label, names, kind in (
+        ("Related genes", genes, "related_genes"),
+        ("Related health conditions", conditions, "related_conditions"),
+    ):
         if names:
             extra.append(
-                Section(section_id=f"s{offset + len(extra)}", heading_path=(title, label), text=f"{label}: " + ", ".join(names) + ".", kind=kind)
+                Section(
+                    section_id=f"s{offset + len(extra)}",
+                    heading_path=(title, label),
+                    text=f"{label}: " + ", ".join(names) + ".",
+                    kind=kind,
+                )
             )
     return extra
 
@@ -133,7 +156,11 @@ def entry_to_document(el: etree._Element, record: SourceRecord, retrieved_at: da
         return None
     sections += _extra_sections(el, title, len(sections))
     synonyms = [s.text or "" for lst in _children(el, "synonym-list") for s in _children(lst, "synonym")]
-    keys = [(_child_text(k, "db"), _child_text(k, "key")) for lst in _children(el, "db-key-list") for k in _children(lst, "db-key")]
+    keys = [
+        (_child_text(k, "db"), _child_text(k, "key"))
+        for lst in _children(el, "db-key-list")
+        for k in _children(lst, "db-key")
+    ]
     return build_document(
         record,
         native_id=f"{kind}-{el.get('id')}",
@@ -167,7 +194,9 @@ def _parse_iso(text: str) -> date | None:
 def parse_file(xml_path: Path, record: SourceRecord) -> Iterator[Document]:
     stamp = datetime.fromtimestamp(xml_path.stat().st_mtime, tz=UTC)
     tags = [f"{{*}}{t}" for t in _ENTRY_TAGS]
-    for _, el in etree.iterparse(str(xml_path), tag=tags, load_dtd=False, no_network=True, resolve_entities=False):
+    for _, el in etree.iterparse(
+        str(xml_path), tag=tags, load_dtd=False, no_network=True, resolve_entities=False
+    ):
         try:
             doc = entry_to_document(el, record, stamp)
         except ValueError as exc:

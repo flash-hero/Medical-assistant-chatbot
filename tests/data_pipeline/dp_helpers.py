@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
+from pathlib import Path
 
 from core.schemas.document import Document, Section
 from core.schemas.source import SourceRecord
+from data_pipeline.fetch.manifest import Manifest, ManifestEntry
+from data_pipeline.fetch.naming import url_to_relpath
+from data_pipeline.paths import DataPaths
 
 
 def make_record(source_id: str = "src_a", **overrides: object) -> SourceRecord:
@@ -70,3 +75,42 @@ def make_doc(
     }
     base.update(overrides)
     return Document.model_validate(base).with_checksum()
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def fixture_bytes(name: str) -> bytes:
+    return (FIXTURES / name).read_bytes()
+
+
+def put_raw(
+    paths: DataPaths,
+    source_id: str,
+    url: str,
+    content: bytes | str,
+    *,
+    content_type: str = "text/html; charset=utf-8",
+    status: int = 200,
+    final_url: str = "",
+    fetched_at: str = "2026-11-15T10:00:00+00:00",
+) -> Path:
+    """Place raw bytes where the fetcher would have stored them and record the manifest entry."""
+    data = content.encode("utf-8") if isinstance(content, str) else content
+    rel = url_to_relpath(url)
+    target = paths.raw_dir(source_id) / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    Manifest(paths.raw_dir(source_id) / "_manifest.jsonl").append(
+        ManifestEntry(
+            url=url,
+            status=status,
+            sha256=hashlib.sha256(data).hexdigest(),
+            bytes=len(data),
+            fetched_at=fetched_at,
+            final_url=final_url or url,
+            path=rel,
+            content_type=content_type,
+        )
+    )
+    return target

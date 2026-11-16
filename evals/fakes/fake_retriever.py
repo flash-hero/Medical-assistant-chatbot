@@ -30,7 +30,8 @@ SYNTHETIC_PASSAGES: tuple[tuple[str, str, str], ...] = (
         "Paracetamol (acetaminophen) label",
         "Directions",
         "Adults and children 12 years and over: 500 mg to 1,000 mg every 4 to 6 hours as needed. "
-        "Do not take more than 4,000 mg in 24 hours. Ask a doctor or pharmacist before use if you have liver disease.",
+        "Do not take more than 4,000 mg in 24 hours. "
+        "Ask a doctor or pharmacist before use if you have liver disease.",
     ),
 )
 

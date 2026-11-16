@@ -1,5 +1,5 @@
-"""Citations are built server-side from RetrievedPassage objects, never from model text: the model only emits [n]
-markers, and the server resolves n to the passage it supplied at position n."""
+"""Citations are built server-side from RetrievedPassage objects, never from model text: the model only emits
+[n] markers, and the server resolves n to the passage it supplied at position n."""
 
 from __future__ import annotations
 

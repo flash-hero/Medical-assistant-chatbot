@@ -33,7 +33,9 @@ def upgrade() -> None:
     op.create_table(
         "turns",
         sa.Column("id", sa.String(36), primary_key=True),
-        sa.Column("session_id", sa.String(36), sa.ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "session_id", sa.String(36), sa.ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+        ),
         sa.Column("client_turn_id", sa.String(64), nullable=False),
         sa.Column("created_at", _TS, nullable=False),
         sa.Column("status", sa.String(16), nullable=False),

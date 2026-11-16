@@ -1,8 +1,8 @@
 """Deterministic front-desk answers rendered ONLY from HospitalProfile fields (no free generation of facts).
 
-Matching runs on core.text.detection_form: exact keyword/name tokens, plus rapidfuzz partial matching for longer
-keywords (misspellings such as "cardiolgy"). At most two sections are rendered (best matches first).
-"""
+Matching runs on core.text.detection_form: exact keyword/name tokens, plus rapidfuzz partial matching for
+longer keywords (misspellings such as "cardiolgy"). At most two sections are rendered (best matches
+first)."""
 
 from __future__ import annotations
 
@@ -21,16 +21,65 @@ _MAX_SECTIONS = 2
 
 # Profile-level topics: keywords (any language, normalised at match time) -> renderer key.
 TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "visiting_hours": ("visit", "visiting", "visitors", "visite", "visites", "visiter", "زياره", "الزياره",
-                       "ziyara", "nzour", "نزور"),
-    "documents_to_bring": ("documents", "papers", "bring", "apporter", "papiers", "pieces", "وثائق", "الوثائق",
-                           "الاوراق", "lwra9", "lwraq"),
+    "visiting_hours": (
+        "visit",
+        "visiting",
+        "visitors",
+        "visite",
+        "visites",
+        "visiter",
+        "زياره",
+        "الزياره",
+        "ziyara",
+        "nzour",
+        "نزور",
+    ),
+    "documents_to_bring": (
+        "documents",
+        "papers",
+        "bring",
+        "apporter",
+        "papiers",
+        "pieces",
+        "وثائق",
+        "الوثائق",
+        "الاوراق",
+        "lwra9",
+        "lwraq",
+    ),
     "insurance": ("insurance", "mutuelle", "assurance", "carte vitale", "تامين", "التامين", "cnss", "cnops"),
-    "directions": ("directions", "how to get", "get there", "metro", "bus", "acces", "itineraire", "venir",
-                   "الوصول", "كيف نوصل", "كيفاش نوصل", "transport", "tram"),
+    "directions": (
+        "directions",
+        "how to get",
+        "get there",
+        "metro",
+        "bus",
+        "acces",
+        "itineraire",
+        "venir",
+        "الوصول",
+        "كيف نوصل",
+        "كيفاش نوصل",
+        "transport",
+        "tram",
+    ),
     "address": ("address", "adresse", "عنوان", "العنوان", "location of the hospital", "l3onwan"),
-    "contacts": ("phone", "call", "number", "telephone", "numero", "contact", "switchboard", "standard",
-                 "هاتف", "الهاتف", "رقم", "نعيط", "n3iyet", "noumero"),
+    "contacts": (
+        "phone",
+        "call",
+        "number",
+        "telephone",
+        "numero",
+        "contact",
+        "switchboard",
+        "standard",
+        "هاتف",
+        "الهاتف",
+        "رقم",
+        "نعيط",
+        "n3iyet",
+        "noumero",
+    ),
     "emergency": ("emergency number", "numero d urgence", "رقم الطوارئ", "samu"),
 }
 
@@ -88,7 +137,9 @@ def render_department(d: Department, texts: Texts, locale: str) -> str:
         lines.append(_line(texts, "hours", d.hours.get(locale), locale))
     if d.phone:
         lines.append(_line(texts, "phone", d.phone, locale))
-    lines.append(f"- {texts.label('appointments_yes' if d.accepts_appointments else 'appointments_no', locale)}")
+    lines.append(
+        f"- {texts.label('appointments_yes' if d.accepts_appointments else 'appointments_no', locale)}"
+    )
     return "\n".join(lines)
 
 
@@ -113,7 +164,8 @@ def _render_field(key: str, value: L10n | None) -> Callable[[HospitalProfile, Te
 
 def _render_emergency(p: HospitalProfile, texts: Texts, locale: str) -> str:
     hours = f" ({p.emergency.hours.get(locale)})" if p.emergency.hours else ""
-    return f"**{texts.label('emergency', locale)}**\n- {p.emergency.label.get(locale)}: {p.emergency.number}{hours}"
+    label = p.emergency.label.get(locale)
+    return f"**{texts.label('emergency', locale)}**\n- {label}: {p.emergency.number}{hours}"
 
 
 _TOPIC_RENDERERS: dict[str, Callable[[HospitalProfile, Texts, str], str | None]] = {
@@ -127,7 +179,9 @@ _TOPIC_RENDERERS: dict[str, Callable[[HospitalProfile, Texts, str], str | None]]
 }
 
 
-def _candidates(query: str, p: HospitalProfile) -> list[tuple[float, str, Callable[[Texts, str], str | None]]]:
+def _candidates(
+    query: str, p: HospitalProfile
+) -> list[tuple[float, str, Callable[[Texts, str], str | None]]]:
     found: list[tuple[float, str, Callable[[Texts, str], str | None]]] = []
     for d in p.departments:
         score = _best(_department_keywords(d), query)
@@ -145,7 +199,9 @@ def _candidates(query: str, p: HospitalProfile) -> list[tuple[float, str, Callab
     return sorted(found, key=lambda x: -x[0])
 
 
-def answer_front_desk(question: str, profile: HospitalProfile, texts: Texts, locale: str) -> FrontDeskAnswer | None:
+def answer_front_desk(
+    question: str, profile: HospitalProfile, texts: Texts, locale: str
+) -> FrontDeskAnswer | None:
     """Render the best-matching profile sections for `question`, or None when nothing matches."""
     query = _norm(question)
     sections: list[str] = []

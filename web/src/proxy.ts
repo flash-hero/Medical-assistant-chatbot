@@ -19,8 +19,9 @@ export default function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      // Everything except the API rewrite, Next internals, and files with an extension.
-      source: "/((?!api|_next|_vercel|brand|.*\..*).*)",
+      // Everything except the API rewrite, Next internals, and files with an extension. The regex dot
+      // must be escaped as "\\." here: a bare "\." in a JS string is just ".", which excluded every page.
+      source: "/((?!api|_next|_vercel|brand|.*\\..*).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

@@ -1,11 +1,11 @@
 """Medical answer path: rewrite -> retrieve -> abstain if not confident -> generate -> check -> release.
 
-High-risk answers (GuardVerdict.high_risk_medical, classifier unavailable, sticky risk) are generated off-screen,
-checked (output checks + numeric grounding + groundedness) and released as one AnswerEvent(mode="verified").
-Low-risk answers stream as sentence-buffered DeltaEvents that already passed the inline checks, then a final
-AnswerEvent (replaces_stream=True when post-checks changed the text). Degrade ladder: (rerank skipping happens
-inside the retriever) -> ANSWER_FALLBACK model -> static "busy" answer that still shows the emergency number.
-"""
+High-risk answers (GuardVerdict.high_risk_medical, classifier unavailable, sticky risk) are generated
+off-screen, checked (output checks + numeric grounding + groundedness) and released as one
+AnswerEvent(mode="verified"). Low-risk answers stream as sentence-buffered DeltaEvents that already passed
+the inline checks, then a final AnswerEvent (replaces_stream=True when post-checks changed the text).
+Degrade ladder: (rerank skipping happens inside the retriever) -> ANSWER_FALLBACK model -> static "busy"
+answer that still shows the emergency number."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from app.pipeline.prompts import PromptSet, build_answer_prompt
 from app.pipeline.record import TurnTrace
 from app.pipeline.rewrite import QueryRewriter
 from app.pipeline.texts import Texts
-from core.errors import AusculaError, UpstreamBlocked, UpstreamError
+from core.errors import UpstreamBlocked, UpstreamError
 from core.models import ModelRole
 from core.ports import GenerationRequest, LLMProvider, Retriever
 from core.schemas.chat import GuardVerdict, Intent, RetrievalResult, RetrievedPassage
@@ -107,7 +107,9 @@ class MedicalResponder:
         request = GenerationRequest(
             role=ModelRole.ANSWER,
             system=self._prompts.system_prompt,
-            prompt=build_answer_prompt(message=turn.message, standalone=standalone, language=lang, passages=passages),
+            prompt=build_answer_prompt(
+                message=turn.message, standalone=standalone, language=lang, passages=passages
+            ),
         )
         flow = self._verified if turn.high_risk else self._streamed
         async for ev in flow(turn, trace, request, ctx, passages):
@@ -125,8 +127,10 @@ class MedicalResponder:
         if self._retriever is None:
             return None, standalone
         try:
-            result = await asyncio.wait_for(self._retriever.retrieve(outcome.query), self._cfg.timeouts.retrieval_s)
-        except (AusculaError, TimeoutError, OSError) as exc:
+            # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow a turn cancellation
+            async with asyncio.timeout(self._cfg.timeouts.retrieval_s):
+                result = await self._retriever.retrieve(outcome.query)
+        except Exception as exc:
             log.warning("retrieval_failed", error=type(exc).__name__)
             trace.degrade("retrieval_failed")
             return None, standalone
@@ -137,7 +141,9 @@ class MedicalResponder:
 
     # ---- generation --------------------------------------------------------------------------------
     async def _generate_text(self, request: GenerationRequest, trace: TurnTrace) -> str:
-        """ANSWER, then ANSWER_FALLBACK on any upstream error except a block. Raises UpstreamError if both fail."""
+        """ANSWER, then ANSWER_FALLBACK on any upstream error except a block.
+
+        Raises UpstreamError if both fail."""
         try:
             return (await self._llm.generate(request)).text
         except UpstreamBlocked:
@@ -313,7 +319,11 @@ class MedicalResponder:
     ) -> list[ChatEvent]:
         replaces = streamed_text is not None and final.text != streamed_text
         if final.blocked:
-            return [self._blocked(turn, trace, UpstreamBlocked(reason="verify", stage="prompt"), replaces=replaces)]
+            return [
+                self._blocked(
+                    turn, trace, UpstreamBlocked(reason="verify", stage="prompt"), replaces=replaces
+                )
+            ]
         if final.abstain or (mode == "verified" and not final.verified):
             trace.audit("abstain", reason=final.abstain or "verifier_unavailable")
             trace.update(mode="abstain")
@@ -369,7 +379,9 @@ class MedicalResponder:
         trace.update(mode="template")
         return self._template("busy", turn, "template", replaces=replaces)
 
-    def _blocked(self, turn: MedicalTurn, trace: TurnTrace, exc: UpstreamBlocked, *, replaces: bool) -> AnswerEvent:
+    def _blocked(
+        self, turn: MedicalTurn, trace: TurnTrace, exc: UpstreamBlocked, *, replaces: bool
+    ) -> AnswerEvent:
         trace.audit("upstream_blocked", stage=exc.stage, reason=exc.reason[:40])
         trace.update(mode="refusal")
         return self._template("refusal_blocked", turn, "refusal", replaces=replaces)

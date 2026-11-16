@@ -93,16 +93,25 @@ ROBOTS_OK = httpx.Response(200, text="User-agent: *\nDisallow: /private/\n")
 
 
 async def test_fetch_writes_file_manifest_and_sends_user_agent(tmp_path: Path) -> None:
-    handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/page.html": httpx.Response(200, text="hello")})
+    handler = Recorder(
+        {f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/page.html": httpx.Response(200, text="hello")}
+    )
     async with _fetcher(tmp_path, handler) as fetcher:
         result = await fetcher.fetch(f"{HOST}/page.html")
-    assert result.ok and result.path is not None
+    assert result.ok
+    assert result.path is not None
     assert result.path.read_text(encoding="utf-8") == "hello"
-    assert result.sha256 and result.size == 5
+    assert result.sha256
+    assert result.size == 5
     assert all(r.headers["user-agent"] == USER_AGENT for r in handler.requests)
     assert "@" not in USER_AGENT
-    rows = [json.loads(x) for x in (tmp_path / "raw" / "src_a" / "_manifest.jsonl").read_text("utf-8").splitlines()]
-    assert rows[0]["url"] == f"{HOST}/page.html" and rows[0]["status"] == 200 and rows[0]["bytes"] == 5
+    rows = [
+        json.loads(x)
+        for x in (tmp_path / "raw" / "src_a" / "_manifest.jsonl").read_text("utf-8").splitlines()
+    ]
+    assert rows[0]["url"] == f"{HOST}/page.html"
+    assert rows[0]["status"] == 200
+    assert rows[0]["bytes"] == 5
 
 
 async def test_second_fetch_is_served_from_cache_without_a_request(tmp_path: Path) -> None:
@@ -111,11 +120,14 @@ async def test_second_fetch_is_served_from_cache_without_a_request(tmp_path: Pat
         await fetcher.fetch(f"{HOST}/p")
         before = len(handler.requests)
         again = await fetcher.fetch(f"{HOST}/p")
-    assert again.from_cache and len(handler.requests) == before
+    assert again.from_cache
+    assert len(handler.requests) == before
 
 
 async def test_refresh_sends_conditional_headers_and_handles_304(tmp_path: Path) -> None:
-    first = httpx.Response(200, text="v1", headers={"ETag": '"abc"', "Last-Modified": "Mon, 01 Jan 2024 00:00:00 GMT"})
+    first = httpx.Response(
+        200, text="v1", headers={"ETag": '"abc"', "Last-Modified": "Mon, 01 Jan 2024 00:00:00 GMT"}
+    )
     handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/p": [first, httpx.Response(304)]})
     async with _fetcher(tmp_path, handler) as fetcher:
         await fetcher.fetch(f"{HOST}/p")
@@ -123,11 +135,15 @@ async def test_refresh_sends_conditional_headers_and_handles_304(tmp_path: Path)
     conditional = handler.requests[-1]
     assert conditional.headers["if-none-match"] == '"abc"'
     assert conditional.headers["if-modified-since"].startswith("Mon, 01 Jan 2024")
-    assert result.not_modified and result.path is not None and result.path.read_text("utf-8") == "v1"
+    assert result.not_modified
+    assert result.path is not None
+    assert result.path.read_text("utf-8") == "v1"
 
 
 async def test_robots_disallow_is_respected_and_nothing_is_requested(tmp_path: Path) -> None:
-    handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/private/x": httpx.Response(200, text="secret")})
+    handler = Recorder(
+        {f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/private/x": httpx.Response(200, text="secret")}
+    )
     async with _fetcher(tmp_path, handler) as fetcher:
         with pytest.raises(RobotsDisallowedError):
             await fetcher.fetch(f"{HOST}/private/x")
@@ -135,7 +151,9 @@ async def test_robots_disallow_is_respected_and_nothing_is_requested(tmp_path: P
 
 
 async def test_robots_exempt_is_recorded_in_manifest(tmp_path: Path) -> None:
-    handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/private/x": httpx.Response(200, text="data")})
+    handler = Recorder(
+        {f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/private/x": httpx.Response(200, text="data")}
+    )
     async with _fetcher(tmp_path, handler) as fetcher:
         result = await fetcher.fetch(f"{HOST}/private/x", robots_exempt=True)
         assert result.ok
@@ -145,7 +163,9 @@ async def test_robots_exempt_is_recorded_in_manifest(tmp_path: Path) -> None:
 async def test_robots_5xx_blocks_fetching(tmp_path: Path) -> None:
     from data_pipeline.fetch.robots import RobotsUnavailableError
 
-    handler = Recorder({f"{HOST}/robots.txt": httpx.Response(503), f"{HOST}/p": httpx.Response(200, text="x")})
+    handler = Recorder(
+        {f"{HOST}/robots.txt": httpx.Response(503), f"{HOST}/p": httpx.Response(200, text="x")}
+    )
     async with _fetcher(tmp_path, handler) as fetcher:
         with pytest.raises(RobotsUnavailableError):
             await fetcher.fetch(f"{HOST}/p")
@@ -172,7 +192,9 @@ async def test_excluded_url_is_refused_before_any_request(tmp_path: Path) -> Non
 async def test_excluded_path_inside_allowed_host_is_refused(tmp_path: Path) -> None:
     source = _source(domains=["medlineplus.gov"])
     handler = Recorder({})
-    fetcher = Fetcher(source, DataPaths(tmp_path).ensure(), registry=load_registry(), transport=httpx.MockTransport(handler))
+    fetcher = Fetcher(
+        source, DataPaths(tmp_path).ensure(), registry=load_registry(), transport=httpx.MockTransport(handler)
+    )
     async with fetcher:
         with pytest.raises(ExcludedSourceError):
             await fetcher.fetch("https://medlineplus.gov/ency/article/1.htm")
@@ -226,18 +248,24 @@ async def test_redirect_within_source_is_followed(tmp_path: Path) -> None:
     }
     async with _fetcher(tmp_path, Recorder(routes)) as fetcher:
         result = await fetcher.fetch(f"{HOST}/old")
-    assert result.path is not None and result.path.read_text("utf-8") == "moved"
+    assert result.path is not None
+    assert result.path.read_text("utf-8") == "moved"
 
 
 async def test_retries_on_429_then_succeeds(tmp_path: Path) -> None:
     routes = {
         f"{HOST}/robots.txt": ROBOTS_OK,
-        f"{HOST}/p": [httpx.Response(429, headers={"Retry-After": "0"}), httpx.Response(503), httpx.Response(200, text="ok")],
+        f"{HOST}/p": [
+            httpx.Response(429, headers={"Retry-After": "0"}),
+            httpx.Response(503),
+            httpx.Response(200, text="ok"),
+        ],
     }
     handler = Recorder(routes)
     async with _fetcher(tmp_path, handler) as fetcher:
         result = await fetcher.fetch(f"{HOST}/p")
-    assert result.ok and handler.paths().count("/p") == 3
+    assert result.ok
+    assert handler.paths().count("/p") == 3
 
 
 async def test_gives_up_after_max_retries_and_records_failure(tmp_path: Path) -> None:
@@ -253,7 +281,8 @@ async def test_404_is_recorded_without_raising(tmp_path: Path) -> None:
     handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK})
     async with _fetcher(tmp_path, handler) as fetcher:
         result = await fetcher.fetch(f"{HOST}/missing")
-    assert not result.ok and result.status == 404
+    assert not result.ok
+    assert result.status == 404
 
 
 async def test_transport_error_is_retried(tmp_path: Path) -> None:
@@ -297,16 +326,27 @@ async def test_resume_uses_range_and_appends(tmp_path: Path) -> None:
     part = paths.raw_dir("src_a") / (rel + ".part")
     part.parent.mkdir(parents=True)
     part.write_bytes(b"hello")
-    part.with_name(part.name + ".meta").write_text(json.dumps({"resumable": True, "etag": ""}), encoding="utf-8")
-    fetcher = Fetcher(_source(), paths, FetchConfig(default_rps=1000.0), registry=load_registry(), transport=httpx.MockTransport(handler))
+    part.with_name(part.name + ".meta").write_text(
+        json.dumps({"resumable": True, "etag": ""}), encoding="utf-8"
+    )
+    fetcher = Fetcher(
+        _source(),
+        paths,
+        FetchConfig(default_rps=1000.0),
+        registry=load_registry(),
+        transport=httpx.MockTransport(handler),
+    )
     async with fetcher:
         result = await fetcher.fetch(f"{HOST}/big.bin")
-    assert result.path is not None and result.path.read_bytes() == b"helloworld"
+    assert result.path is not None
+    assert result.path.read_bytes() == b"helloworld"
     assert not part.exists()
 
 
 async def test_max_bytes_is_enforced(tmp_path: Path) -> None:
-    handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/big": httpx.Response(200, content=b"x" * 100)})
+    handler = Recorder(
+        {f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/big": httpx.Response(200, content=b"x" * 100)}
+    )
     async with _fetcher(tmp_path, handler, max_bytes=10) as fetcher:
         with pytest.raises(FetchFailedError):
             await fetcher.fetch(f"{HOST}/big")
@@ -315,7 +355,9 @@ async def test_max_bytes_is_enforced(tmp_path: Path) -> None:
 async def test_fetch_many_collects_failures(tmp_path: Path) -> None:
     handler = Recorder({f"{HOST}/robots.txt": ROBOTS_OK, f"{HOST}/a": httpx.Response(200, text="a")})
     async with _fetcher(tmp_path, handler) as fetcher:
-        results = await fetcher.fetch_many([f"{HOST}/a", "https://www.webmd.com/x", f"{HOST}/private/z"], concurrency=2)
+        results = await fetcher.fetch_many(
+            [f"{HOST}/a", "https://www.webmd.com/x", f"{HOST}/private/z"], concurrency=2
+        )
         text = await fetcher.fetch_text(f"{HOST}/a")
     assert results[0].ok  # type: ignore[union-attr]
     assert isinstance(results[1], ExcludedSourceError)
@@ -367,12 +409,17 @@ async def test_rate_limiter_spaces_requests_per_host() -> None:
 
 
 def test_url_to_relpath_is_stable_and_safe() -> None:
-    assert url_to_relpath("https://medlineplus.gov/xml/mplus_topics_2026-11-13.xml") == "medlineplus.gov/xml/mplus_topics_2026-11-13.xml"
+    assert (
+        url_to_relpath("https://medlineplus.gov/xml/mplus_topics_2026-11-13.xml")
+        == "medlineplus.gov/xml/mplus_topics_2026-11-13.xml"
+    )
     assert url_to_relpath("https://a.org/").endswith("/index")
     assert url_to_relpath("https://a.org/dir/") == "a.org/dir/index"
     q1 = url_to_relpath("https://a.org/search?q=1")
     q2 = url_to_relpath("https://a.org/search?q=2")
     assert q1 != q2
     long = url_to_relpath("https://a.org/" + "x" * 400 + ".html")
-    assert len(long) < 160 and ":" not in long and "?" not in long
+    assert len(long) < 160
+    assert ":" not in long
+    assert "?" not in long
     assert url_to_relpath("https://a.org/a b/c%20d.html") == "a.org/a_b/c_d.html"

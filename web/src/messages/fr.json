@@ -189,6 +189,7 @@
     "sourceLanguage": "Les sources de cette réponse sont en anglais.",
     "sourcesHeading": "Sources",
     "citation": "Source {n} : {title}",
+    "sourceNumber": "Source {n} :",
     "seekCareTitle": "Quand consulter",
     "seekCareUrgent": "Si les symptômes sont graves, soudains ou s’aggravent, appelez le {number} immédiatement.",
     "seekCareUrgentNoNumber": "Si les symptômes sont graves, soudains ou s’aggravent, appelez immédiatement le numéro d’urgence local.",

@@ -37,7 +37,11 @@ def rules_from_settings(settings: Settings) -> RateRules:
 
 def storage_uri(settings: Settings) -> str:
     if settings.redis_url:
-        return "async+" + settings.redis_url if not settings.redis_url.startswith("async+") else settings.redis_url
+        return (
+            "async+" + settings.redis_url
+            if not settings.redis_url.startswith("async+")
+            else settings.redis_url
+        )
     return "async+memory://"
 
 
@@ -73,5 +77,5 @@ class RateLimiter:
     async def ping(self) -> bool:
         try:
             return bool(await self._storage.check())  # type: ignore[misc]
-        except Exception:  # noqa: BLE001 - readiness probes report, never raise
+        except Exception:
             return False

@@ -91,7 +91,8 @@ def test_iban_redacted_only_when_checksum_valid():
 def test_dates_of_birth_are_redacted(text):
     out = _r(text)
     assert "[DOB]" in out.text
-    assert "1985" not in out.text and "1990" not in out.text
+    assert "1985" not in out.text
+    assert "1990" not in out.text
 
 
 def test_recent_dates_are_kept_but_old_bare_dates_redacted():
@@ -144,7 +145,8 @@ def test_counts_and_immutability():
 def test_ingress_sanitises_caps_and_redacts():
     raw = "Hello​ my name is Ann‮, email a@b.co " + "x" * 50
     res = process_ingress(raw, max_chars=40, today=TODAY)
-    assert "​" not in res.text and "‮" not in res.text
+    assert "​" not in res.text
+    assert "‮" not in res.text
     assert res.truncated
     assert res.removed_chars == 2
     assert "bidi_override" in res.smuggling_flags

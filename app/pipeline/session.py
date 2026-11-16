@@ -1,7 +1,6 @@
-"""Per-session conversation state: turn count, strikes, lock, sticky risk flags and the last few REDACTED user
-turns (needed for the router context and query rewriting). Kept in memory (dev) or Redis (prod) with the session
-lifetime as TTL; never written to the relational database (no transcript text is persisted).
-"""
+"""Per-session conversation state: turn count, strikes, lock, sticky risk flags and the last few REDACTED
+user turns (needed for the router context and query rewriting). Kept in memory (dev) or Redis (prod) with
+the session lifetime as TTL; never written to the relational database (no transcript text is persisted)."""
 
 from __future__ import annotations
 
@@ -136,5 +135,5 @@ class RedisSessionStore:
     async def ping(self) -> bool:
         try:
             return bool(await self._r.ping())
-        except Exception:  # noqa: BLE001 - readiness probes report, never raise
+        except Exception:
             return False

@@ -16,7 +16,9 @@ from app.guardrails.lexicon_text import arabizi_skeleton, normalize
 
 CUE_LANGS: tuple[str, ...] = ("en", "fr", "ar", "arabizi")
 # Pronouns that start a new proposition: a negation before them does not negate what follows.
-_SUBJECT_PRONOUNS = frozenset({"i", "je", "j", "we", "nous", "انا", "ana", "he", "she", "il", "elle", "هو", "هي"})
+_SUBJECT_PRONOUNS = frozenset(
+    {"i", "je", "j", "we", "nous", "انا", "ana", "he", "she", "il", "elle", "هو", "هي"}
+)
 Phrases = tuple[tuple[str, ...], ...]
 _FR_INVERSION = re.compile(r"\b(?:t|est|peut|sont|faut|doit) (?:il|elle|ils|elles|on)\b")
 
@@ -68,6 +70,10 @@ class CueSet:
                 if len(gap) <= self.negation_window and not (set(gap) & _SUBJECT_PRONOUNS):
                     return True
         return False
+
+    def is_negation_token(self, token: str, lang: str = "en") -> bool:
+        """True when `token` alone is a negation cue of `lang` (single-word cues and the Darija circumfix)."""
+        return (token,) in self.negation.get(lang, ()) or bool(self._affix_cue(token, lang))
 
     def _affix_cue(self, token: str, lang: str) -> Phrases:
         # Maghrebi negation circumfix: ما...ش (e.g. ماعنديش) on a single Arabic-script token.

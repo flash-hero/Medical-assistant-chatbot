@@ -17,10 +17,10 @@ from data_pipeline.registry import get_source
 from data_pipeline.storage import read_documents_jsonl
 
 SUMMARY = (
-    "&lt;p&gt;Asthma is a chronic &lt;a href=\"https://medlineplus.gov/lungs.html\"&gt;lung disease&lt;/a&gt; that "
+    '&lt;p&gt;Asthma is a chronic &lt;a href="https://medlineplus.gov/lungs.html"&gt;lung disease&lt;/a&gt; that '
     "inflames and narrows the airways. It causes wheezing, chest tightness, shortness of breath and coughing, "
     "mostly at night or early in the morning.&lt;/p&gt;&lt;h3&gt;Symptoms&lt;/h3&gt;&lt;ul&gt;&lt;li&gt;Wheezing"
-    "&lt;/li&gt;&lt;li&gt;Coughing&lt;/li&gt;&lt;/ul&gt;&lt;p class=\"\"&gt;NIH: National Heart, Lung, and Blood Institute"
+    '&lt;/li&gt;&lt;li&gt;Coughing&lt;/li&gt;&lt;/ul&gt;&lt;p class=""&gt;NIH: National Heart, Lung, and Blood Institute'
     "&lt;/p&gt;"
 )
 TOPICS_XML = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -87,15 +87,21 @@ def test_topics_parse_keeps_english_summary_structure(tmp_path: Path, mp_record)
     docs = list(topics.parse_file(xml, mp_record))
     assert [d.doc_id for d in docs] == ["medlineplus_topics:1"]
     doc = docs[0]
-    assert doc.title == "Asthma" and doc.language.value == "en"
+    assert doc.title == "Asthma"
+    assert doc.language.value == "en"
     assert doc.content_type is ContentType.CONDITION
     assert doc.synonyms == ("Bronchial asthma", "Wheeze disease")
     assert [s.heading_path for s in doc.sections] == [("Asthma",), ("Asthma", "Symptoms")]
-    assert doc.sections[1].text == "- Wheezing\n- Coughing" and doc.sections[1].kind == "symptoms"
-    assert "NIH:" not in doc.sections[0].text and doc.metadata["summary_credit"].startswith("NIH:")
-    assert doc.metadata["mesh_ids"] == ["D001249"] and doc.metadata["groups"] == ["Lungs and Breathing"]
-    assert doc.metadata["related_topics"] == ["COPD"] and doc.published_on.isoformat() == "2015-12-22"
-    assert doc.license_id == "public-domain-us-gov" and doc.attribution.startswith("Source: MedlinePlus")
+    assert doc.sections[1].text == "- Wheezing\n- Coughing"
+    assert doc.sections[1].kind == "symptoms"
+    assert "NIH:" not in doc.sections[0].text
+    assert doc.metadata["summary_credit"].startswith("NIH:")
+    assert doc.metadata["mesh_ids"] == ["D001249"]
+    assert doc.metadata["groups"] == ["Lungs and Breathing"]
+    assert doc.metadata["related_topics"] == ["COPD"]
+    assert doc.published_on.isoformat() == "2015-12-22"
+    assert doc.license_id == "public-domain-us-gov"
+    assert doc.attribution.startswith("Source: MedlinePlus")
     assert "ency" not in doc.model_dump_json().replace("encyclopedia", "")  # site/ency links never ingested
 
 
@@ -129,7 +135,9 @@ async def test_topics_fetch_uses_robots_override_only_for_listed_xml(tmp_path: P
     from data_pipeline.fetch.client import FetchConfig
 
     paths = DataPaths(tmp_path).ensure()
-    async with Fetcher(mp_record, paths, FetchConfig(default_rps=1000), transport=httpx.MockTransport(handler)) as fetcher:
+    async with Fetcher(
+        mp_record, paths, FetchConfig(default_rps=1000), transport=httpx.MockTransport(handler)
+    ) as fetcher:
         path = await topics.fetch(fetcher)
         assert path.name == "mplus_topics_2026-11-13.xml"
         assert fetcher.manifest.latest(f"https://medlineplus.gov/xml/{path.name}").note == "robots_override"
@@ -144,7 +152,8 @@ def test_end_to_end_topics_build_writes_marker(tmp_path: Path, mp_record) -> Non
     report = build_corpus(mp_record, topics.parse(paths, mp_record), paths, **topics.BUILD_OPTIONS)
     assert report.kept == 1
     marker = json.loads(paths.ready_file("medlineplus_topics").read_text(encoding="utf-8"))
-    assert marker["documents"] == 1 and marker["source_id"] == "medlineplus_topics"
+    assert marker["documents"] == 1
+    assert marker["source_id"] == "medlineplus_topics"
     assert len(list(read_documents_jsonl(paths.normalized_file("medlineplus_topics")))) == 1
 
 
@@ -159,15 +168,26 @@ def test_genetics_parse_all_entry_kinds(tmp_path: Path, genetics_record) -> None
     docs = {d.metadata["entry_kind"]: d for d in genetics.parse_file(xml, genetics_record)}
     assert set(docs) == {"condition", "gene", "chromosome", "mtdna"}
     cond, gene = docs["condition"], docs["gene"]
-    assert cond.title == "Example syndrome" and cond.content_type is ContentType.GENETICS
+    assert cond.title == "Example syndrome"
+    assert cond.content_type is ContentType.GENETICS
     assert [s.kind for s in cond.sections] == ["summary", "inheritance", "related_genes"]
-    assert "short stature" in cond.sections[0].text and "Autosomal dominant" in cond.sections[1].text
-    assert cond.metadata["mesh_ids"] == ["D002872"] and cond.metadata["omim_ids"] == ["609625"]
+    assert "short stature" in cond.sections[0].text
+    assert "Autosomal dominant" in cond.sections[1].text
+    assert cond.metadata["mesh_ids"] == ["D002872"]
+    assert cond.metadata["omim_ids"] == ["609625"]
     assert "SNOMED" not in cond.model_dump_json()
-    assert cond.reviewed_on.isoformat() == "2019-09-01" and cond.published_on.isoformat() == "2020-09-08"
-    assert gene.title == "EXG1 gene (example gene one)" and gene.sections[0].heading_path[1] == "Normal function"
-    assert "example gene one" in gene.synonyms and "EX1" in gene.synonyms
-    assert docs["chromosome"].title == "Chromosome 1" and docs["mtdna"].title == "Mitochondrial DNA"
+    assert cond.reviewed_on.isoformat() == "2019-09-01"
+    assert cond.published_on.isoformat() == "2020-09-08"
+    assert (
+        gene.title == "EXG1 gene (example gene one)"
+    )
+    assert (
+        gene.sections[0].heading_path[1] == "Normal function"
+    )
+    assert "example gene one" in gene.synonyms
+    assert "EX1" in gene.synonyms
+    assert docs["chromosome"].title == "Chromosome 1"
+    assert docs["mtdna"].title == "Mitochondrial DNA"
 
 
 def test_genetics_build_drops_nothing_valid_and_skips_textless(tmp_path: Path, genetics_record) -> None:
@@ -175,8 +195,11 @@ def test_genetics_build_drops_nothing_valid_and_skips_textless(tmp_path: Path, g
     xml = paths.raw_dir("medlineplus_genetics") / "d" / "ghr-summaries.xml"
     xml.parent.mkdir(parents=True)
     xml.write_text(GHR_XML, encoding="utf-8")
-    report = build_corpus(genetics_record, genetics.parse(paths, genetics_record), paths, **genetics.BUILD_OPTIONS)
-    assert report.parsed == 4 and report.kept == 4
+    report = build_corpus(
+        genetics_record, genetics.parse(paths, genetics_record), paths, **genetics.BUILD_OPTIONS
+    )
+    assert report.parsed == 4
+    assert report.kept == 4
     with pytest.raises(FileNotFoundError):
         list(genetics.parse(DataPaths(tmp_path / "empty").ensure(), genetics_record))
 
@@ -185,12 +208,19 @@ async def test_genetics_fetch_downloads_compendium(tmp_path: Path, genetics_reco
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/robots.txt":
             return httpx.Response(200, text="User-agent: *\nDisallow: /xml/\n")
-        return httpx.Response(200, text=GHR_XML) if request.url.path.endswith("ghr-summaries.xml") else httpx.Response(404)
+        return (
+            httpx.Response(200, text=GHR_XML)
+            if request.url.path.endswith("ghr-summaries.xml")
+            else httpx.Response(404)
+        )
 
     from data_pipeline.fetch.client import FetchConfig
 
     async with Fetcher(
-        genetics_record, DataPaths(tmp_path).ensure(), FetchConfig(default_rps=1000), transport=httpx.MockTransport(handler)
+        genetics_record,
+        DataPaths(tmp_path).ensure(),
+        FetchConfig(default_rps=1000),
+        transport=httpx.MockTransport(handler),
     ) as fetcher:
         assert (await genetics.fetch(fetcher)).name == "ghr-summaries.xml"
 

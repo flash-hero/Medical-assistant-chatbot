@@ -28,7 +28,14 @@ from evals.retrieval.evaluate import AblationRun, latency, run_ablation, standar
 from evals.retrieval.evaluate import paired_ndcg as paired
 from evals.retrieval.gold import GoldQuery, load_gold
 from evals.retrieval.metrics import percentile
-from evals.retrieval.report import REPORT_SCHEMA, evaluate_gates, gate_records, gate_rows, load_rag_gates
+from evals.retrieval.report import (
+    REPORT_SCHEMA,
+    evaluate_gates,
+    gate_records,
+    gate_rows,
+    load_rag_gates,
+    stamp,
+)
 from evals.retrieval.resume_check import measure_resume
 from rag.embed_cache import EmbeddingCache
 from rag.embedding import DocumentEmbedder, QueryEmbedder, embed_model_id, prefixed_query, query_cache_key
@@ -90,11 +97,15 @@ def query_strings(rows: Sequence[GoldQuery]) -> list[str]:
     return list(dict.fromkeys(t for r in rows for t in (r.question, *r.search_queries)))
 
 
+PRE_EMBED_BATCH = 30  # small batches: on the free tier a batch larger than the day's remaining quota is
+# rejected whole, so smaller batches still save progress late in the quota day
+
+
 async def pre_embed(
     llm: LLMProvider, cache: EmbeddingCache, model: str, texts: Sequence[str]
 ) -> dict[str, int]:
     """Embed every query once into the persistent query cache (resumable; waits out per-minute 429s)."""
-    outcome = await DocumentEmbedder(llm, cache, model_id=model).embed_texts(
+    outcome = await DocumentEmbedder(llm, cache, model_id=model, batch_size=PRE_EMBED_BATCH).embed_texts(
         [(query_cache_key(t), prefixed_query(t)) for t in texts]
     )
     return {"texts": len(texts), "cache_hits": outcome.cache_hits, "embedded": outcome.embedded}
@@ -161,7 +172,13 @@ async def _online(
         cmp = paired(runs["hybrid"], runs["hybrid_rerank"])
         decision |= {"measured": cmp["n"] > 0, "keep_rerank": cmp.get("gain", 0.0) >= RERANK_MIN_GAIN, **cmp}
     out["rerank_decision"] = decision
-    out["config"] = base.model_copy(update={"confidence": cal.model, "rerank": decision["keep_rerank"]})
+    out["config"] = base.model_copy(
+        update={
+            "confidence": cal.model,
+            "rerank": decision["keep_rerank"],
+            "calibrated_on": f"reports/retrieval/{stamp(ctx.when)}.json",
+        }
+    )
     out["embed_api_latency"] = await embed_api_latency(
         ctx.llm, [r.question for r in rows], opts.embed_latency_sample
     )

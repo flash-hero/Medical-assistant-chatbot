@@ -6,7 +6,8 @@ chunks/{corpus_version}/{source}.jsonl  chunker output
 embed-cache/embeddings.sqlite3          persistent embedding cache (model id, dim, checksum)
 embed-cache/fastembed/                  fastembed BM25 assets (stopword lists)
 manifests/                              signed corpus manifests, build state, active pointer
-reports/retrieval/                      evaluation reports
+reports/retrieval/                      evaluation reports (one per eval run)
+reports/rag.metrics.json                gate records of the live collection (for `python -m evals.run`)
 """
 
 from __future__ import annotations
@@ -117,3 +118,8 @@ class DataPaths:
     @property
     def reports_dir(self) -> Path:
         return self.root / "reports" / "retrieval"
+
+    @property
+    def rag_metrics_file(self) -> Path:
+        """Gate records of the LIVE collection, read by `python -m evals.run` (written by an online eval)."""
+        return self.root / "reports" / "rag.metrics.json"

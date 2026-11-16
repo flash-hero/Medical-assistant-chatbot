@@ -1,4 +1,5 @@
-"""Forbidden-claim patterns in EN/FR/AR: diagnosis statements, personal dosing, stopping or changing treatment.
+"""Forbidden-claim patterns in EN/FR/AR: diagnosis statements, personal dosing, stopping or changing
+treatment.
 
 Patterns run on a lowercased copy of one answer sentence. A match is ignored when a negation or a referral cue
 precedes it in the same sentence ("do not stop taking your medicine without asking your doctor" is a safe
@@ -10,20 +11,26 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_EN_NEG = r"(?:not|n't|never|no one should|without|before (?:talking|speaking|asking))"
-_FR_NEG = r"(?:ne|n'|pas|jamais|sans|avant d'en parler)"
-_AR_NEG = r"(?:لا|لا ت|دون|بدون|قبل استشارة)"
+# Negation and referral cues are whole words: "not" inside "Another", "ne" inside "Une" or "لا" inside "خلال"
+# must not guard a forbidden claim. "n't" is the only cue glued to the preceding word ("don't").
+_EN_NEG = r"(?:(?<!\w)(?:not|never|no one should|without|before (?:talking|speaking|asking))|n't)(?!\w)"
+_FR_NEG = r"(?:(?<!\w)(?:ne|pas|jamais|sans|avant d'en parler)(?!\w)|(?<!\w)n['’])"
+_AR_NEG = r"(?<!\w)(?:لا|دون|بدون|قبل استشارة)(?!\w)"
 
 _DIAGNOSIS = (
-    r"^(?:i think |i believe |it is likely that |most likely )?you (?:probably |likely |most likely |definitely |"
+    r"^(?:i think |i believe |it is likely that |most likely )?you (?:probably |likely |most likely |"
+    r"definitely |"
     r"clearly |certainly |surely |may |might |could )?(?:have|'ve got|are suffering from|are having) "
     r"(?!to\b|the right\b|questions?\b|any\b|a right\b|more\b|less\b|several\b|options?\b|"
+    r"heard\b|noticed\b|seen\b|read\b|wondered\b|"
     r"an? (?:higher|lower|greater|increased|reduced) (?:risk|chance)\b)",
-    r"\b(?:it|this|that) (?:sounds|looks|seems) like (?:you have|you've got|a case of|an? \w+ (?:infection|attack|"
+    r"\b(?:it|this|that) (?:sounds|looks|seems) like (?:you have|you've got|a case of|"
+    r"an? \w+ (?:infection|attack|"
     r"disease|disorder|syndrome))",
     r"\byour (?:symptoms|signs) (?:indicate|suggest|mean|point to|are consistent with)\b",
     r"\bmy (?:diagnosis|assessment) is\b",
-    r"^vous (?:avez|souffrez) (?:probablement|sûrement|surement|certainement|sans doute|peut-être|peut etre)\b",
+    r"^vous (?:avez|souffrez) (?:probablement|sûrement|surement|certainement|sans doute|peut-être|"
+    r"peut etre)\b",
     r"\b(?:on dirait|cela ressemble à|ça ressemble à|il semble) que vous (?:avez|faites|souffrez)\b",
     r"\bvos symptômes (?:indiquent|suggèrent|correspondent à)\b",
     r"^(?:أنت|انت) (?:مصاب|مصابة|تعاني) (?:ب|من)",
@@ -31,7 +38,8 @@ _DIAGNOSIS = (
     r"(?:أعراضك|اعراضك) (?:تدل|تشير)",
 )
 _DOSING = (
-    r"\b(?:you should|you can|you could|you need to|you must|please) (?:take|give|use|increase|reduce|double)\b"
+    r"\b(?:you should|you can|you could|you need to|you must|please) (?:take|give|use|increase|reduce|"
+    r"double)\b"
     r".{0,40}\b\d",
     r"^(?:take|give (?:him|her|them|your child|your baby)|use) \d+(?:[.,]\d+)?\s*(?:mg|ml|g|mcg|µg|tablets?|"
     r"pills?|capsules?|drops?|puffs?)\b",
@@ -41,18 +49,19 @@ _DOSING = (
     r"comprimés?|gélules?|gouttes?)\b",
     r"\bvotre (?:dose|posologie) (?:est|devrait être|sera)\b",
     r"\bdoublez (?:la|votre) dose\b",
-    r"(?:خذ|خذي|تناول|تناولي|أعطه|اعطه|أعطها|اعطها) \d+",
+    r"(?<!\w)(?:خذ|خذي|تناول|تناولي|أعطه|اعطه|أعطها|اعطها) \d+",
     r"(?:جرعتك|الجرعة المناسبة لك) (?:هي|هو)",
-    r"(?:ضاعف|ضاعفي) الجرعة",
+    r"(?<!\w)(?:ضاعف|ضاعفي) الجرعة",
 )
 _STOP_TREATMENT = (
-    r"\b(?:stop|quit|discontinue|skip|halve) (?:taking )?(?:your|the|this|that) (?:medication|medicine|treatment|"
+    r"\b(?:stop|quit|discontinue|skip|halve) (?:taking )?(?:your|the|this|that) (?:medication|medicine|"
+    r"treatment|"
     r"pills?|tablets?|drug|dose|prescription)",
     r"\byou (?:can|should|could) (?:safely )?(?:stop|quit|discontinue|skip)\b",
     r"\b(?:arrêtez|arretez|cessez|interrompez|sautez) (?:de prendre )?(?:votre|ce|le|la|vos|ces) "
     r"(?:traitement|médicament|medicament|comprimés?|dose)",
     r"\bvous pouvez (?:arrêter|arreter|cesser|interrompre)\b",
-    r"(?:توقف|توقفي|أوقف|اوقف) (?:عن )?(?:تناول|أخذ|اخذ)? ?(?:الدواء|دوائك|العلاج|علاجك)",
+    r"(?<!\w)(?:توقف|توقفي|أوقف|اوقف) (?:عن )?(?:تناول|أخذ|اخذ)? ?(?:الدواء|دوائك|العلاج|علاجك)",
 )
 
 _CATEGORIES: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = (

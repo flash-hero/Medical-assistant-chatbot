@@ -17,19 +17,52 @@ from core.schemas.document import Section
 
 HEADINGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
 SKIP_TAGS = frozenset(
-    {"script", "style", "noscript", "svg", "iframe", "form", "button", "select", "input", "textarea", "img", "figure"}
+    {
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "iframe",
+        "form",
+        "button",
+        "select",
+        "input",
+        "textarea",
+        "img",
+        "figure",
+    }
 )
 PARAGRAPH_TAGS = frozenset({"p", "blockquote", "pre", "dt", "dd", "figcaption", "summary", "caption"})
 BLOCK_TAGS = (
     frozenset(
-        {"div", "section", "article", "main", "ul", "ol", "table", "dl", "details", "hr", "aside", "header", "footer"}
+        {
+            "div",
+            "section",
+            "article",
+            "main",
+            "ul",
+            "ol",
+            "table",
+            "dl",
+            "details",
+            "hr",
+            "aside",
+            "header",
+            "footer",
+        }
     )
     | PARAGRAPH_TAGS
     | frozenset(HEADINGS)
 )
 _WS = re.compile(r"[ \t\r\n   ]+")
 _KIND_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"when to (see|call|seek|get)|seek (medical )?(care|help)|call (your|a) (doctor|health)|emergency", re.I), "when_to_seek_care"),
+    (
+        re.compile(
+            r"when to (see|call|seek|get)|seek (medical )?(care|help)|call (your|a) (doctor|health)|emergency",
+            re.I,
+        ),
+        "when_to_seek_care",
+    ),
     (re.compile(r"\bsymptoms?\b|signs?\b", re.I), "symptoms"),
     (re.compile(r"\bcauses?\b|risk factors?", re.I), "causes"),
     (re.compile(r"\bdiagnos|\btests?\b|screening", re.I), "diagnosis"),
@@ -155,7 +188,9 @@ def parse_fragment(markup: str) -> HtmlElement:
     return lxml_html.fragment_fromstring(markup, create_parent="div")
 
 
-def html_to_sections(root: HtmlElement, title: str, *, intro_kind: str | None = "summary") -> tuple[Section, ...]:
+def html_to_sections(
+    root: HtmlElement, title: str, *, intro_kind: str | None = "summary"
+) -> tuple[Section, ...]:
     """Split content into Sections. Heading hierarchy becomes heading_path (title first)."""
     sections: list[Section] = []
     stack: list[tuple[int, str]] = []

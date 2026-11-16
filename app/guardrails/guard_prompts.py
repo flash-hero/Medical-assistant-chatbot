@@ -50,7 +50,9 @@ def _choice(raw: Mapping[str, Any], key: str, allowed: set[str]) -> tuple[str, M
     unknown = set(options) - allowed
     missing = allowed - set(options)
     if unknown or missing:
-        raise ConfigFileError(f"guard prompts: '{key}.options' mismatch (unknown={unknown}, missing={missing})")
+        raise ConfigFileError(
+            f"guard prompts: '{key}.options' mismatch (unknown={unknown}, missing={missing})"
+        )
     return _text(section, "instructions"), MappingProxyType({str(k): str(v) for k, v in options.items()})
 
 

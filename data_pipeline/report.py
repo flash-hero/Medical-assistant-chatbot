@@ -5,6 +5,7 @@ Writes (all atomic):
   {data_root}/reports/data.metrics.json   the same four metrics as records for `python -m evals.run`
   docs/sources/audit-sample.md            200-document stratified sample for the human audit
   docs/sources/ATTRIBUTION.md             generated from the ACTIVE registry entries
+  docs/sources/attribution.json           the same credit lines as a list, for the web app
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from data_pipeline.audit import (
     AUDIT_SEED,
     AuditRow,
     automated_checks,
+    render_attribution_json,
     render_attribution_markdown,
     render_audit_markdown,
     stratified_quotas,
@@ -121,7 +123,9 @@ def _metrics(stats: dict[str, SourceStats], quarantined: int, near_dup: float) -
     residual = sum(s.residual_injection for s in stats.values())
     flagged = quarantined + residual
     return {
-        "share_docs_with_verified_licence": (sum(s.licence_ok for s in stats.values()) / total) if total else 0.0,
+        "share_docs_with_verified_licence": (sum(s.licence_ok for s in stats.values()) / total)
+        if total
+        else 0.0,
         "count_docs_from_excluded_sources": float(sum(s.excluded for s in stats.values())),
         "near_duplicate_rate": near_dup,
         "share_injection_hits_quarantined": (quarantined / flagged) if flagged else canary_detection_rate(),
@@ -148,41 +152,102 @@ def _per_source(paths: DataPaths, stats: dict[str, SourceStats]) -> dict[str, di
     return out
 
 
-def _gate_verdicts(metrics: dict[str, float]) -> dict[str, dict[str, object]]:
+def _gate_verdicts(metrics: dict[str, float], *, near_dup_sample: int) -> dict[str, dict[str, object]]:
     def verdict(passed: bool) -> str:
         return "PASS" if passed else "FAIL"
 
     return {
-        "data.licence_coverage": {"metric": "share_docs_with_verified_licence", "value": metrics["share_docs_with_verified_licence"], "target": ">= 1.0", "verdict": verdict(metrics["share_docs_with_verified_licence"] >= 1.0)},
-        "data.excluded_sources": {"metric": "count_docs_from_excluded_sources", "value": metrics["count_docs_from_excluded_sources"], "target": "== 0", "verdict": verdict(metrics["count_docs_from_excluded_sources"] == 0)},
-        "data.near_duplicates": {"metric": "near_duplicate_rate", "value": metrics["near_duplicate_rate"], "target": "< 0.01", "sample": NEAR_DUP_SAMPLE, "verdict": verdict(metrics["near_duplicate_rate"] < 0.01)},
-        "data.injection_quarantine": {"metric": "share_injection_hits_quarantined", "value": metrics["share_injection_hits_quarantined"], "target": ">= 1.0", "verdict": verdict(metrics["share_injection_hits_quarantined"] >= 1.0)},
-        "data.manual_audit_clean": {"metric": "audit_clean_rate", "value": None, "target": ">= 0.97", "sample": 200, "verdict": "NOT_RUN"},
+        "data.licence_coverage": {
+            "metric": "share_docs_with_verified_licence",
+            "value": metrics["share_docs_with_verified_licence"],
+            "target": ">= 1.0",
+            "verdict": verdict(metrics["share_docs_with_verified_licence"] >= 1.0),
+        },
+        "data.excluded_sources": {
+            "metric": "count_docs_from_excluded_sources",
+            "value": metrics["count_docs_from_excluded_sources"],
+            "target": "== 0",
+            "verdict": verdict(metrics["count_docs_from_excluded_sources"] == 0),
+        },
+        "data.near_duplicates": {
+            "metric": "near_duplicate_rate",
+            "value": metrics["near_duplicate_rate"],
+            "target": "< 0.01",
+            "sample": near_dup_sample,
+            "verdict": verdict(metrics["near_duplicate_rate"] < 0.01 and near_dup_sample >= NEAR_DUP_SAMPLE),
+        },
+        "data.injection_quarantine": {
+            "metric": "share_injection_hits_quarantined",
+            "value": metrics["share_injection_hits_quarantined"],
+            "target": ">= 1.0",
+            "verdict": verdict(metrics["share_injection_hits_quarantined"] >= 1.0),
+        },
+        "data.manual_audit_clean": {
+            "metric": "audit_clean_rate",
+            "value": None,
+            "target": ">= 0.97",
+            "sample": 200,
+            "verdict": "NOT_RUN",
+        },
     }
 
 
-def write_reports(paths: DataPaths, *, audit_size: int = 200, docs_dir: Path | None = None) -> dict[str, object]:
+def _metric_records(
+    metrics: dict[str, float], *, corpus_size: int, near_dup_sample: int, measured_at: str
+) -> list[dict[str, object]]:
+    return [
+        {
+            "metric": name,
+            "value": value,
+            "labels": {},
+            "sample_size": near_dup_sample if name == "near_duplicate_rate" else corpus_size,
+            "source": "data_pipeline.report",
+            "measured_at": measured_at,
+            "free_tier": False,
+        }
+        for name, value in metrics.items()
+    ]
+
+
+def _write_docs(
+    out_dir: Path, registry: tuple[SourceRecord, ...], rows: list[AuditRow], *, stamp: str, corpus_size: int
+) -> None:
+    atomic_write_text(
+        out_dir / "audit-sample.md",
+        render_audit_markdown(rows, generated_on=stamp, corpus_size=corpus_size) + "\n",
+    )
+    atomic_write_text(
+        out_dir / "ATTRIBUTION.md", render_attribution_markdown(registry, generated_on=stamp) + "\n"
+    )
+    atomic_write_text(out_dir / "attribution.json", render_attribution_json(registry) + "\n")
+
+
+def write_reports(
+    paths: DataPaths, *, audit_size: int = 200, docs_dir: Path | None = None
+) -> dict[str, object]:
+    """Measure the data gates over every normalised source and write all report artefacts."""
     paths.ensure()
     registry = load_registry()
     now = datetime.now(UTC)
     stats = _scan_documents(paths, registry)
     counts = {source: s.documents for source, s in stats.items()}
+    corpus_size = sum(counts.values())
     quarantined = sum(_count_lines(paths.quarantine_file(source)) for source in counts)
     sample = _collect(paths, _draw_indices(counts, NEAR_DUP_SAMPLE, seed=AUDIT_SEED))
     sample_docs = [doc for per_source in sample.values() for _, doc in sorted(per_source.items())]
-    near_dup = near_duplicate_rate(sample_docs)
-    metrics = _metrics(stats, quarantined, near_dup)
-    by_source = _audit_pool(paths, counts, audit_size)
-    rows = [AuditRow(doc, automated_checks(doc, get_source(doc.source_id, registry))) for doc in by_source]
-    out_dir = docs_dir or DOCS_SOURCES_DIR
-    stamp = now.date().isoformat()
-    atomic_write_text(out_dir / "audit-sample.md", render_audit_markdown(rows, generated_on=stamp, corpus_size=sum(counts.values())) + "\n")
-    atomic_write_text(out_dir / "ATTRIBUTION.md", render_attribution_markdown(registry, generated_on=stamp) + "\n")
+    metrics = _metrics(stats, quarantined, near_duplicate_rate(sample_docs))
+    rows = [
+        AuditRow(doc, automated_checks(doc, get_source(doc.source_id, registry)))
+        for doc in _audit_pool(paths, counts, audit_size)
+    ]
+    _write_docs(
+        docs_dir or DOCS_SOURCES_DIR, registry, rows, stamp=now.date().isoformat(), corpus_size=corpus_size
+    )
     gates: dict[str, object] = {
         "generated_at": now.isoformat(),
-        "corpus_documents": sum(counts.values()),
+        "corpus_documents": corpus_size,
         "metrics": {**metrics, "audit_clean_rate": None},
-        "gates": _gate_verdicts(metrics),
+        "gates": _gate_verdicts(metrics, near_dup_sample=len(sample_docs)),
         "notes": {
             "near_duplicate_sample": len(sample_docs),
             "injection_canary_detection_rate": canary_detection_rate(),
@@ -193,11 +258,12 @@ def write_reports(paths: DataPaths, *, audit_size: int = 200, docs_dir: Path | N
         },
         "per_source": _per_source(paths, stats),
     }
-    atomic_write_text(paths.reports / "data_gates.json", json.dumps(gates, indent=2, ensure_ascii=False) + "\n")
-    records = [
-        {"metric": name, "value": value, "labels": {}, "sample_size": NEAR_DUP_SAMPLE if name == "near_duplicate_rate" else sum(counts.values()), "source": "data_pipeline.report", "measured_at": now.isoformat(), "free_tier": False}
-        for name, value in metrics.items()
-    ]
+    atomic_write_text(
+        paths.reports / "data_gates.json", json.dumps(gates, indent=2, ensure_ascii=False) + "\n"
+    )
+    records = _metric_records(
+        metrics, corpus_size=corpus_size, near_dup_sample=len(sample_docs), measured_at=now.isoformat()
+    )
     atomic_write_text(paths.reports / "data.metrics.json", json.dumps(records, indent=2) + "\n")
     return gates
 

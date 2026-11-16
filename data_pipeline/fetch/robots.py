@@ -68,4 +68,6 @@ class RobotsCache:
     async def check(self, url: str) -> RobotsVerdict:
         parser = await self._parser_for(self.origin(url))
         delay = parser.crawl_delay(self._agent)
-        return RobotsVerdict(allowed=parser.can_fetch(self._agent, url), crawl_delay=float(delay) if delay else None)
+        return RobotsVerdict(
+            allowed=parser.can_fetch(self._agent, url), crawl_delay=float(delay) if delay else None
+        )

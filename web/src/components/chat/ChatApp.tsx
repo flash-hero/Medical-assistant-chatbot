@@ -30,7 +30,7 @@ function DemoBanner() {
   );
 }
 
-export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
+export function ChatApp({ locale, nonce }: { readonly locale: ChatLocale; readonly nonce?: string }) {
   const t = useTranslations("Chat");
   const { session, hospital, renew, turns, actions, inputRef, handoffRef, source, closeSource, closeHandoff, demoMode, turnsLeft } =
     useChatController(locale);
@@ -47,7 +47,7 @@ export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
 
   return (
     <LazyMotion features={domAnimation} strict>
-      <MotionConfig reducedMotion="user">
+      <MotionConfig reducedMotion="user" nonce={nonce}>
         <ChatProvider value={actions}>
           <div className="flex min-h-dvh flex-col">
             <ChatHeader locale={locale} onHandoff={actions.openHandoff} onNewConversation={actions.newConversation} />

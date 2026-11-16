@@ -1,5 +1,6 @@
-"""Numeric grounding: every number that carries a unit or a percentage in an answer sentence must appear in a cited
-passage after normalisation ("500 mg" == "500mg" == "500 milligrams", "0,5 g" == "0.5 g", "٥٠٠ ملغ" == "500 mg").
+"""Numeric grounding: every number that carries a unit or a percentage in an answer sentence must appear in a
+cited passage after normalisation ("500 mg" == "500mg" == "500 milligrams", "0,5 g" == "0.5 g",
+"٥٠٠ ملغ" == "500 mg").
 """
 
 from __future__ import annotations
@@ -8,11 +9,24 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-_DIGITS = str.maketrans({**{chr(0x0660 + i): str(i) for i in range(10)}, **{chr(0x06F0 + i): str(i) for i in range(10)}})
+_DIGITS = str.maketrans(
+    {**{chr(0x0660 + i): str(i) for i in range(10)}, **{chr(0x06F0 + i): str(i) for i in range(10)}}
+)
 
 # canonical unit -> spellings (EN / FR / AR), longest first at match time
 _UNITS: dict[str, tuple[str, ...]] = {
-    "mg": ("milligrams", "milligram", "milligrammes", "milligramme", "mg", "ملغ", "ملغم", "مغ", "ملليغرام", "ميليغرام"),
+    "mg": (
+        "milligrams",
+        "milligram",
+        "milligrammes",
+        "milligramme",
+        "mg",
+        "ملغ",
+        "ملغم",
+        "مغ",
+        "ملليغرام",
+        "ميليغرام",
+    ),
     "mcg": ("micrograms", "microgram", "microgrammes", "microgramme", "mcg", "µg", "μg", "ميكروغرام"),
     "g": ("grams", "gram", "grammes", "gramme", "g", "غرام", "غ"),
     "kg": ("kilograms", "kilogram", "kilogrammes", "kilogramme", "kg", "كغ", "كلغ", "كيلوغرام"),
@@ -33,8 +47,23 @@ _UNITS: dict[str, tuple[str, ...]] = {
     "°c": ("°c", "degrees celsius", "degrés celsius", "degrés", "degrees", "درجة مئوية", "درجة"),
     "°f": ("°f", "degrees fahrenheit"),
     "bpm": ("bpm", "beats per minute", "battements par minute"),
-    "tablets": ("tablets", "tablet", "pills", "pill", "capsules", "capsule", "comprimés", "comprimé", "gélules",
-                "gélule", "أقراص", "اقراص", "قرص", "حبوب", "حبة"),
+    "tablets": (
+        "tablets",
+        "tablet",
+        "pills",
+        "pill",
+        "capsules",
+        "capsule",
+        "comprimés",
+        "comprimé",
+        "gélules",
+        "gélule",
+        "أقراص",
+        "اقراص",
+        "قرص",
+        "حبوب",
+        "حبة",
+    ),
     "times": ("times", "fois", "مرات", "مرة"),
     "doses": ("doses", "dose", "جرعات", "جرعة"),
 }
@@ -55,7 +84,7 @@ class Quantity:
 
 
 def _norm_number(raw: str) -> str:
-    """"1,000" / "1 000" -> "1000"; "0,5" / "0.50" -> "0.5"; "05" -> "5"."""
+    """ "1,000" / "1 000" -> "1000"; "0,5" / "0.50" -> "0.5"; "05" -> "5"."""
     n = raw.translate(_DIGITS)
     n = re.sub(r"[ ,  ]", "", n) if _THOUSANDS.match(n) else n.replace(",", ".")
     if "." in n:

@@ -77,7 +77,9 @@ return 1
 
 
 class RedisSpendMeter:
-    """Shared daily bucket for multi-instance deployments (reservation counted immediately, corrected on settle)."""
+    """Shared daily bucket for multi-instance deployments.
+
+    A reservation is counted immediately and corrected on settle."""
 
     def __init__(self, client: Any, cap_usd: float, *, prefix: str = "ausculta:spend:") -> None:
         self._r = client
@@ -91,7 +93,8 @@ class RedisSpendMeter:
     async def reserve(self, usd: float) -> str:
         rid = uuid.uuid4().hex
         ok = await self._script(
-            keys=[self._day_key(), f"{self._prefix}r:{rid}"], args=[self._cap, max(0.0, usd), _RESERVATION_TTL_S]
+            keys=[self._day_key(), f"{self._prefix}r:{rid}"],
+            args=[self._cap, max(0.0, usd), _RESERVATION_TTL_S],
         )
         if not int(ok):
             raise SpendCapReached("daily spend cap reached")

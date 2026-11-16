@@ -41,5 +41,7 @@ def load_profile(path: Path) -> ProfileState:
     except ValidationError as exc:
         log.error("hospital_profile_invalid", file=path.name, errors=exc.error_count())
         return ProfileState(profile=None, error=f"invalid hospital profile ({exc.error_count()} errors)")
-    log.info("hospital_profile_loaded", profile=profile.id, demo=profile.is_demo, expires=str(profile.expires_on))
+    log.info(
+        "hospital_profile_loaded", profile=profile.id, demo=profile.is_demo, expires=str(profile.expires_on)
+    )
     return ProfileState(profile=profile)

@@ -95,7 +95,9 @@ def parse_safety_config(raw: Mapping[str, Any]) -> SafetyConfig:
         risk_thresholds=_risks(classifier),
         population_threshold=_prob(classifier.get("population", 0.5), "classifier.population"),
         intent_min_confidence=_prob(classifier.get("intent_min_confidence", 0.4), "intent_min_confidence"),
-        language_min_confidence=_prob(classifier.get("language_min_confidence", 0.5), "language_min_confidence"),
+        language_min_confidence=_prob(
+            classifier.get("language_min_confidence", 0.5), "language_min_confidence"
+        ),
         fuzzy_min_term_chars=int(lexicon.get("fuzzy_min_term_chars", 8)),
         injection_min_score=_prob(_section(raw, "injection").get("heuristic_min_score", 0.5), "injection"),
         strikes_to_lock=max(1, int(session.get("strikes_to_lock", 3))),

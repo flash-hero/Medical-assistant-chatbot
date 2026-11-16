@@ -35,6 +35,9 @@ MODULES: dict[str, str] = {
     "nei": "data_pipeline.parsers.nih_institutes",
     "nhlbi": "data_pipeline.parsers.nih_institutes",
     "nimh": "data_pipeline.parsers.nih_institutes",
+    "wikipedia_medicine": "data_pipeline.parsers.wikipedia",
+    "bdpm": "data_pipeline.parsers.bdpm",
+    "has_publications": "data_pipeline.parsers.has_publications",
 }
 
 
@@ -45,14 +48,12 @@ def load_module(source_id: str) -> ModuleType:
 
 
 def sources_for_wave(wave: int, records: tuple[SourceRecord, ...]) -> list[str]:
-    return [
-        r.id
-        for r in records
-        if r.wave == wave and r.status is SourceStatus.ACTIVE and r.id in MODULES
-    ]
+    return [r.id for r in records if r.wave == wave and r.status is SourceStatus.ACTIVE and r.id in MODULES]
 
 
-async def run_fetch(source_id: str, paths: DataPaths, *, limit: int | None = None, rps: float | None = None) -> None:
+async def run_fetch(
+    source_id: str, paths: DataPaths, *, limit: int | None = None, rps: float | None = None
+) -> None:
     record = get_source(source_id)
     if record is None:
         raise KeyError(f"unknown source {source_id!r}")
@@ -77,7 +78,9 @@ def run_parse(source_id: str, paths: DataPaths, *, limit: int | None = None) -> 
         raise KeyError(f"unknown source {source_id!r}")
     module = load_module(source_id)
     options: dict[str, Any] = dict(
-        module.build_options_for(source_id) if hasattr(module, "build_options_for") else getattr(module, "BUILD_OPTIONS", {})
+        module.build_options_for(source_id)
+        if hasattr(module, "build_options_for")
+        else getattr(module, "BUILD_OPTIONS", {})
     )
     documents = module.parse(paths, record)
     if limit is not None:

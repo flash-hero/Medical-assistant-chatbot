@@ -103,10 +103,15 @@ def _parse_document(raw: str) -> Document | None:
         return None
 
 
-def load_documents(paths: DataPaths, registry: Registry, source_id: str, limit: int | None) -> SourceLoad:
-    """Validated, policy-checked Documents of one source. Bad lines are counted and skipped."""
-    if not paths.ready_marker(source_id).exists():
+def load_documents(
+    paths: DataPaths, registry: Registry, source_id: str, limit: int | None, *, require_ready: bool = True
+) -> SourceLoad:
+    """Validated, policy-checked Documents of one source. Bad lines are counted and skipped.
+    `require_ready=False` is for dry-run planning only (`python -m rag plan`); builds always require it."""
+    if require_ready and not paths.ready_marker(source_id).exists():
         raise CorpusNotReady(f"{source_id}: no ready marker at {paths.ready_marker(source_id)}")
+    if not paths.normalized_file(source_id).exists():
+        raise CorpusNotReady(f"{source_id}: no normalized file at {paths.normalized_file(source_id)}")
     skipped: Counter[str] = Counter()
     docs: list[Document] = []
     seen: set[str] = set()

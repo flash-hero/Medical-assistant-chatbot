@@ -1,0 +1,26 @@
+{
+ "batchcomplete": true,
+ "continue": {
+  "cmcontinue": "page|abc|2",
+  "continue": "-||"
+ },
+ "query": {
+  "categorymembers": [
+   {
+    "pageid": 301186,
+    "ns": 1,
+    "title": "Talk:Asthma"
+   },
+   {
+    "pageid": 2013,
+    "ns": 1,
+    "title": "Talk:Addiction"
+   },
+   {
+    "pageid": 1,
+    "ns": 1,
+    "title": "Talk:Medicine"
+   }
+  ]
+ }
+}

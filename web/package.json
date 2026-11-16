@@ -16,10 +16,11 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "mock-api": "node e2e/mock-api/server.mjs",
-    "measure:js": "node scripts/measure-route-js.mjs",
-    "lighthouse": "node scripts/lighthouse.mjs",
+    "measure:js": "node scripts/measure/route-js.mjs",
+    "lighthouse": "node scripts/measure/lighthouse.mjs",
+    "measure:metrics": "node scripts/measure/ui-metrics.mjs",
     "contrast": "node scripts/check-contrast.mjs",
-    "brand:wordmarks": "node scripts/brand/build-wordmarks.mjs"
+    "brand": "node scripts/brand/build-brand.mjs"
   },
   "dependencies": {
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",

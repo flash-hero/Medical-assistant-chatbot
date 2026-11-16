@@ -11,7 +11,6 @@ import re
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from pathlib import Path
 
 import structlog
 from lxml import etree
@@ -20,7 +19,7 @@ from lxml.html import HtmlElement
 
 from core.schemas.document import Document, Section
 from core.schemas.source import ContentType, Language, SourceRecord
-from data_pipeline.fetch.client import FetchFailedError, Fetcher, FetchRefusedError
+from data_pipeline.fetch.client import Fetcher, FetchFailedError, FetchRefusedError
 from data_pipeline.fetch.manifest import Manifest, ManifestEntry
 from data_pipeline.parsers.common import build_document
 from data_pipeline.parsers.htmltext import collapse_ws, html_to_sections
@@ -65,7 +64,9 @@ class PageRules:
     date_xpaths: tuple[str, ...] = ()
     drop_headings: re.Pattern[str] | None = None  # sections under a matching top-level heading are dropped
     drop_lines: re.Pattern[str] | None = None  # single lines (e.g. "Enlarge ...") removed from section text
-    drop_section_text: re.Pattern[str] | None = None  # whole sections whose text matches (e.g. "On this page" menus)
+    drop_section_text: re.Pattern[str] | None = (
+        None  # whole sections whose text matches (e.g. "On this page" menus)
+    )
     keep_common_remove: bool = True
     extra: dict[str, str] = field(default_factory=dict)
 
@@ -186,13 +187,17 @@ def extract_page(content: bytes | str, rules: PageRules) -> ExtractedPage | None
         title = rules.title_suffix.sub("", title).strip()
     title = collapse_repeated_title(title)
     description = _meta(tree, "description")
-    reviewed = next((d for d in (parse_loose_date(_first_text(tree, x)) for x in rules.date_xpaths) if d), None)
+    reviewed = next(
+        (d for d in (parse_loose_date(_first_text(tree, x)) for x in rules.date_xpaths) if d), None
+    )
     container = next((nodes[0] for xp in rules.content_xpaths if (nodes := tree.xpath(xp))), None)
     if container is None or not title:
         return None
     if rules.keep_common_remove:
         _drop_all(container, [x.replace("//", ".//", 1) for x in COMMON_REMOVE])
-    _drop_all(container, [x.replace("//", ".//", 1) if x.startswith("//") else x for x in rules.remove_xpaths])
+    _drop_all(
+        container, [x.replace("//", ".//", 1) if x.startswith("//") else x for x in rules.remove_xpaths]
+    )
     heading = container.xpath(".//h1")
     if heading and collapse_ws(heading[0].text_content()) and heading[0].getparent() is not None:
         heading[0].drop_tree()  # the title is carried by heading_path[0]
@@ -237,7 +242,9 @@ def page_document(
 def sitemap_locs(xml_text: str) -> tuple[list[str], list[str]]:
     """(page URLs, child sitemap URLs) of a sitemap or sitemap index. Malformed XML yields two empty lists."""
     try:
-        root = etree.fromstring(xml_text.encode("utf-8"), parser=etree.XMLParser(resolve_entities=False, no_network=True))
+        root = etree.fromstring(
+            xml_text.encode("utf-8"), parser=etree.XMLParser(resolve_entities=False, no_network=True)
+        )
     except etree.XMLSyntaxError:
         return [], []
     pages: list[str] = []
@@ -263,7 +270,9 @@ async def collect_sitemap_urls(fetcher: Fetcher, sitemap_url: str, *, depth: int
 
 
 # ---- fetching and reading back ------------------------------------------------------------------
-async def fetch_urls(fetcher: Fetcher, urls: Iterable[str], *, limit: int | None = None, concurrency: int = 4) -> int:
+async def fetch_urls(
+    fetcher: Fetcher, urls: Iterable[str], *, limit: int | None = None, concurrency: int = 4
+) -> int:
     """Fetch pages politely (resumable: URLs already in the manifest are skipped). Returns the OK count."""
     wanted = list(dict.fromkeys(urls))
     if limit is not None:
@@ -273,7 +282,9 @@ async def fetch_urls(fetcher: Fetcher, urls: Iterable[str], *, limit: int | None
         batch = wanted[start : start + 100]
         results = await fetcher.fetch_many(batch, concurrency=concurrency)
         ok += sum(1 for r in results if not isinstance(r, Exception) and r.ok)
-        log.info("fetch_progress", source=fetcher.source.id, done=start + len(batch), total=len(wanted), ok=ok)
+        log.info(
+            "fetch_progress", source=fetcher.source.id, done=start + len(batch), total=len(wanted), ok=ok
+        )
     return ok
 
 

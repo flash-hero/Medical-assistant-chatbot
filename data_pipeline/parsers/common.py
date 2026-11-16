@@ -52,7 +52,7 @@ def parse_us_date(text: str | None) -> date | None:
     stripped = text.strip()
     for fmt, candidate in (("%m/%d/%Y", stripped), ("%Y-%m-%d", stripped[:10]), ("%Y%m%d", stripped)):
         try:
-            return datetime.strptime(candidate, fmt).date()  # noqa: DTZ007 - calendar dates carry no zone
+            return datetime.strptime(candidate, fmt).date()
         except ValueError:
             continue
     return None

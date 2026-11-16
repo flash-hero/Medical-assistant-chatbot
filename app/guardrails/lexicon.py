@@ -5,9 +5,12 @@ Matching runs on normalised clauses (core.text.detection_form):
   1. exact, word-bounded matches of every term (one regex per risk kind); Arabic-script terms also match with
      an attached proclitic (و ف ب ل ك: "بنوبة قلبية" matches "نوبة قلبية"),
   2. Arabizi entries also on a consonant skeleton (3/7/9 digits, vowels and digraphs folded),
-  3. token-level fuzzy matches for multi-word terms (misspellings), only for kinds without an exact hit.
+  3. combinations (app/guardrails/lexicon_combos.py): groups of words that must co-occur within a few tokens,
+     in any order, across clause punctuation; judged like condition terms. Only for kinds without an exact hit,
+  4. token-level fuzzy matches for multi-word terms (misspellings), only for kinds still without a hit.
 Every hit is judged on the plain clause for negation ("no chest pain"), historical context ("diagnosed last
-month", per kind) and, for condition names, purely informational questions ("what are the signs of a stroke?").
+month", per kind) and, for condition names, purely informational questions
+("what are the signs of a stroke?").
 Per-kind idioms ("dying to know") are blanked out before matching. The lexicon files are marked
 `draft-unreviewed` until a clinician signs them off.
 """
@@ -16,7 +19,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -24,8 +28,9 @@ from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
 from app.config_files import CONFIG_ROOT, ConfigFileError, load_yaml
+from app.guardrails.lexicon_combos import Combination, TokenIndex, find, parse_combinations
 from app.guardrails.lexicon_cues import CueSet, build_cue_set, plain_form, skeleton_form
-from app.guardrails.lexicon_text import split_clauses
+from app.guardrails.lexicon_text import arabizi_skeleton, split_clauses
 from core.schemas.chat import RiskKind, Signal
 
 LEXICON_DIR = CONFIG_ROOT / "safety" / "lexicons"
@@ -37,6 +42,7 @@ LEXICON_KINDS: tuple[RiskKind, ...] = (
 )
 TERM_LANGS: tuple[str, ...] = ("en", "fr", "ar", "arabizi")
 _PREFILTER_SCORE = 75.0
+_FUZZY_SCORE = 0.9
 _MIN_SKELETON_CHARS = 6
 _AR_PROCLITIC = "(?P<pre>[وفبلك]{1,2})?"
 _TOKEN = re.compile(r"\S+")
@@ -65,10 +71,23 @@ class LexiconHit:
     fuzzy: bool
     status: HitStatus
     condition: bool
+    combo: bool = False
 
     @property
     def active(self) -> bool:
         return self.status == "active"
+
+    @property
+    def method(self) -> str:
+        return "combo" if self.combo else "fuzzy" if self.fuzzy else "exact"
+
+
+@dataclass(frozen=True)
+class LexiconAssessment:
+    """Result of one scan: one Signal per active risk kind, and the languages of the active hits."""
+
+    signals: tuple[Signal, ...]
+    languages: frozenset[str]
 
 
 @dataclass(frozen=True)
@@ -92,6 +111,7 @@ class _KindIndex:
     by_key: Mapping[tuple[str, str], tuple[_Entry, ...]]  # (form, key) -> entries
     fuzzy: tuple[_Entry, ...] = field(default=())
     rules: KindRules = field(default_factory=KindRules)
+    combos: tuple[Combination, ...] = field(default=())
 
 
 def _alternation(keys: Iterable[str], *, proclitics: bool) -> re.Pattern[str] | None:
@@ -102,12 +122,18 @@ def _alternation(keys: Iterable[str], *, proclitics: bool) -> re.Pattern[str] | 
     return re.compile(r"(?<!\w)" + pre + "(?P<t>" + "|".join(re.escape(k) for k in items) + r")(?!\w)")
 
 
+@lru_cache(maxsize=8192)
+def _token_skeleton(token: str) -> tuple[str, ...]:
+    """Skeleton pieces of one token ALREADY in plain form (normalising it again is the costly part)."""
+    return tuple(arabizi_skeleton(token).split())
+
+
 def _make_clause(plain: str) -> _Clause:
     """Build the skeleton token by token so every skeleton match maps back to a plain-text offset."""
     pieces: list[str] = []
     offsets: list[int] = []
     for tok in _TOKEN.finditer(plain):
-        for piece in skeleton_form(tok.group(0)).split():
+        for piece in _token_skeleton(tok.group(0)):
             pieces.append(piece)
             offsets.append(tok.start())
     return _Clause(plain=plain, skeleton=" ".join(pieces), skeleton_offsets=tuple(offsets))
@@ -136,16 +162,20 @@ class LexiconMatcher:
         *,
         version: str = "draft-unreviewed",
         rules: Mapping[RiskKind, KindRules] | None = None,
+        combos: Sequence[Combination] = (),
     ) -> None:
         self._cues = cues
         self._settings = settings
         self.version = version
         rules = rules or {}
         self._index = {
-            kind: self._build_index(kind, entries, rules.get(kind, KindRules())) for kind in LEXICON_KINDS
+            kind: self._build_index(kind, entries, rules.get(kind, KindRules()), combos)
+            for kind in LEXICON_KINDS
         }
 
-    def _build_index(self, kind: RiskKind, entries: Sequence[_Entry], rules: KindRules) -> _KindIndex:
+    def _build_index(
+        self, kind: RiskKind, entries: Sequence[_Entry], rules: KindRules, combos: Sequence[Combination]
+    ) -> _KindIndex:
         mine = [e for e in entries if e.kind is kind]
         by_key: dict[tuple[str, str], list[_Entry]] = {}
         for e in mine:
@@ -159,29 +189,75 @@ class LexiconMatcher:
             form: _alternation((k for (f, k) in by_key if f == form), proclitics=form == "plain")
             for form in ("plain", "skeleton")
         }
-        return _KindIndex(regex=regex, by_key={k: tuple(v) for k, v in by_key.items()}, fuzzy=fuzzy, rules=rules)
+        return _KindIndex(
+            regex=regex,
+            by_key={k: tuple(v) for k, v in by_key.items()},
+            fuzzy=fuzzy,
+            rules=rules,
+            combos=tuple(c for c in combos if c.kind is kind),
+        )
 
     @property
     def term_count(self) -> int:
         return sum(len(v) for idx in self._index.values() for v in idx.by_key.values())
 
+    @property
+    def combination_count(self) -> int:
+        return sum(len(idx.combos) for idx in self._index.values())
+
     # ---- scanning ------------------------------------------------------------------------------
     def _clauses(self, text: str) -> list[_Clause]:
-        return [_make_clause(part) for raw in split_clauses(text) for part in self._cues.split(plain_form(raw))]
+        return [
+            _make_clause(part) for raw in split_clauses(text) for part in self._cues.split(plain_form(raw))
+        ]
 
     def scan(self, text: str) -> tuple[LexiconHit, ...]:
         """All hits, including suppressed ones (status != "active"), for every lexicon kind."""
         clauses = self._clauses(text)
+        historical: dict[str, bool] = {}  # per-scan memo: clause -> is_historical
         hits: list[LexiconHit] = []
         for idx in self._index.values():
             kind_clauses = _masked(clauses, idx.rules.exclusions)
-            kind_hits = self._exact_hits(idx, kind_clauses)
+            kind_hits = self._exact_hits(idx, kind_clauses, historical)
             if not any(h.active for h in kind_hits):
-                kind_hits += self._fuzzy_hits(idx, kind_clauses)
+                kind_hits += self._combo_hits(idx, kind_clauses, historical)
+            if not any(h.active for h in kind_hits):
+                kind_hits += self._fuzzy_hits(idx, kind_clauses, historical)
             hits.extend(kind_hits)
         return tuple(hits)
 
-    def _exact_hits(self, idx: _KindIndex, clauses: list[_Clause]) -> list[LexiconHit]:
+    def _combo_hits(
+        self, idx: _KindIndex, clauses: list[_Clause], historical: dict[str, bool]
+    ) -> list[LexiconHit]:
+        """Combinations run over the whole message (they may span clause punctuation); a hit is judged on the
+        clause holding its first word, and is negated by a negation word between its matched words."""
+        if not idx.combos or not clauses:
+            return []
+        where = [(ci, m.start()) for ci, c in enumerate(clauses) for m in _TOKEN.finditer(c.plain)]
+        index = TokenIndex(tuple(m.group(0) for c in clauses for m in _TOKEN.finditer(c.plain)))
+        hits: list[LexiconHit] = []
+        for combo in idx.combos:
+            matched = find(combo, index)
+            if matched is None:
+                continue
+            ci, start = where[matched[0]]
+            entry = _Entry(combo.kind, combo.lang, "", True, "plain")
+            hit = self._judge(entry, idx.rules, clauses[ci].plain, start, historical, fuzzy=False)
+            hit = replace(hit, combo=True)
+            if hit.active and self._negated_inside(matched, index.tokens, combo.lang):
+                hit = replace(hit, status="negated")
+            hits.append(hit)
+            if hit.active:
+                break
+        return hits
+
+    def _negated_inside(self, matched: tuple[int, ...], tokens: tuple[str, ...], lang: str) -> bool:
+        inside = set(range(matched[0], matched[-1] + 1)) - set(matched)
+        return any(self._cues.is_negation_token(tokens[i], lang) for i in inside)
+
+    def _exact_hits(
+        self, idx: _KindIndex, clauses: list[_Clause], historical: dict[str, bool]
+    ) -> list[LexiconHit]:
         hits: list[LexiconHit] = []
         for clause in clauses:
             for form, pattern in idx.regex.items():
@@ -193,10 +269,13 @@ class LexiconMatcher:
                         continue
                     start = m.start("t") if form == "plain" else _plain_offset(clause, m.start("t"))
                     for entry in idx.by_key[(form, m.group("t"))]:
-                        hits.append(self._judge(entry, idx.rules, clause.plain, start, score=1.0, fuzzy=False))
+                        hit = self._judge(entry, idx.rules, clause.plain, start, historical, fuzzy=False)
+                        hits.append(hit)
         return hits
 
-    def _fuzzy_hits(self, idx: _KindIndex, clauses: list[_Clause]) -> list[LexiconHit]:
+    def _fuzzy_hits(
+        self, idx: _KindIndex, clauses: list[_Clause], historical: dict[str, bool]
+    ) -> list[LexiconHit]:
         """One rapidfuzz alignment per entry over the whole message (bounded cost for long input), then a
         token-level check inside the clause that contains the best alignment."""
         if not idx.fuzzy or not clauses:
@@ -217,42 +296,61 @@ class LexiconMatcher:
             start = _fuzzy_start(entry.key, clause, max(0, rough.dest_start - bounds[ci]))
             if start is None:
                 continue
-            hit = self._judge(entry, idx.rules, clause, start, score=0.9, fuzzy=True)
+            hit = self._judge(entry, idx.rules, clause, start, historical, fuzzy=True)
             hits.append(hit)
             if hit.active:
                 break
         return hits
 
     def _judge(
-        self, entry: _Entry, rules: KindRules, clause: str, start: int, *, score: float, fuzzy: bool
+        self,
+        entry: _Entry,
+        rules: KindRules,
+        clause: str,
+        start: int,
+        historical: dict[str, bool],
+        *,
+        fuzzy: bool,
     ) -> LexiconHit:
         status: HitStatus = "active"
         if self._cues.is_negated(clause[:start].split(), entry.lang):
             status = "negated"
-        elif rules.suppress_historical and self._cues.is_historical(clause):
+        elif rules.suppress_historical and self._is_historical(clause, historical):
             status = "historical"
         elif entry.condition and self._cues.is_informational(clause, start):
             status = "informational"
+        score = _FUZZY_SCORE if fuzzy else 1.0
         return LexiconHit(entry.kind, entry.lang, score, fuzzy, status, entry.condition)
 
-    def signals(self, text: str) -> tuple[Signal, ...]:
-        """One Signal(source="lexicon") per risk kind with at least one active hit. No user text in `detail`."""
+    def _is_historical(self, clause: str, memo: dict[str, bool]) -> bool:
+        if clause not in memo:
+            memo[clause] = self._cues.is_historical(clause)
+        return memo[clause]
+
+    def assess(self, text: str) -> LexiconAssessment:
+        """Signals and hit languages from ONE scan (the router needs both; two scans double the cost)."""
+        hits = self.scan(text)
         best: dict[RiskKind, LexiconHit] = {}
-        for hit in self.scan(text):
+        for hit in hits:
             if hit.active and (hit.kind not in best or hit.score > best[hit.kind].score):
                 best[hit.kind] = hit
-        return tuple(
+        signals = tuple(
             Signal(
                 kind=h.kind,
                 source="lexicon",
                 score=h.score,
-                detail=f"{h.lang}:{'fuzzy' if h.fuzzy else 'exact'}",
+                detail=f"{h.lang}:{h.method}",
             )
             for h in best.values()
         )
+        return LexiconAssessment(signals=signals, languages=frozenset(h.lang for h in hits if h.active))
+
+    def signals(self, text: str) -> tuple[Signal, ...]:
+        """One Signal(source="lexicon") per risk kind with an active hit. No user text in `detail`."""
+        return self.assess(text).signals
 
     def hit_languages(self, text: str) -> frozenset[str]:
-        return frozenset(h.lang for h in self.scan(text) if h.active)
+        return self.assess(text).languages
 
 
 def _is_arabic(text: str) -> bool:
@@ -338,6 +436,7 @@ def load_lexicon(directory: Path = LEXICON_DIR, settings: LexiconSettings | None
     """Load every risk lexicon plus context cues from config/safety/lexicons (fails fast on bad files)."""
     cues = build_cue_set(load_yaml(directory / "context_cues.yaml"), plain_form)
     entries: list[_Entry] = []
+    combos: list[Combination] = []
     versions: set[str] = set()
     rules: dict[RiskKind, KindRules] = {}
     for kind in LEXICON_KINDS:
@@ -345,6 +444,9 @@ def load_lexicon(directory: Path = LEXICON_DIR, settings: LexiconSettings | None
         data = load_yaml(path)
         versions.add(str(data.get("version", "")))
         entries.extend(_entries_from_file(data, path))
+        combos.extend(parse_combinations(data.get("combinations"), _kind_of(data, path), path.name))
         rules[_kind_of(data, path)] = _rules_from_file(data, path)
     version = "draft-unreviewed" if "draft-unreviewed" in versions else ",".join(sorted(versions))
-    return LexiconMatcher(entries, cues, settings or LexiconSettings(), version=version, rules=rules)
+    return LexiconMatcher(
+        entries, cues, settings or LexiconSettings(), version=version, rules=rules, combos=combos
+    )

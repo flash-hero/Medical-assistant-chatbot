@@ -34,6 +34,9 @@ def make_engine(url: str) -> AsyncEngine:
 def _sqlite_pragmas(dbapi_conn: object, _record: object) -> None:
     cur = dbapi_conn.cursor()  # type: ignore[attr-defined]
     cur.execute("PRAGMA journal_mode=WAL")
+    # WAL + NORMAL: no fsync per commit (a power cut may drop the last commits, never corrupts the file).
+    # Dev/test only; production uses Postgres.
+    cur.execute("PRAGMA synchronous=NORMAL")
     cur.execute("PRAGMA foreign_keys=ON")
     cur.close()
 
@@ -52,7 +55,7 @@ async def ping(engine: AsyncEngine) -> bool:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         return True
-    except Exception:  # noqa: BLE001 - readiness probes report, never raise
+    except Exception:
         return False
 
 

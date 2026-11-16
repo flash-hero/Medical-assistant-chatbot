@@ -20,7 +20,9 @@ def test_at_least_200_entries_all_unverified(entries: tuple[ds.DrugEntry, ...]) 
 def test_every_entry_has_french_and_arabic_names(entries: tuple[ds.DrugEntry, ...]) -> None:
     for entry in entries:
         assert entry.fr.strip() and entry.ar, entry.inn
-        assert any("؀" <= ch <= "ۿ" for name in entry.ar for ch in name), f"{entry.inn}: Arabic script expected"
+        assert any("؀" <= ch <= "ۿ" for name in entry.ar for ch in name), (
+            f"{entry.inn}: Arabic script expected"
+        )
 
 
 def test_inn_are_unique_lowercase(entries: tuple[ds.DrugEntry, ...]) -> None:
@@ -32,8 +34,10 @@ def test_inn_are_unique_lowercase(entries: tuple[ds.DrugEntry, ...]) -> None:
 def test_known_equivalences_expand_across_names() -> None:
     assert "acetaminophen" in ds.expand_term("paracetamol")
     assert "paracetamol" in ds.expand_term("Acetaminophen")
-    assert "albuterol" in ds.expand_term("salbutamol") and "Ventolin" in ds.expand_term("albuterol")
-    assert "epinephrine" in ds.expand_term("adrenaline") and "adrenaline" in ds.expand_term("Epinephrine")
+    assert "albuterol" in ds.expand_term("salbutamol")
+    assert "Ventolin" in ds.expand_term("albuterol")
+    assert "epinephrine" in ds.expand_term("adrenaline")
+    assert "adrenaline" in ds.expand_term("Epinephrine")
     assert "باراسيتامول" in ds.expand_term("Doliprane")
     assert "ibuprofène" in ds.expand_term("ibuprofen")
 

@@ -114,7 +114,9 @@ class TurnRepository:
 
     async def belongs_to(self, turn_id: str, session_id: str) -> bool:
         async with self._s() as db:
-            row = await db.scalar(select(TurnRow.id).where(TurnRow.id == turn_id, TurnRow.session_id == session_id))
+            row = await db.scalar(
+                select(TurnRow.id).where(TurnRow.id == turn_id, TurnRow.session_id == session_id)
+            )
             return row is not None
 
 
@@ -140,7 +142,9 @@ class FeedbackRepository:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._s = sessions
 
-    async def add(self, *, session_id: str, turn_id: str, rating: str, reason: str | None, comment: str | None) -> None:
+    async def add(
+        self, *, session_id: str, turn_id: str, rating: str, reason: str | None, comment: str | None
+    ) -> None:
         async with self._s.begin() as db:
             db.add(
                 FeedbackRow(
@@ -165,7 +169,11 @@ class AppointmentRepository:
         async with self._s.begin() as db:
             db.add(
                 AppointmentRequestRow(
-                    id=code, created_at=now, session_id=data.session_id, department_id=data.department_id, purge_after=purge
+                    id=code,
+                    created_at=now,
+                    session_id=data.session_id,
+                    department_id=data.department_id,
+                    purge_after=purge,
                 )
             )
             await db.flush()
@@ -186,8 +194,12 @@ class AppointmentRepository:
         """Delete appointment personal data (and the request rows) past their 30-day retention."""
         now = now or datetime.now(UTC)
         async with self._s.begin() as db:
-            contacts = await db.execute(delete(AppointmentContactRow).where(AppointmentContactRow.purge_after <= now))
-            requests = await db.execute(delete(AppointmentRequestRow).where(AppointmentRequestRow.purge_after <= now))
+            contacts = await db.execute(
+                delete(AppointmentContactRow).where(AppointmentContactRow.purge_after <= now)
+            )
+            requests = await db.execute(
+                delete(AppointmentRequestRow).where(AppointmentRequestRow.purge_after <= now)
+            )
         return PurgeResult(contacts=contacts.rowcount or 0, requests=requests.rowcount or 0)  # type: ignore[attr-defined]
 
     async def count(self) -> tuple[int, int]:

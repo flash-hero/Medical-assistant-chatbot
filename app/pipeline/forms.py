@@ -32,14 +32,28 @@ def appointment_form(profile: HospitalProfile | None, texts: Texts, locale: str)
         return form_label(texts, ("fields", name), locale)
 
     fields = (
-        FormField(name="full_name", label=label("full_name"), kind="text", required=True, max_length=NAME_MAX),
+        FormField(
+            name="full_name", label=label("full_name"), kind="text", required=True, max_length=NAME_MAX
+        ),
         FormField(name="phone", label=label("phone"), kind="tel", required=True, max_length=32),
         FormField(name="email", label=label("email"), kind="email", required=False, max_length=254),
-        FormField(name="department_id", label=label("department_id"), kind="select", required=True, options=departments),
         FormField(
-            name="preferred_dates", label=label("preferred_dates"), kind="textarea", required=True, max_length=DATES_MAX
+            name="department_id",
+            label=label("department_id"),
+            kind="select",
+            required=True,
+            options=departments,
         ),
-        FormField(name="reason", label=label("reason"), kind="textarea", required=False, max_length=REASON_MAX),
+        FormField(
+            name="preferred_dates",
+            label=label("preferred_dates"),
+            kind="textarea",
+            required=True,
+            max_length=DATES_MAX,
+        ),
+        FormField(
+            name="reason", label=label("reason"), kind="textarea", required=False, max_length=REASON_MAX
+        ),
         FormField(name="consent", label=label("consent"), kind="select", required=True, options=("yes",)),
     )
     return FormEvent(

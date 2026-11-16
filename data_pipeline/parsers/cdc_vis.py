@@ -35,7 +35,9 @@ RULES = PageRules(
     title_suffix=re.compile(r"\s+\|\s+.*$"),
     date_xpaths=("//main//p[contains(., 'Current edition')]",),
     drop_headings=re.compile(r"^(On This Page|More about the vaccine)", re.I),
-    drop_lines=re.compile(r"^(Language|Rich text file|PDF|Additional languages|For Health Care Providers)\b", re.I),
+    drop_lines=re.compile(
+        r"^(Language|Rich text file|PDF|Additional languages|For Health Care Providers)\b", re.I
+    ),
 )
 
 

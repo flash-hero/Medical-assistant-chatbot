@@ -15,7 +15,7 @@ def _segment(text: str) -> str:
     cleaned = _SAFE.sub("_", unquote(text)).strip("._") or "x"
     if len(cleaned) > _MAX_SEGMENT:
         digest = hashlib.sha1(cleaned.encode("utf-8"), usedforsecurity=False).hexdigest()[:10]
-        cleaned = f"{cleaned[:_MAX_SEGMENT - 11]}_{digest}"
+        cleaned = f"{cleaned[: _MAX_SEGMENT - 11]}_{digest}"
     return cleaned
 
 
@@ -25,7 +25,7 @@ def url_to_relpath(url: str) -> str:
     host = _segment(parts.hostname or "unknown")
     segments = [_segment(s) for s in parts.path.split("/") if s]
     name = segments.pop() if segments else "index"
-    if parts.path.endswith("/") or not segments and not parts.path.strip("/"):
+    if parts.path.endswith("/") or (not segments and not parts.path.strip("/")):
         segments.append(name)
         name = "index"
     if parts.query:

@@ -18,7 +18,15 @@ from evals.retrieval.gold import (
     with_rewrites,
 )
 from evals.retrieval.metrics import first_hit, ndcg_at_k, percentile, recall_at_k, reciprocal_rank
-from evals.retrieval.report import gate_records, latest_report, load_rag_gates, promotion_check, write_report
+from evals.retrieval.report import (
+    gate_records,
+    latest_report,
+    load_rag_gates,
+    promotion_check,
+    publish_metrics,
+    write_report,
+)
+from evals.run import load_records
 from rag.chunking import ChunkerConfig, chunk_document
 
 NOW = datetime(2026, 11, 16, 1, 0, tzinfo=UTC)
@@ -202,3 +210,18 @@ def test_promotion_uses_the_latest_report_and_refuses_failures_or_missing(tmp_pa
             r["value"] = 900.0
     write_report(tmp_path / "x", slow, NOW)
     assert "rag.retrieval_p95_ms" in promotion_check(tmp_path / "x", "c3").reason
+
+
+def test_run_records_are_invisible_to_evals_run_and_only_online_reports_publish(tmp_path):
+    reports_root = tmp_path / "reports"
+    report = {**_passing_report("c1", NOW), "mode": "online"}
+    full, run_records = write_report(reports_root / "retrieval", report, NOW)
+    assert run_records.name.endswith(".gates.json")
+    assert load_records(reports_root) == []  # a per-run file never shadows the live gate metrics
+    assert latest_report(reports_root / "retrieval", "c1")[0] == full
+
+    published = publish_metrics(reports_root / "rag.metrics.json", report)
+    assert {r.metric for r in load_records(reports_root)} == {r["metric"] for r in report["gate_records"]}
+    assert published.name == "rag.metrics.json"
+    with pytest.raises(ValueError, match="online"):
+        publish_metrics(reports_root / "rag.metrics.json", {**report, "mode": "offline"})

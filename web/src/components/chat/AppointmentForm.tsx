@@ -26,6 +26,18 @@ function Success({ requestId, message }: { readonly requestId: string; readonly 
   );
 }
 
+const CONSENT_NAME = "consent";
+
+/**
+ * Move focus to the first invalid control, in visual order. Called right after validation, before
+ * React re-renders, so it looks controls up by name rather than by the not-yet-set aria-invalid.
+ */
+function focusFirstInvalid(form: HTMLFormElement | null, order: readonly string[], errors: FormErrors): void {
+  const name = order.find((candidate) => errors[candidate] !== undefined);
+  const control = name === undefined ? null : form?.elements.namedItem(name);
+  if (control instanceof HTMLElement) control.focus();
+}
+
 /** Appointment request form rendered from the `form` event. Its contents go to staff, never to the model. */
 export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly form: ChatFormEvent }) {
   const t = useTranslations("Chat");
@@ -44,7 +56,7 @@ export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly 
     const found = validateForm(form.fields, values, consent);
     setErrors(found);
     if (Object.keys(found).length > 0) {
-      formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus();
+      focusFirstInvalid(formRef.current, [...form.fields.map((f) => f.name), CONSENT_NAME], found);
       return;
     }
     setStatus("sending");
@@ -79,6 +91,7 @@ export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly 
         <label className="flex cursor-pointer items-start gap-3">
           <input
             type="checkbox"
+            name={CONSENT_NAME}
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
             aria-invalid={errors.consent ? true : undefined}

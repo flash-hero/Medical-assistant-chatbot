@@ -1,7 +1,7 @@
 """Deterministic per-sentence checks on model output (run inline while streaming and again before release).
 
 Per sentence, in order:
-  1. canary-token leak and system-prompt echo (word 8-gram overlap)           -> fatal: the answer is withdrawn
+  1. canary-token leak and system-prompt echo (word 8-gram overlap)           -> fatal: answer withdrawn
   2. markup removal: URLs, e-mail addresses, markdown links/images, HTML, code -> sentence kept, text modified
   3. phone numbers not in HospitalProfile.allowed_numbers()                     -> number removed
   4. citation markers that do not reference a provided passage                 -> marker removed

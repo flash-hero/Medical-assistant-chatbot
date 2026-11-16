@@ -24,16 +24,18 @@ export function CitationList({ citations, answerLocale }: { readonly citations: 
               type="button"
               className="flex min-h-11 max-w-full items-center gap-2 rounded-full border border-line bg-surface py-1.5 pe-4 ps-1.5 text-start text-sm transition-colors hover:border-brand"
               onClick={(e) => openSource(citation, answerLocale, e.currentTarget)}
-              aria-label={t("citation", { n: citation.n, title: citation.title })}
               data-cite-chip={citation.n}
             >
+              {/* Name from content (no aria-label) so it contains the visible text: "Source 1: <title>, <publisher>". */}
               <span className="cite-chip m-0 shrink-0" aria-hidden="true">
                 {citation.n}
               </span>
+              <span className="sr-only">{t("sourceNumber", { n: citation.n })} </span>
               <span className="grid min-w-0">
                 <span className="truncate font-semibold" lang={citation.language} dir={dirOf(citation.language)}>
                   {citation.title}
                 </span>
+                <span className="sr-only">, </span>
                 <span className="truncate text-xs text-ink-2" lang={citation.language} dir={dirOf(citation.language)}>
                   {citation.publisher}
                 </span>

@@ -403,6 +403,132 @@ sources:
     refresh_days: 30
     domains: [nccih.nih.gov]
 
+  # ---------------- Wave 3: native French and Arabic (and English) encyclopaedic content ----------------
+  - id: wikipedia_medicine
+    name: Wikipedia medicine articles (English, French, Arabic)
+    publisher: Wikimedia Foundation and Wikipedia contributors
+    homepage: https://www.wikipedia.org/
+    status: active
+    wave: 3
+    trust_tier: 3
+    reuse_mode: paraphrase_ok
+    languages: [en, fr, ar]
+    content_types: [condition]
+    license:
+      id: CC-BY-SA-4.0
+      name: Creative Commons Attribution-ShareAlike 4.0 International
+      evidence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+      commercial_use: conditional
+      attribution: "Source: Wikipedia, the free encyclopedia (CC BY-SA 4.0); authors are listed in each article's page history"
+      conditions:
+        - "Terms of Use section 7: text contributions are licensed CC BY-SA 4.0 (siteinfo rightsinfo of en/fr/ar.wikipedia.org returns https://creativecommons.org/licenses/by-sa/4.0/); commercial use is allowed"
+        - "Attribution: a hyperlink to the article (its history page lists the authors) satisfies the credit requirement per Terms of Use section 7; every citation links to the article URL stored in the document"
+        - "Share-alike: derivative text (verbatim excerpts, translations, close paraphrases) must be offered under CC BY-SA 4.0 with the same attribution; the app shows the licence name and link wherever such text appears"
+        - "Text only: images, infobox data, tables and references are not ingested (images carry their own licences)"
+        - "Trust tier 3: community-edited, flagged as lower trust than the government and institute sources; never the sole basis for a drug dose or a care decision"
+        - "Wikimedia Robot policy (wikitech Robot_policy, Action API rules): descriptive User-Agent, one request at a time, at most 2 requests/second, maxlag on every call; robots.txt disallows /w/ for generic crawlers but the policy names api.php as the interface for bots, so API calls are robots-exempt (recorded in the fetch manifest)"
+        - "Scope: English WikiProject Medicine Top- and High-importance articles plus the French and Arabic articles they link to"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: api
+      endpoints: ["https://en.wikipedia.org/w/api.php", "https://fr.wikipedia.org/w/api.php", "https://ar.wikipedia.org/w/api.php"]
+      rate_limit_per_min: 120
+      notes: "action=query: categorymembers of Category:Top-importance / High-importance medicine articles, langlinks (batches of 50), then prop=extracts|info|revisions|pageprops with explaintext and exsectionformat=wiki; disambiguation pages skipped; reference, external-link and see-also sections dropped"
+    refresh_days: 90
+    domains: [wikipedia.org]
+
+  - id: bdpm
+    name: Base de données publique des médicaments (BDPM)
+    publisher: ANSM, HAS and Assurance Maladie (France)
+    homepage: https://base-donnees-publique.medicaments.gouv.fr/
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: quote_only
+    languages: [fr]
+    content_types: [drug_label]
+    license:
+      id: etalab-licence-ouverte-1.0
+      name: Licence Ouverte (Open Licence, Etalab, October 2011)
+      evidence_url: https://base-donnees-publique.medicaments.gouv.fr/telechargement
+      commercial_use: yes
+      attribution: "Source : Base de données publique des médicaments (ANSM, HAS, Assurance Maladie), Licence Ouverte ; données mises à jour mensuellement"
+      conditions:
+        - "Download page: reproduce, distribute, redistribute and exploit the data; do not alter the data or distort its meaning; the source must be stated; the mention confers no official character on the reuse"
+        - "Licence text (/docs/telechargement/licence_bdpm.pdf, Licence Ouverte Oct 2011): free, worldwide, perpetual, commercial exploitation allowed; condition: name the producer and give the date of the last update (a hyperlink to the information satisfies it); do not suggest official endorsement; the reuser must not mislead third parties about the content, source or update date"
+        - "Because of the no-alteration condition the documents are quote_only: field values are kept verbatim inside a fixed French template"
+        - "Scope limit: the files hold administrative data, composition, prescription conditions, HAS SMR opinions and generic groups. They contain no summary of product characteristics and no package leaflet, so no indications, posology or side-effect text; answers needing those must say the source does not cover them"
+        - "The producers state they are not liable for out-of-date information: documents record the retrieval date and the corpus is refreshed monthly"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://base-donnees-publique.medicaments.gouv.fr/telechargement"]
+      notes: "Five tab-separated windows-1252 files under /download/file/: CIS_bdpm, CIS_COMPO_bdpm, CIS_HAS_SMR_bdpm, CIS_CPD_bdpm, CIS_GENER_bdpm; robots.txt allows everything. Only authorised, marketed specialities become documents (about 13,500 of 15,800)"
+    refresh_days: 30
+    domains: [base-donnees-publique.medicaments.gouv.fr]
+
+  - id: has_publications
+    name: HAS publications (texts of Haute Autorité de santé publications)
+    publisher: Haute Autorité de santé (France)
+    homepage: https://www.has-sante.fr/
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [fr]
+    content_types: [guideline]
+    license:
+      id: etalab-licence-ouverte-2.0
+      name: Licence Ouverte 2.0 (Etalab)
+      evidence_url: https://www.data.gouv.fr/datasets/textes-des-publications-de-la-has-7/
+      commercial_use: yes
+      attribution: "Source : Haute Autorité de santé (HAS), jeu de données « Textes des publications de la HAS », Licence Ouverte 2.0"
+      conditions:
+        - "data.gouv.fr dataset 'Textes des publications de la HAS' (slug textes-des-publications-de-la-has-7), licence field lov2 = Licence Ouverte 2.0; datasheet: 'Des redevances ou des restrictions sont-elles appliquées dans l'accès aux données ? Non.'; updated weekly"
+        - "HAS page 'Réutilisation des données de la HAS : rappel du cadre applicable' (has-sante.fr/jcms/p_4579115): data freely reusable under the open licence, including for commercial purposes (communication, reproduction, extraction, adaptation, distribution, exploitation); condition: state the origin, the source and the update date"
+        - "Derived analyses are not validated by the HAS and must not be presented as HAS validation or communication"
+        - "HAS legal notice: editorial content of third parties is not reusable without agreement; documents are used as published by the HAS"
+        - "Mostly professional-audience documents (recommendations, opinions, evaluations): audience is flagged per document and patient guides are preferred in retrieval"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://minio.data.has-sante.fr/has-text-extract/TextesPublicationsHAS_XML.zip"]
+      notes: "Single 614 MB zip of semi-structured XML text per publication, rebuilt weekly; minio.data.has-sante.fr serves no robots.txt (HTTP 403), the file is the dataset's documented download"
+    refresh_days: 30
+    domains: [has-sante.fr]
+
+  - id: ema_product_information
+    name: EMA product information and EPAR summaries (French)
+    publisher: European Medicines Agency
+    homepage: https://www.ema.europa.eu/
+    status: hold
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [fr]
+    content_types: [drug_label]
+    license:
+      id: ema-legal-notice
+      name: EMA legal notice (reproduction authorised with acknowledgement)
+      evidence_url: https://www.ema.europa.eu/en/about-us/legal-notice
+      commercial_use: conditional
+      attribution: "Source : Agence européenne des médicaments (EMA)"
+      conditions:
+        - "Legal notice read 2026-11-16: material 'may be reproduced and / or distributed, totally or in part ... for non-commercial and commercial purposes, provided that EMA is always acknowledged as the source'; the acknowledgement must be included in each copy; permissions do not apply to content supplied by third parties; the EMA logo may not be used"
+        - "The notice does not mention product-information texts or EPARs specifically; the official adopted text prevails over the web copy"
+        - "Not activated: see access notes"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://www.ema.europa.eu/en/documents/report/documents-output-epar_documents_json-report_en.json"]
+      notes: "HOLD: on 2026-11-16 www.ema.europa.eu answered AuscultaBot with HTTP 429 and a CloudFront 'Sorry' page for the JSON report, the French product-information PDFs and the EPAR pages (robots.txt itself is readable and allows these paths; one page request succeeded after a pause, later ones were refused). The block was not worked around. Next steps: ask EMA for crawler access / use the documented JSON files from an allow-listed identity, or ingest the same French texts from the Union Register of medicinal products (health.ec.europa.eu, reachable) after reading its reuse terms. Needs a PDF text extractor (pypdf is installed)."
+    refresh_days: 30
+    domains: [ema.europa.eu]
+
   # ---- NIH institutes held: the server refuses the AuscultaBot user agent (not circumvented) ----
   - {id: nia, name: NIA health information, publisher: National Institute on Aging (NIH), homepage: https://www.nia.nih.gov/health, status: hold, wave: 2, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en], content_types: [condition], domains: [nia.nih.gov], notes: "HOLD: www.nia.nih.gov answers AuscultaBot with HTTP 405 for robots.txt and every page on 2026-11-15, so neither robots.txt nor the policy page could be read by us; no workaround attempted. Search-result summaries say text is public domain with credit, but that is not our own read. Retry with the owner's approval (e.g. a registered crawler identity) or use MedlinePlus topics that already cover NIA content.", license: {id: unverified, name: Not verified (site blocks crawler), commercial_use: unknown}}
   - {id: ninds, name: NINDS health information, publisher: National Institute of Neurological Disorders and Stroke (NIH), homepage: https://www.ninds.nih.gov/health-information, status: hold, wave: 2, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en], content_types: [condition], domains: [ninds.nih.gov], notes: "HOLD: www.ninds.nih.gov answers AuscultaBot with HTTP 403 for robots.txt and every page on 2026-11-15; terms and robots.txt not readable by us; no workaround attempted.", license: {id: unverified, name: Not verified (site blocks crawler), commercial_use: unknown}}

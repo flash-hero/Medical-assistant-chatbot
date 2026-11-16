@@ -14,8 +14,8 @@ from typing import Literal
 
 from core.schemas.document import Document, Section
 from core.schemas.source import SourceRecord
-from core.text import sanitize
 from data_pipeline.quality.boilerplate import clean_document
+from data_pipeline.quality.fastpath import fast_sanitize as sanitize
 from data_pipeline.quality.injection import InjectionHit, scan_document
 from data_pipeline.quality.language import detect_language
 from data_pipeline.registry import is_excluded_url

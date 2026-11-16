@@ -17,7 +17,9 @@ DetailValue = str | int | float | bool
 
 @dataclass(frozen=True)
 class AuditEntry:
-    event_type: str  # safety_template | refusal | strike | session_locked | upstream_blocked | output_violation ...
+    event_type: (
+        str  # safety_template | refusal | strike | session_locked | upstream_blocked | output_violation ...
+    )
     detail: Mapping[str, DetailValue] = field(default_factory=lambda: MappingProxyType({}))
 
 

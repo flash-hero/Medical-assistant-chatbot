@@ -6,6 +6,7 @@ Both are pure renderers over already-normalised documents and the ACTIVE registr
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections import defaultdict
@@ -142,3 +143,24 @@ def render_attribution_markdown(records: Sequence[SourceRecord], *, generated_on
             lines += [f"- Condition: {condition}" for condition in lic.conditions]
             lines.append("")
     return "\n".join(lines)
+
+
+def attribution_entries(records: Sequence[SourceRecord]) -> list[dict[str, object]]:
+    """Machine-readable credit lines for the web app: one entry per ACTIVE source."""
+    active = sorted((r for r in records if r.status is SourceStatus.ACTIVE), key=lambda r: (r.wave, r.id))
+    return [
+        {
+            "id": record.id,
+            "name": record.name,
+            "publisher": record.publisher,
+            "license_name": record.license.name,
+            "attribution": record.license.attribution,
+            "homepage": str(record.homepage),
+            "languages": [language.value for language in record.languages],
+        }
+        for record in active
+    ]
+
+
+def render_attribution_json(records: Sequence[SourceRecord]) -> str:
+    return json.dumps(attribution_entries(records), indent=2, ensure_ascii=False)

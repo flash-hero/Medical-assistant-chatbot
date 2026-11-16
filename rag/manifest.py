@@ -109,6 +109,9 @@ class ActivePointer(BaseModel):
     corpus_version: str
     promoted_at: datetime
     previous_collection: str | None = None
+    # Set only by `promote --override-gates`: why a collection went live without a passing gate report
+    # (e.g. a development seed). A normal promotion clears it.
+    gate_override: str | None = None
 
 
 def write_active(paths: DataPaths, pointer: ActivePointer) -> None:

@@ -47,7 +47,7 @@ class BuildReport:
 
 def _quarantine_line(outcome: GateOutcome) -> str:
     doc = outcome.document
-    assert doc is not None  # noqa: S101 - quarantine outcomes always carry the document
+    assert doc is not None
     return json.dumps(
         {
             "doc_id": doc.doc_id,
@@ -109,11 +109,17 @@ def build_corpus(
             dropped_lines.append(_dropped_line(dropped_id, "", [f"{group.kind}_duplicate_of:{group.kept}"]))
             reasons[f"{group.kind}_duplicate"] += 1
     final = [d for d in kept if d.doc_id not in dup_ids]
-    return _write_outputs(record, paths, final, quarantined, dropped_lines, reasons, parsed, len(dup_ids), write_marker)
+    return _write_outputs(
+        record, paths, final, quarantined, dropped_lines, reasons, parsed, len(dup_ids), write_marker
+    )
 
 
 def _strip_repeated(
-    docs: list[Document], record: SourceRecord, min_chars: int, dropped_lines: list[str], reasons: Counter[str]
+    docs: list[Document],
+    record: SourceRecord,
+    min_chars: int,
+    dropped_lines: list[str],
+    reasons: Counter[str],
 ) -> list[Document]:
     line_filter = RepeatedLineFilter.fit(docs)
     out: list[Document] = []
@@ -156,6 +162,8 @@ def _write_outputs(
     )
     atomic_write_text(paths.reports / f"{record.id}_build.json", json.dumps(asdict(report), indent=2) + "\n")
     if write_marker:
-        write_ready_marker(paths.ready_file(record.id), source_id=record.id, documents=count, sha256_of_jsonl=digest)
+        write_ready_marker(
+            paths.ready_file(record.id), source_id=record.id, documents=count, sha256_of_jsonl=digest
+        )
     log.info("corpus_built", source=record.id, parsed=parsed, kept=count, quarantined=len(quarantined))
     return report

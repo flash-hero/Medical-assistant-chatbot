@@ -282,7 +282,9 @@ class Fetcher:
             return FetchResult(url, status, None)
         size = await self._stream_to_part(response, part)
         digest = await asyncio.to_thread(self._finalise, part, target)
-        self._record(url, status, digest, size, rel, response=response, note="robots_override" if exempt else "")
+        self._record(
+            url, status, digest, size, rel, response=response, note="robots_override" if exempt else ""
+        )
         return FetchResult(url, status, target, digest, size)
 
     async def _stream_to_part(self, response: httpx.Response, part: Path) -> int:
@@ -351,7 +353,9 @@ class Fetcher:
             raise FetchFailedError(f"{url}: HTTP {result.status}")
         return result.path.read_text(encoding="utf-8", errors="replace")
 
-    async def fetch_many(self, urls: Sequence[str], *, concurrency: int = 8, **kwargs: bool) -> list[FetchResult | Exception]:
+    async def fetch_many(
+        self, urls: Sequence[str], *, concurrency: int = 8, **kwargs: bool
+    ) -> list[FetchResult | Exception]:
         gate = asyncio.Semaphore(concurrency)
 
         async def one(target_url: str) -> FetchResult | Exception:

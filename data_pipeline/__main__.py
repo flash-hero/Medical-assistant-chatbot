@@ -16,8 +16,12 @@ from data_pipeline.registry import load_registry
 
 
 def _configure_logging(verbose: bool) -> None:
-    logging.basicConfig(level=logging.INFO if verbose else logging.WARNING, stream=sys.stderr, format="%(message)s")
-    structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.INFO if verbose else logging.WARNING))
+    logging.basicConfig(
+        level=logging.INFO if verbose else logging.WARNING, stream=sys.stderr, format="%(message)s"
+    )
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO if verbose else logging.WARNING)
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,7 +32,9 @@ def _parser() -> argparse.ArgumentParser:
         target = cmd.add_mutually_exclusive_group(required=True)
         target.add_argument("--source", help="source id from the registry")
         target.add_argument("--wave", type=int, help="every active source of this wave that has a module")
-        cmd.add_argument("--limit", type=int, default=None, help="cap documents/pages (smoke runs; no ready marker)")
+        cmd.add_argument(
+            "--limit", type=int, default=None, help="cap documents/pages (smoke runs; no ready marker)"
+        )
         cmd.add_argument("--rps", type=float, default=None, help="requests per second per host (default 1)")
         cmd.add_argument("-v", "--verbose", action="store_true")
     report = sub.add_parser("report", help="write reports/data_gates.json, audit sample and attribution")
@@ -64,7 +70,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{source_id}: parsed={report.parsed} kept={report.kept} quarantined={report.quarantined} "
                     f"dropped={report.dropped}\n"
                 )
-        except Exception as exc:  # noqa: BLE001 - one failing source must not stop the others
+        except Exception as exc:
             sys.stderr.write(f"{source_id}: FAILED {type(exc).__name__}: {exc}\n")
             status = 1
     return status

@@ -1,6 +1,7 @@
 """Heuristic prompt-injection / jailbreak detector (EN, FR, AR incl. Darija). Deterministic, no model call.
 
-It is a backstop for the GUARD classifier, not the security boundary (the boundary is architectural: no tools, no
+It is a backstop for the GUARD classifier, not the security boundary (the boundary is architectural: no tools,
+no
 secrets in prompts, no model-emitted URLs). Each pattern family has a weight; weights combine as independent
 evidence (1 - prod(1 - w)) together with character-smuggling flags from ingress. Reasons are pattern ids only:
 user text never appears in a Signal or a log line.
@@ -31,8 +32,16 @@ _FILLER = (
 _PHRASES: tuple[tuple[str, float, str], ...] = (
     ("override_en", 0.7, rf"\b(?:ignore|disregard|forget|override|bypass|skip|drop)\s+{_FILLER}{_TARGET}\b"),
     ("override_en", 0.6, r"\byou (?:are|re) no longer (?:bound|restricted|limited)\b"),
-    ("override_en", 0.6, r"\b(?:disable|turn off|deactivate|remove) (?:your |the |all )?(?:safety|filters?|guardrails?)"),
-    ("new_instructions", 0.55, r"\b(?:new|updated|real|actual|true|secret) (?:instructions|system prompt|rules)\b"),
+    (
+        "override_en",
+        0.6,
+        r"\b(?:disable|turn off|deactivate|remove) (?:your |the |all )?(?:safety|filters?|guardrails?)",
+    ),
+    (
+        "new_instructions",
+        0.55,
+        r"\b(?:new|updated|real|actual|true|secret) (?:instructions|system prompt|rules)\b",
+    ),
     ("new_instructions", 0.55, r"\byour (?:new|real|true) (?:task|role|purpose|instructions?) (?:is|are)\b"),
     (
         "reveal_prompt",
@@ -56,35 +65,61 @@ _PHRASES: tuple[tuple[str, float, str], ...] = (
         r"simulate|imagine you are)\b(?:\s+\w+){0,8}\s+(?:unrestricted|uncensored|unfiltered|jailbroken|evil|"
         r"no (?:rules|restrictions|limits|filters)|without (?:rules|restrictions|limits|filters|ethics))",
     ),
-    ("dan_mode", 0.8, r"\b(?:do anything now|developer mode|dev mode|jailbreak|jail break|god mode|sudo mode)\b"),
+    (
+        "dan_mode",
+        0.8,
+        r"\b(?:do anything now|developer mode|dev mode|jailbreak|jail break|god mode|sudo mode)\b",
+    ),
     ("dan_mode", 0.35, r"\b(?:dan|stan|aim)\b(?:\s+\w+){0,3}\s+(?:mode|prompt)\b"),
     # French
-    ("override_fr", 0.7, r"\b(?:ignore|ignorez|oublie|oubliez|contourne|outrepasse)\s+(?:\w+\s+){0,4}"
-     r"(?:instructions?|regles?|consignes?|directives?|restrictions?)\b"),
+    (
+        "override_fr",
+        0.7,
+        r"\b(?:ignore|ignorez|oublie|oubliez|contourne|outrepasse)\s+(?:\w+\s+){0,4}"
+        r"(?:instructions?|regles?|consignes?|directives?|restrictions?)\b",
+    ),
     (
         "reveal_prompt_fr",
         0.7,
         r"\b(?:montre|montrez|affiche|affichez|revele|revelez|repete|repetez|donne|donnez|ecris|ecrivez|dis)"
-        r"(?:\s+moi)?(?:\s+\w+){0,3}\s+(?:prompt|message systeme|instructions? (?:cachees?|initiales?|systeme)|"
+        r"(?:\s+moi)?(?:\s+\w+){0,3}\s+(?:prompt|message systeme|instructions? (?:cachees?|initiales?|"
+        r"systeme)|"
         r"tes (?:instructions|consignes|regles)|vos (?:instructions|consignes|regles))",
     ),
     (
         "roleplay_fr",
         0.7,
         r"\b(?:tu es maintenant|a partir de maintenant|fais comme si tu etais|joue le role|fais semblant)\b"
-        r"(?:\s+\w+){0,8}\s+(?:sans (?:regles|limites|restrictions|filtres|censure)|non censure|mode developpeur)",
+        r"(?:\s+\w+){0,8}\s+(?:sans (?:regles|limites|restrictions|filtres|censure)|non censure|"
+        r"mode developpeur)",
     ),
     ("dan_mode_fr", 0.8, r"\bmode (?:developpeur|dieu|sans limites?)\b"),
-    ("repeat_above_fr", 0.6, r"\brepete(?:z)?\b(?:\s+\w+){0,3}\s+(?:texte|message|tout)\b(?:\s+\w+){0,2}\s+"
-     r"(?:ci dessus|precedent|au dessus)"),
+    (
+        "repeat_above_fr",
+        0.6,
+        r"\brepete(?:z)?\b(?:\s+\w+){0,3}\s+(?:texte|message|tout)\b(?:\s+\w+){0,2}\s+"
+        r"(?:ci dessus|precedent|au dessus)",
+    ),
     # Arabic (MSA and Darija, folded: أ->ا, ة->ه)
-    ("override_ar", 0.7, r"(?:تجاهل|انس|انسى|اهمل|تخطى|نسى)\s+(?:\S+\s+){0,3}(?:التعليمات|القواعد|الاوامر|"
-     r"التوجيهات|القيود)"),
-    ("reveal_prompt_ar", 0.7, r"(?:اكشف|اظهر|اعرض|اعطني|اعطيني|ورني|وريني|اكتب لي|قول لي)\s+(?:\S+\s+){0,3}"
-     r"(?:التعليمات|موجه النظام|رساله النظام|البرومبت|القواعد ديالك|تعليماتك|قواعدك)"),
+    (
+        "override_ar",
+        0.7,
+        r"(?:تجاهل|انس|انسى|اهمل|تخطى|نسى)\s+(?:\S+\s+){0,3}(?:التعليمات|القواعد|الاوامر|"
+        r"التوجيهات|القيود)",
+    ),
+    (
+        "reveal_prompt_ar",
+        0.7,
+        r"(?:اكشف|اظهر|اعرض|اعطني|اعطيني|ورني|وريني|اكتب لي|قول لي)\s+(?:\S+\s+){0,3}"
+        r"(?:التعليمات|موجه النظام|رساله النظام|البرومبت|القواعد ديالك|تعليماتك|قواعدك)",
+    ),
     ("roleplay_ar", 0.7, r"(?:انت الان|من الان)\s+(?:\S+\s+){0,5}(?:بدون|بلا|من غير)\s+(?:قيود|قواعد|حدود)"),
     ("dan_mode_ar", 0.8, r"وضع المطور"),
-    ("override_arabizi", 0.6, r"\b(?:nsa|tjahel|ignori)\s+(?:\w+\s+){0,3}(?:l9awa3id|lqawa3id|instructions)\b"),
+    (
+        "override_arabizi",
+        0.6,
+        r"\b(?:nsa|tjahel|ignori)\s+(?:\w+\s+){0,3}(?:l9awa3id|lqawa3id|instructions)\b",
+    ),
 )
 
 # Structural patterns on the sanitised, lowercased raw text (punctuation matters here).
@@ -96,8 +131,12 @@ _STRUCTURE: tuple[tuple[str, float, str], ...] = (
     ("fake_role_tag", 0.5, r"(?m)^\s*(?:system|developer|assistant)\s*:"),
     ("markdown_image", 0.7, r"!\[[^\]]{0,200}\]\([^)]{0,500}\)"),
     ("markdown_link", 0.45, r"\[[^\]]{0,200}\]\(\s*(?:https?:)?//"),
-    ("exfil_request", 0.7, r"(?:include|append|add|put|insert|encode)\b.{0,60}\b(?:in|into|to)\b.{0,20}"
-     r"\b(?:url|link|image|query string|markdown)"),
+    (
+        "exfil_request",
+        0.7,
+        r"(?:include|append|add|put|insert|encode)\b.{0,60}\b(?:in|into|to)\b.{0,20}"
+        r"\b(?:url|link|image|query string|markdown)",
+    ),
     ("html_injection", 0.5, r"<\s*(?:script|iframe|img|svg|object|embed|style)\b"),
 )
 
@@ -118,7 +157,10 @@ class InjectionResult:
     def signal(self) -> Signal:
         source = "sanitizer" if all(r.startswith("smuggling:") for r in self.reasons) else "lexicon"
         return Signal(
-            kind=RiskKind.INJECTION, source=source, score=round(self.score, 3), detail=",".join(self.reasons)[:200]
+            kind=RiskKind.INJECTION,
+            source=source,
+            score=round(self.score, 3),
+            detail=",".join(self.reasons)[:200],
         )
 
 

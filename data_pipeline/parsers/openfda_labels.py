@@ -40,7 +40,11 @@ def partition_urls(download_json: dict[str, object]) -> list[str]:
         partitions = download_json["results"]["drug"]["label"]["partitions"]  # type: ignore[index]
     except (KeyError, TypeError) as exc:
         raise ValueError("download.json has no results.drug.label.partitions") from exc
-    urls = [p["file"] for p in partitions if isinstance(p, dict) and str(p.get("file", "")).startswith(PARTITION_PREFIX)]
+    urls = [
+        p["file"]
+        for p in partitions
+        if isinstance(p, dict) and str(p.get("file", "")).startswith(PARTITION_PREFIX)
+    ]
     if not urls:
         raise ValueError("download.json lists no drug label partitions")
     return sorted(urls)
@@ -76,21 +80,27 @@ def iter_partition_records(zip_path: Path) -> Iterator[dict[str, object]]:
 
 def _effective_date(raw: str) -> date | None:
     try:
-        return datetime.strptime(raw[:8], "%Y%m%d").date()  # noqa: DTZ007
+        return datetime.strptime(raw[:8], "%Y%m%d").date()
     except ValueError:
         return None
 
 
 def _title(group: IngredientGroup) -> str:
     best = group.best
-    assert best is not None  # noqa: S101 - chosen() only yields groups with a best label
+    assert best is not None
     generic = (best.generic_name or group.key).title()
     brand = next((b for b, _ in group.brands.most_common() if b.casefold() != generic.casefold()), "")
     brand = best.brand_name if best.brand_name and best.brand_name.casefold() != generic.casefold() else brand
-    return f"{generic} ({brand.title() if brand.isupper() else brand}) - US drug label" if brand else f"{generic} - US drug label"
+    return (
+        f"{generic} ({brand.title() if brand.isupper() else brand}) - US drug label"
+        if brand
+        else f"{generic} - US drug label"
+    )
 
 
-def group_to_document(group: IngredientGroup, record: SourceRecord, retrieved_at: datetime) -> Document | None:
+def group_to_document(
+    group: IngredientGroup, record: SourceRecord, retrieved_at: datetime
+) -> Document | None:
     best = group.best
     if best is None:
         return None

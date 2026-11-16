@@ -11,7 +11,9 @@ import re
 from dataclasses import dataclass
 
 from core.schemas.document import Document
-from core.text import SanitizeResult, detection_form, sanitize
+from core.text import SanitizeResult
+from data_pipeline.quality.fastpath import fast_detection_form as detection_form
+from data_pipeline.quality.fastpath import fast_sanitize as sanitize
 
 _EN = {
     "en_ignore_previous": r"\b(ignore|disregard|forget|override|bypass)\b.{0,30}\b(previous|prior|above|earlier|preceding|all|any|your|these|those|the)\b.{0,25}\b(instructions?|prompts?|rules?|directives?|guidelines?|messages?|context)\b",
@@ -52,16 +54,27 @@ _AR = {
     "ar_do_not_tell_user": r"(لا|ولا)\s+(تخبر|تقل|تكشف)\s+(ال)?مستخدم",
     "ar_ai_address": r"(الى|الي|رساله ل|تعليمات ل)\s*(ال)?(ذكاء الاصطناعي|مساعد|نموذج اللغه|روبوت)",
 }
-_TEXT_PATTERNS = {name: re.compile(pattern, re.IGNORECASE | re.DOTALL) for group in (_EN, _FR, _AR) for name, pattern in group.items()}
+_TEXT_PATTERNS = {
+    name: re.compile(pattern, re.IGNORECASE | re.DOTALL)
+    for group in (_EN, _FR, _AR)
+    for name, pattern in group.items()
+}
 
 # Structural patterns run on the *sanitised but otherwise raw* text (punctuation matters here).
 _RAW_PATTERNS = {
-    "role_tag_line": re.compile(r"(?im)^\s*(assistant|system|user|human|developer|assistante?|utilisateur|systeme|système|مساعد|نظام|مستخدم)\s*:\s*\S"),
-    "chat_template_token": re.compile(r"<\|(im_start|im_end|system|user|assistant|endoftext)\|>|\[/?INST\]|<<\s*/?SYS\s*>>|<\s*/?(start|end)_of_turn\s*>", re.I),
+    "role_tag_line": re.compile(
+        r"(?im)^\s*(assistant|system|user|human|developer|assistante?|utilisateur|systeme|système|مساعد|نظام|مستخدم)\s*:\s*\S"
+    ),
+    "chat_template_token": re.compile(
+        r"<\|(im_start|im_end|system|user|assistant|endoftext)\|>|\[/?INST\]|<<\s*/?SYS\s*>>|<\s*/?(start|end)_of_turn\s*>",
+        re.I,
+    ),
     "markdown_heading_role": re.compile(r"(?im)^#{2,4}\s*(system|instruction|assistant|user)\b"),
     "hidden_html_tag": re.compile(r"<\s*(script|iframe|object|embed|style|meta|link|base|form|svg)\b", re.I),
     "html_comment": re.compile(r"<!--"),
-    "hidden_css": re.compile(r"(display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|color\s*:\s*(white|#fff))", re.I),
+    "hidden_css": re.compile(
+        r"(display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|color\s*:\s*(white|#fff))", re.I
+    ),
     "script_uri": re.compile(r"\b(javascript|vbscript)\s*:|data:\s*text/html|data:[a-z/+.-]+;base64", re.I),
     "markdown_image_url": re.compile(r"!\[[^\]]*\]\(\s*https?://", re.I),
     "base64_blob": re.compile(r"\b[A-Za-z0-9+/]{200,}={0,2}\b"),
@@ -98,7 +111,11 @@ def scan_text(text: str) -> list[InjectionHit]:
 
 def smuggling_flags(result: SanitizeResult) -> list[InjectionHit]:
     """Unicode smuggling characters seen by sanitize() (tag chars, bidi overrides, variation selectors...)."""
-    return [InjectionHit(f"unicode_{flag}", f"{result.removed} characters removed") for flag in _SUSPICIOUS_SANITIZE_FLAGS if flag in result.flags]
+    return [
+        InjectionHit(f"unicode_{flag}", f"{result.removed} characters removed")
+        for flag in _SUSPICIOUS_SANITIZE_FLAGS
+        if flag in result.flags
+    ]
 
 
 def document_text_fields(doc: Document) -> list[str]:

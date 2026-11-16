@@ -132,7 +132,9 @@ def test_assert_indexable_raises_for_hold_and_unknown() -> None:
 
 
 def test_active_domain_colliding_with_excluded_host_is_reported() -> None:
-    problems = reg.check_records([_record(domains=["mayoclinic.org"]), _excluded("x_mayo", ["mayoclinic.org"])])
+    problems = reg.check_records(
+        [_record(domains=["mayoclinic.org"]), _excluded("x_mayo", ["mayoclinic.org"])]
+    )
     assert any("excluded by x_mayo" in p for p in problems)
 
 

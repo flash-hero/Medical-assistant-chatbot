@@ -34,7 +34,12 @@ SITEMAP_URL = f"https://{HOST}/sitemap-sc.xml"
 PREFIX = f"https://{HOST}/health-information"
 FETCH_CONFIG = FetchConfig(host_rps={HOST: 0.1})
 BUILD_OPTIONS = {"min_chars": 250, "strip_repeated_lines": True}
-_SKIP_PATHS = ("/informacion-de-la-salud", "/clinical-trials", "/health-statistics", "/community-health-outreach")
+_SKIP_PATHS = (
+    "/informacion-de-la-salud",
+    "/clinical-trials",
+    "/health-statistics",
+    "/community-health-outreach",
+)
 RULES = PageRules(
     content_xpaths=(f"//div[{class_xpath('health-detail-content')}]", "//article"),
     remove_xpaths=(
