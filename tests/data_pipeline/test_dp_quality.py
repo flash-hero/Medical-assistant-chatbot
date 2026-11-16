@@ -51,6 +51,7 @@ def test_injection_patterns_are_detected(text: str) -> None:
         "Use caution when driving. The system of blood vessels carries oxygen. Users should read the label.",
         "Les personnes diabétiques doivent suivre les instructions de leur médecin.",
         "يجب على المرضى اتباع تعليمات الطبيب بعناية",
+        "قبل اي شيء اخر، الي مساعده القايمين علي رعايه المريض، وضع الهجره والبييه",
         "Data: 12 patients were studied. Source data are shown below.",
     ],
 )

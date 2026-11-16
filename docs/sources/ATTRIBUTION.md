@@ -100,6 +100,32 @@ Ausculta shows information from the sources below. Each answer cites its source;
 
 ## Wave 2
 
+### Base de données publique des médicaments (BDPM)
+
+- Publisher: ANSM, HAS and Assurance Maladie (France)
+- Credit line: Source : Base de données publique des médicaments (ANSM, HAS, Assurance Maladie), Licence Ouverte ; données mises à jour mensuellement
+- Licence: Licence Ouverte (Open Licence, Etalab, October 2011) (`etalab-licence-ouverte-1.0`); commercial use: yes
+- Licence evidence: https://base-donnees-publique.medicaments.gouv.fr/telechargement (verified 2026-11-16 by data-agent)
+- Reuse mode: `quote_only` | trust tier 1 | languages: fr
+- Condition: Download page: reproduce, distribute, redistribute and exploit the data; do not alter the data or distort its meaning; the source must be stated; the mention confers no official character on the reuse
+- Condition: Licence text (/docs/telechargement/licence_bdpm.pdf, Licence Ouverte Oct 2011): free, worldwide, perpetual, commercial exploitation allowed; condition: name the producer and give the date of the last update (a hyperlink to the information satisfies it); do not suggest official endorsement; the reuser must not mislead third parties about the content, source or update date
+- Condition: Because of the no-alteration condition the documents are quote_only: field values are kept verbatim inside a fixed French template
+- Condition: Scope limit: the files hold administrative data, composition, prescription conditions, HAS SMR opinions and generic groups. They contain no summary of product characteristics and no package leaflet, so no indications, posology or side-effect text; answers needing those must say the source does not cover them
+- Condition: The producers state they are not liable for out-of-date information: documents record the retrieval date and the corpus is refreshed monthly
+
+### HAS publications (texts of Haute Autorité de santé publications)
+
+- Publisher: Haute Autorité de santé (France)
+- Credit line: Source : Haute Autorité de santé (HAS), jeu de données « Textes des publications de la HAS », Licence Ouverte 2.0
+- Licence: Licence Ouverte 2.0 (Etalab) (`etalab-licence-ouverte-2.0`); commercial use: yes
+- Licence evidence: https://www.data.gouv.fr/datasets/textes-des-publications-de-la-has-7/ (verified 2026-11-16 by data-agent)
+- Reuse mode: `paraphrase_ok` | trust tier 1 | languages: fr
+- Condition: data.gouv.fr dataset 'Textes des publications de la HAS' (slug textes-des-publications-de-la-has-7), licence field lov2 = Licence Ouverte 2.0; datasheet: 'Des redevances ou des restrictions sont-elles appliquées dans l'accès aux données ? Non.'; updated weekly
+- Condition: HAS page 'Réutilisation des données de la HAS : rappel du cadre applicable' (has-sante.fr/jcms/p_4579115): data freely reusable under the open licence, including for commercial purposes (communication, reproduction, extraction, adaptation, distribution, exploitation); condition: state the origin, the source and the update date
+- Condition: Derived analyses are not validated by the HAS and must not be presented as HAS validation or communication
+- Condition: HAS legal notice: editorial content of third parties is not reusable without agreement; documents are used as published by the HAS
+- Condition: Mostly professional-audience documents (recommendations, opinions, evaluations): audience is flagged per document and patient guides are preferred in retrieval
+
 ### NCCIH health information
 
 - Publisher: National Center for Complementary and Integrative Health (NIH)
@@ -167,4 +193,21 @@ Ausculta shows information from the sources below. Each answer cites its source;
 - Condition: Modifications: 'You can edit or reformat the copied text, but you cannot change it in a way that is misleading or inaccurate.' Attribution: 'please cite the National Institute of Mental Health as the source.'
 - Condition: Images: the page excludes reuse of website photos and publication images ('You may not reuse or copy any of the publication images'): images are never ingested
 - Condition: Commercial use is not addressed explicitly; recorded as conditional. Do not use the NIMH logo or imply endorsement
+
+## Wave 3
+
+### Wikipedia medicine articles (English, French, Arabic)
+
+- Publisher: Wikimedia Foundation and Wikipedia contributors
+- Credit line: Source: Wikipedia, the free encyclopedia (CC BY-SA 4.0); authors are listed in each article's page history
+- Licence: Creative Commons Attribution-ShareAlike 4.0 International (`CC-BY-SA-4.0`); commercial use: conditional
+- Licence evidence: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use (verified 2026-11-16 by data-agent)
+- Reuse mode: `paraphrase_ok` | trust tier 3 | languages: en, fr, ar
+- Condition: Terms of Use section 7: text contributions are licensed CC BY-SA 4.0 (siteinfo rightsinfo of en/fr/ar.wikipedia.org returns https://creativecommons.org/licenses/by-sa/4.0/); commercial use is allowed
+- Condition: Attribution: a hyperlink to the article (its history page lists the authors) satisfies the credit requirement per Terms of Use section 7; every citation links to the article URL stored in the document
+- Condition: Share-alike: derivative text (verbatim excerpts, translations, close paraphrases) must be offered under CC BY-SA 4.0 with the same attribution; the app shows the licence name and link wherever such text appears
+- Condition: Text only: images, infobox data, tables and references are not ingested (images carry their own licences)
+- Condition: Trust tier 3: community-edited, flagged as lower trust than the government and institute sources; never the sole basis for a drug dose or a care decision
+- Condition: Wikimedia Robot policy (wikitech Robot_policy, Action API rules): descriptive User-Agent, one request at a time, at most 2 requests/second, maxlag on every call; robots.txt disallows /w/ for generic crawlers but the policy names api.php as the interface for bots, so API calls are robots-exempt (recorded in the fetch manifest)
+- Condition: Scope: English WikiProject Medicine Top- and High-importance articles plus the French and Arabic articles they link to
 

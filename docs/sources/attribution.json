@@ -77,6 +77,28 @@
     ]
   },
   {
+    "id": "bdpm",
+    "name": "Base de données publique des médicaments (BDPM)",
+    "publisher": "ANSM, HAS and Assurance Maladie (France)",
+    "license_name": "Licence Ouverte (Open Licence, Etalab, October 2011)",
+    "attribution": "Source : Base de données publique des médicaments (ANSM, HAS, Assurance Maladie), Licence Ouverte ; données mises à jour mensuellement",
+    "homepage": "https://base-donnees-publique.medicaments.gouv.fr/",
+    "languages": [
+      "fr"
+    ]
+  },
+  {
+    "id": "has_publications",
+    "name": "HAS publications (texts of Haute Autorité de santé publications)",
+    "publisher": "Haute Autorité de santé (France)",
+    "license_name": "Licence Ouverte 2.0 (Etalab)",
+    "attribution": "Source : Haute Autorité de santé (HAS), jeu de données « Textes des publications de la HAS », Licence Ouverte 2.0",
+    "homepage": "https://www.has-sante.fr/",
+    "languages": [
+      "fr"
+    ]
+  },
+  {
     "id": "nccih",
     "name": "NCCIH health information",
     "publisher": "National Center for Complementary and Integrative Health (NIH)",
@@ -140,6 +162,19 @@
     "homepage": "https://www.nimh.nih.gov/health",
     "languages": [
       "en"
+    ]
+  },
+  {
+    "id": "wikipedia_medicine",
+    "name": "Wikipedia medicine articles (English, French, Arabic)",
+    "publisher": "Wikimedia Foundation and Wikipedia contributors",
+    "license_name": "Creative Commons Attribution-ShareAlike 4.0 International",
+    "attribution": "Source: Wikipedia, the free encyclopedia (CC BY-SA 4.0); authors are listed in each article's page history",
+    "homepage": "https://www.wikipedia.org/",
+    "languages": [
+      "en",
+      "fr",
+      "ar"
     ]
   }
 ]
