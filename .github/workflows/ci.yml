@@ -39,6 +39,7 @@ jobs:
     env:
       AUSCULTA_ENV: test
       AUSCULTA_LLM_BACKEND: fake
+      AUSCULTA_EMBED_BACKEND: fake
       AUSCULTA_DATA_ROOT: ${{ runner.temp }}/ausculta-data
       AUSCULTA_SESSION_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
       QDRANT_URL: http://127.0.0.1:6333
@@ -100,6 +101,8 @@ jobs:
           SITE_ADDRESS=:80
           GEMINI_TIER=free
           AUSCULTA_LLM_BACKEND=fake
+          AUSCULTA_EMBED_BACKEND=fake
+          AUSCULTA_ALLOW_FAKE=true
           AUSCULTA_SESSION_SECRET=ci-only-not-a-secret-0123456789abcdef0123456789
           POSTGRES_PASSWORD=ci-pg
           REDIS_PASSWORD=ci-redis
