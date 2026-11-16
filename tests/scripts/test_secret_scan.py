@@ -24,8 +24,11 @@ def test_env_files_blocked_but_templates_allowed(monkeypatch):
 
 
 def test_inline_allow_marker_skips_only_that_line():
-    text = 'SECRET = "test-secret-0123456789abcdef"  # secret-scan: allow
-token = "abcdefghijklmnopqrstuvwxyz123456"
-'
+    text = "\n".join(
+        [
+            'SECRET = "test-secret-0123456789abcdef"  # secret-scan: allow',
+            'token = "abcdefghijklmnopqrstuvwxyz123456"',
+        ]
+    )
     findings = secret_scan.scan_text("t.py", text)
     assert [f.line for f in findings] == [2]
