@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     reports = args.reports or (get_settings().data_root / "reports")
     results = evaluate(gates, load_records(reports) if reports.exists() else [])
     sys.stdout.write(render(results) + "\n")
+    if not results:
+        sys.stderr.write(f"no gates matched --only {args.only!r}\n")
     if args.json:
         payload = [
             {"gate": r.gate, "verdict": r.verdict.value, "measured": r.measured, "detail": r.detail}

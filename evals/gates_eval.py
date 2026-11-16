@@ -103,7 +103,9 @@ def _evaluate_one(name: str, spec: Mapping[str, Any], rec: MetricRecord | None) 
     of = spec.get("of") or spec.get("sample")
     if spec.get("of") is not None:
         of_n = int(spec["of"])
-        n = rec.sample_size or of_n
+        n = rec.sample_size if rec.sample_size is not None else of_n
+        if n <= 0:
+            return GateResult(name, Verdict.FAIL, "empty sample (n=0)", f"{rec.value:g} (n=0)")
         reduced = n < of_n
         if target > 1 and n != of_n:
             # count gate ("294 of 300") measured on a different sample size: compare as rates
@@ -135,5 +137,8 @@ def evaluate(gates: Mapping[str, Mapping[str, Any]], records: Iterable[MetricRec
 
 
 def exit_code(results: Iterable[GateResult], *, allow_missing: bool = False) -> int:
+    results = list(results)
+    if not results:
+        return 2  # nothing evaluated (mistyped --only prefix or empty gates file) is never a pass
     bad = {Verdict.FAIL} | (set() if allow_missing else {Verdict.MISSING})
     return 1 if any(r.verdict in bad for r in results) else 0

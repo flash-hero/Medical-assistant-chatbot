@@ -101,3 +101,9 @@ def test_real_gates_file_parses_and_cli_runs(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "PASS  data.excluded_sources" in out
     assert code == 1  # other data gates are MISSING
+
+
+def test_zero_gates_is_never_a_pass_and_empty_samples_fail():
+    assert exit_code(evaluate({}, [])) == 2
+    gates = {"c": {"metric": "m", "op": ">=", "value": 294, "of": 300}}
+    assert evaluate(gates, [rec("m", 0, sample_size=0)])[0].verdict is Verdict.FAIL
