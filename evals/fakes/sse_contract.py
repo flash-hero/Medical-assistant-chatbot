@@ -57,14 +57,14 @@ def parse_sse(body: str) -> list[ChatEvent]:
 
 def _streamed_text_matches(events: Sequence[ChatEvent]) -> list[str]:
     problems: list[str] = []
-    streamed = "".join(e.text for e in events if e.type == "delta")  # type: ignore[union-attr]
+    streamed = "".join(e.text for e in events if e.type == "delta")
     answers = [e for e in events if e.type == "answer"]
     if streamed and not answers:
         problems.append("delta events without a final answer")
     for ans in answers:
-        if streamed and not ans.replaces_stream and ans.text != streamed:  # type: ignore[union-attr]
+        if streamed and not ans.replaces_stream and ans.text != streamed:
             problems.append("answer text differs from the streamed deltas but replaces_stream is false")
-        if ans.mode == "verified" and streamed:  # type: ignore[union-attr]
+        if ans.mode == "verified" and streamed:
             problems.append("verified answer was streamed")
     return problems
 

@@ -1,4 +1,4 @@
-"""Wikipedia source: extract -> sections, API helpers, fetch against a mock MediaWiki, parse recorded responses."""
+"""Wikipedia source: extract -> sections, API helpers, mock-MediaWiki fetch, recorded-response parse."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def _routes() -> dict[str, list[httpx.Response] | httpx.Response]:
 
 # ---- text -> sections ----------------------------------------------------------------------------
 def test_sections_keep_hierarchy_and_drop_reference_blocks_in_every_language() -> None:
-    en = "Intro line one.\nIntro line two.\n\n== Causes ==\nGenes.\n=== Risk factors ===\nSmoke.\n== See also ==\nX\n=== Sub ===\nY\n== Treatment ==\nInhaler."
+    en = "Intro line one.\nIntro line two.\n\n== Causes ==\nGenes.\n=== Risk factors ===\nSmoke.\n== See also ==\nX\n=== Sub ===\nY\n== Treatment ==\nInhaler."  # noqa: E501
     sections = wikipedia_text.extract_to_sections(en, "Asthma", "en")
     assert [s.heading_path for s in sections] == [
         ("Asthma",),
@@ -224,7 +224,8 @@ async def test_linked_titles_batches_and_resolves_redirects(paths: DataPaths) ->
 async def test_fetch_downloads_every_language_and_resumes_from_the_cache(paths: DataPaths) -> None:
     async with _fetcher(paths, _routes()) as fetcher:
         first = await wikipedia.fetch(fetcher, paths)
-    # English Asthma, French Asthme, Arabic ربو are usable; Medicine is a disambiguation page that still counts
+    # English Asthma, French Asthme, Arabic ربو are usable; Medicine is a disambiguation page that still
+    # counts
     # as a response; Gout is a missing page and Addiction/Cancer answer 404.
     assert first == 5
     calls: list[str] = []
@@ -252,7 +253,8 @@ async def test_fetch_limit_caps_english_articles_and_their_translations(paths: D
     routes = _routes()
     routes[wikipedia.langlinks_url(["Asthma"], "ar")] = _ok("langlinks_ar.json")
     routes[wikipedia.langlinks_url(["Asthma"], "fr")] = _ok("langlinks_fr.json")
-    assert top and high
+    assert top
+    assert high
     async with _fetcher(paths, routes) as fetcher:
         assert await wikipedia.fetch(fetcher, paths, limit=1) == 3
 

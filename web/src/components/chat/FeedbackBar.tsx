@@ -1,7 +1,6 @@
 "use client";
 
-import { ThumbsDownIcon } from "@phosphor-icons/react/dist/ssr/ThumbsDown";
-import { ThumbsUpIcon } from "@phosphor-icons/react/dist/ssr/ThumbsUp";
+import { ThumbsDownIcon, ThumbsUpIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useId, useState, type FormEvent } from "react";
 import type { FeedbackReason } from "@/lib/api/client";

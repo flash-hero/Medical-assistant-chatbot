@@ -87,11 +87,15 @@ class CueSet:
         return bool(self.historical and self.historical.search(clause))
 
     def is_informational(self, clause: str, hit_start: int) -> bool:
-        if self.informational is None or not self.informational.search(clause[:hit_start]):
+        """A general question about the hit: an informational cue BEFORE it, or a French inversion anywhere
+        ("une surdose abîme-t-elle le foie"), and no personal reference in the clause."""
+        cue_before = self.informational is not None and self.informational.search(clause[:hit_start])
+        if not (cue_before or _FR_INVERSION.search(clause)):
             return False
         # The question words themselves ("ما هي" = "what is") and French inversion ("abîme-t-elle") are not
         # personal references, so they are blanked before looking for one.
-        rest = _FR_INVERSION.sub(" ", self.informational.sub(" ", clause))
+        rest = self.informational.sub(" ", clause) if self.informational is not None else clause
+        rest = _FR_INVERSION.sub(" ", rest)
         return not (self.personal and self.personal.search(rest))
 
 

@@ -19,6 +19,7 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from app.api.container import Overrides
 from app.main import create_app
@@ -98,10 +99,10 @@ def _live_settings(tmp_path: Path) -> Settings:
         AUSCULTA_ENV="test",
         AUSCULTA_LLM_BACKEND="gemini",
         DATABASE_URL=f"sqlite+aiosqlite:///{(tmp_path / 'live.db').as_posix()}",
-        AUSCULTA_SESSION_SECRET=secrets.token_urlsafe(48),
+        AUSCULTA_SESSION_SECRET=SecretStr(secrets.token_urlsafe(48)),
         REDIS_URL=None,
         AUSCULTA_KILL_SWITCH=False,
-    )  # type: ignore[call-arg]
+    )
     if settings.gemini_api_key is None:
         pytest.skip("GEMINI_API_KEY not configured")
     return settings
@@ -149,7 +150,24 @@ def _skip_if_rate_limited(llm: CallBudget) -> None:
         pytest.skip(f"Gemini API rate limited (scope={scope}); live smoke not run")
 
 
-async def test_live_medical_question_and_emergency(tmp_path: Path) -> None:
+def _record_summary(node: pytest.Item, kind: str, medical: list[Any], llm: CallBudget) -> None:
+    """Observations for the junit report (`--junitxml`), so a run can be documented without re-running it.
+    Appends to user_properties directly: the record_property fixture warns under the default xunit2 family."""
+    answer = next((e for e in medical if e.type == "answer"), None)
+    meta = next((e for e in medical if e.type == "meta"), None)
+    node.user_properties.extend(
+        [
+            ("retriever", kind),
+            ("medical_events", ",".join(e.type for e in medical)),
+            ("answer_mode", answer.mode if answer else "none"),
+            ("citations", len(answer.citations) if answer else 0),
+            ("corpus_version", meta.release.corpus_version if meta else "none"),
+            ("model_calls", ",".join(llm.calls)),
+        ]
+    )
+
+
+async def test_live_medical_question_and_emergency(tmp_path: Path, request: pytest.FixtureRequest) -> None:
     settings = _live_settings(tmp_path)
     llm, retriever, kind = await _build(settings)
     app = create_app(settings, overrides=Overrides(llm=llm, retriever=retriever))
@@ -162,6 +180,7 @@ async def test_live_medical_question_and_emergency(tmp_path: Path) -> None:
             _skip_if_rate_limited(llm)
             calls_before = len(llm.calls)
             emergency = await _chat(client, token, EMERGENCY)
+    _record_summary(request.node, kind, medical, llm)
     assert len(llm.calls) <= MAX_MODEL_CALLS, llm.calls
     assert len(llm.calls) == calls_before, "the emergency turn must not call any model"
     answer = next(e for e in medical if e.type == "answer")

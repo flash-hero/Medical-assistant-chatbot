@@ -1,6 +1,4 @@
-import { BuildingsIcon } from "@phosphor-icons/react/dist/ssr/Buildings";
-import { ClockIcon } from "@phosphor-icons/react/dist/ssr/Clock";
-import { UsersIcon } from "@phosphor-icons/react/dist/ssr/Users";
+import { BuildingsIcon, ClockIcon, UsersIcon } from "@/components/ui/icons";
 import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 

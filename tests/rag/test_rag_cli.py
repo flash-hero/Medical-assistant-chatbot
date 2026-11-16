@@ -121,7 +121,9 @@ def test_cli_build_eval_promote_rollback(env, capsys):
     data = json.loads(manifest.read_text(encoding="utf-8"))
     manifest.write_text(json.dumps({**data, "signature": "0" * 64}), encoding="utf-8")
     assert main(["promote", "ausculta_corpus_c2"]) == EXIT_ERROR
-    assert "do not match the signed manifest" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "do not match the signed manifest" in captured.out
+    assert "command_failed" in captured.err  # the cause also reaches a stderr-only log
 
 
 def test_cache_only_build_stops_on_a_miss_and_bad_inputs_fail(env, tmp_path, capsys):

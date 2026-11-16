@@ -1,7 +1,8 @@
 """HAS publication texts (data.gouv.fr dataset 'Textes des publications de la HAS') -> Documents.
 
 The dataset is one zip of semi-structured XML, one `*_text.xml` per PDF (plain text by page) and, for PDF/UA
-files, a `*_tagged.xml` twin. Only the `_text.xml` files are read: they exist for every PDF. Two layouts occur:
+files, a `*_tagged.xml` twin. Only the `_text.xml` files are read: they exist for every PDF. Two layouts
+occur:
 page text as a bare string, or nested `<P>`/`<Title>` elements; both are handled.
 
 Scope: patient guides, vaccination recommendations, professional recommendations and the ALD physician guides.
@@ -45,12 +46,49 @@ CATEGORIES: dict[str, tuple[str, ContentType]] = {
     "GuideMedecinALD": ("professional", ContentType.GUIDELINE),
 }
 _KEEP_HYPHEN_BEFORE = frozenset(
-    "être il elle on ce t je tu nous vous ils elles ci là à ceci cela celui celle y en pas".split()
+    [
+        "être",
+        "il",
+        "elle",
+        "on",
+        "ce",
+        "t",
+        "je",
+        "tu",
+        "nous",
+        "vous",
+        "ils",
+        "elles",
+        "ci",
+        "là",
+        "à",
+        "ceci",
+        "cela",
+        "celui",
+        "celle",
+        "y",
+        "en",
+        "pas",
+    ]
 )
 _BULLET = re.compile(r"^\s*[•▪●◦·–—-]\s+")
 _SLUG_DATE = re.compile(r"^(\d{4}-\d{2}-\d{2})_")
 _SLUG_TAIL = re.compile(r"(_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(_\d+)?)?_text$")
 _FOLDER_ID = re.compile(r"^[pcr]_\d+$")
+# PDF text extraction leaves Symbol/Wingdings glyphs in the Unicode private-use area (U+F020-U+F0FF): list
+# bullets, arrows, check boxes. They are mapped to plain characters; any other private-use code point and the
+# "(cid:N)" markers of unresolved glyphs are removed (kept in the text they would quarantine the document).
+_BULLET_GLYPHS = ""
+_GLYPH_MAP = {
+    **{ord(c): "•" for c in _BULLET_GLYPHS},
+    **{ord(c): "→" for c in ""},
+    ord(""): "≤",
+    ord(""): "≥",
+    ord(""): "-",
+    ord(""): " ",
+}
+_PRIVATE_USE = re.compile("[-󰀀-􏿿]")
+_CID = re.compile(r"\(cid:\d+\)")
 _LINE_HYPHEN = re.compile(r"(\w)-[ \t]*\n[ \t]*(\w[^\n]*)")
 log = structlog.get_logger(__name__)
 
@@ -65,6 +103,11 @@ async def fetch(fetcher: Fetcher, _paths: DataPaths | None = None, *, limit: int
 
 
 # ---- text extraction ------------------------------------------------------------------------------
+def clean_glyphs(text: str) -> str:
+    """Map PDF symbol-font glyphs to bullets/arrows, drop the rest of the private-use area and cid markers."""
+    return _PRIVATE_USE.sub("", _CID.sub("", text.translate(_GLYPH_MAP)))
+
+
 def _join_hyphenated(match: re.Match[str]) -> str:
     following = match.group(2)
     word = re.match(r"\w+", following)
@@ -88,7 +131,7 @@ def text_blocks(raw: str) -> list[str]:
     """Paragraphs of a page of plain text; a bullet line opens a new "- " item."""
     out: list[str] = []
     block: list[str] = []
-    for line in dehyphenate(raw.replace("\xad", "").replace("\xa0", " ")).split("\n"):
+    for line in dehyphenate(clean_glyphs(raw).replace("\xad", "").replace("\xa0", " ")).split("\n"):
         if not line.strip():
             _flush(block, out)
             continue
@@ -104,7 +147,7 @@ def page_blocks(page: etree._Element) -> list[tuple[bool, str]]:
     if not page.xpath(".//P|.//Title"):
         return [(False, text) for text in text_blocks("".join(page.itertext()))]
     found = [
-        (el.tag == "Title", " ".join("".join(el.itertext()).split()))
+        (el.tag == "Title", " ".join(clean_glyphs("".join(el.itertext())).split()))
         for el in page.iter("P", "Title")
         if not el.xpath(".//P|.//Title")
     ]

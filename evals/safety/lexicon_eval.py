@@ -1,9 +1,9 @@
 """Deterministic, lexicon-only safety evaluation over evals/safety/sets (no network, no model call).
 
-Every user turn of an item (its history, then the current message) goes through the engine's own deterministic
-path: process_ingress (sanitise, cap, redact) then GuardRouter.precheck (risk lexicon + injection heuristics with
-the ingress smuggling flags). An item's detected kinds are the union over its turns, because the engine
-prechecks every message on arrival and safety flags are sticky for the session.
+Every user turn of an item (its history, then the current message) goes through the engine's own
+deterministic path: process_ingress (sanitise, cap, redact) then GuardRouter.precheck (risk lexicon +
+injection heuristics with the ingress smuggling flags). An item's detected kinds are the union over its
+turns, because the engine prechecks every message on arrival and safety flags are sticky for the session.
 
   python -m evals.safety.lexicon_eval [--out PATH] [--no-write] [--show-failures {none,tune,all}]
 
@@ -85,7 +85,7 @@ class Rate:
 
 
 class Detector:
-    """The engine's deterministic precheck, turn by turn (built exactly as app/pipeline/factory.py builds it)."""
+    """The engine's deterministic precheck, turn by turn (built as app/pipeline/factory.py builds it)."""
 
     def __init__(self, router: GuardRouter, *, max_chars: int) -> None:
         self._router = router
@@ -150,7 +150,9 @@ def _lang_records(results: Sequence[ItemResult], lang: str, measured_at: str) ->
     full = subset(results, lang=lang)
     for kind in GATE_KINDS:  # count form, full set: what the safety.* gates read (294 of 300 -> as a rate)
         rate = recall(full, kind)
-        records.append(_record(f"{kind}_detected", rate.hits, {"lang": lang, "split": ALL}, rate.n, measured_at))
+        records.append(
+            _record(f"{kind}_detected", rate.hits, {"lang": lang, "split": ALL}, rate.n, measured_at)
+        )
     for split in SPLITS:
         part = subset(results, lang=lang, split=split)
         for kind in (*RISK_CATEGORIES, INJECTION):
@@ -214,7 +216,11 @@ def render_failures(results: Sequence[ItemResult], show: str) -> str:
             continue
         expected = ",".join(sorted(r.item.expected_kinds)) or "-"
         detected = ",".join(sorted(r.detected)) or "-"
-        preview = r.item.text.encode("unicode_escape").decode("ascii") if not r.item.text.isprintable() else r.item.text
+        preview = (
+            r.item.text.encode("unicode_escape").decode("ascii")
+            if not r.item.text.isprintable()
+            else r.item.text
+        )
         lines.append(f"{r.item.id:<16} want={expected:<28} got={detected:<28} {preview[:_TEXT_PREVIEW]}")
     return "\n".join(lines)
 
@@ -224,7 +230,9 @@ def default_out() -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--sets", type=Path, default=SETS_DIR)
     parser.add_argument("--out", type=Path, default=None, help=f"default: <data_root>/reports/{METRICS_FILE}")
     parser.add_argument("--no-write", action="store_true", help="print only, do not write metric records")

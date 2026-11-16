@@ -58,7 +58,7 @@ _WS = re.compile(r"[ \t\r\n   ]+")
 _KIND_RULES: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(
-            r"when to (see|call|seek|get)|seek (medical )?(care|help)|call (your|a) (doctor|health)|emergency",
+            r"when to (see|call|seek|get)|seek (medical )?(care|help)|call (your|a) (doctor|health)|emergency",  # noqa: E501
             re.I,
         ),
         "when_to_seek_care",

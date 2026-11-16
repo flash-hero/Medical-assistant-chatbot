@@ -9,7 +9,7 @@ import argparse
 import asyncio
 import logging
 import sys
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 
 import structlog
 from qdrant_client import AsyncQdrantClient
@@ -18,6 +18,7 @@ from core.config import Settings, get_settings
 from core.errors import AusculaError
 from core.ports import LLMProvider
 from rag.build import BuildRequest, IndexBuilder
+from rag.cli_eval import Handler
 from rag.embed_cache import EmbeddingCache
 from rag.embedding import DocumentEmbedder, embed_model_id
 from rag.errors import EmbeddingQuotaExhausted, GateFailed
@@ -27,6 +28,7 @@ from rag.registry import load_registry
 from rag.sparse import SparseEncoder
 
 EXIT_OK, EXIT_ERROR, EXIT_QUOTA, EXIT_GATE = 0, 1, 3, 4
+log = structlog.get_logger(__name__)
 
 
 def out(text: str = "") -> None:
@@ -115,7 +117,6 @@ async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
 
 
 # ---- dispatch ----------------------------------------------------------------------------------------
-Handler = Callable[[argparse.Namespace, Settings], Awaitable[int]]
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -155,4 +156,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return EXIT_GATE
     except AusculaError as exc:
         out(f"Error [{exc.code}]: {exc}")
+        # also on stderr: a run logged with `2> file` (stderr only) must still show why it exited 1
+        log.error("command_failed", command=args.cmd, code=exc.code, error=str(exc))
         return EXIT_ERROR

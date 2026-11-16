@@ -51,7 +51,7 @@ def _rules(content: str, *, dates: tuple[str, ...] = ("//time",), extra: tuple[s
         title_xpath="//h1",
         title_suffix=re.compile(r"\s+\|\s+.*$"),
         drop_headings=re.compile(
-            r"^(References?|Reprints|Clinical Trials?\b.*|Explore clinical trials.*|Share outreach materials.*|Additional federal resources|"
+            r"^(References?|Reprints|Clinical Trials?\b.*|Explore clinical trials.*|Share outreach materials.*|Additional federal resources|"  # noqa: E501
             r"Related (Topics|Resources|Information)|Sources?|Find help and support)$",
             re.I,
         ),

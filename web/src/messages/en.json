@@ -86,6 +86,7 @@
     "sourcesBody": "Answers come only from public health publishers whose licences allow reuse. Each source is listed with its licence, so you can read the original.",
     "sourcesLink": "See all sources and licences",
     "sourcesLicence": "Licence: {licence}",
+    "sourcesMore": "{count, plural, one {# more public source, with its licence, on the Sources page.} other {# more public sources, each with its licence, on the Sources page.}}",
     "deskTitle": "Also at the front desk",
     "deskBody": "Practical questions about the hospital are answered from information the hospital has verified, never from the AI’s imagination.",
     "desk": {

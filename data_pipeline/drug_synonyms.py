@@ -1,6 +1,7 @@
 """Load and query data_pipeline/drug_synonyms.yaml (INN <-> USAN <-> brand, French DCI, Arabic names).
 
-Used by RAG for cross-lingual query expansion. Entries stay `review_status: unverified` until a pharmacist signs
+Used by RAG for cross-lingual query expansion. Entries stay `review_status: unverified` until a pharmacist
+signs
 them off; consumers should treat them as retrieval aliases only, never as clinical statements.
 """
 

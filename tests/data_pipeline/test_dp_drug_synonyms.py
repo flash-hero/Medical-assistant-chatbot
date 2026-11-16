@@ -19,7 +19,8 @@ def test_at_least_200_entries_all_unverified(entries: tuple[ds.DrugEntry, ...]) 
 
 def test_every_entry_has_french_and_arabic_names(entries: tuple[ds.DrugEntry, ...]) -> None:
     for entry in entries:
-        assert entry.fr.strip() and entry.ar, entry.inn
+        assert entry.fr.strip(), entry.inn
+        assert entry.ar, entry.inn
         assert any("؀" <= ch <= "ۿ" for name in entry.ar for ch in name), (
             f"{entry.inn}: Arabic script expected"
         )

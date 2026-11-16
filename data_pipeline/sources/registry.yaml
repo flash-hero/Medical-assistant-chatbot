@@ -525,7 +525,7 @@ sources:
     access:
       method: bulk
       endpoints: ["https://www.ema.europa.eu/en/documents/report/documents-output-epar_documents_json-report_en.json"]
-      notes: "HOLD: on 2026-11-16 www.ema.europa.eu answered AuscultaBot with HTTP 429 and a CloudFront 'Sorry' page for the JSON report, the French product-information PDFs and the EPAR pages (robots.txt itself is readable and allows these paths; one page request succeeded after a pause, later ones were refused). The block was not worked around. Next steps: ask EMA for crawler access / use the documented JSON files from an allow-listed identity, or ingest the same French texts from the Union Register of medicinal products (health.ec.europa.eu, reachable) after reading its reuse terms. Needs a PDF text extractor (pypdf is installed)."
+      notes: "HOLD: on 2026-11-16 www.ema.europa.eu answered AuscultaBot with HTTP 429 and a CloudFront 'Sorry' page for the JSON report, the French product-information PDFs and the EPAR pages (robots.txt itself is readable and allows these paths; one page request succeeded after a pause, later ones were refused). Re-probed later on 2026-11-16 (one request each, no retry): robots.txt HTTP 200, the JSON report HTTP 429 with the same CloudFront page, so the site still rate-limits our identity and the source stays on hold. The block was not worked around. Next steps: ask EMA for crawler access / use the documented JSON files from an allow-listed identity, or ingest the same French texts from the Union Register of medicinal products (health.ec.europa.eu, reachable) after reading its reuse terms. Needs a PDF text extractor (pypdf is installed)."
     refresh_days: 30
     domains: [ema.europa.eu]
 

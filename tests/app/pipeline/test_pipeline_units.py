@@ -11,7 +11,10 @@ from app.config_files import ConfigFileError
 from app.pipeline.citations import build_citations, needs_source_language_note, snippet
 from app.pipeline.forms import appointment_form, bookable_departments
 from app.pipeline.prompts import (
+    GUARD_FILE,
+    POLICY_FILE,
     PROMPTS_DIR,
+    REWRITE_FILE,
     build_answer_prompt,
     build_rewrite_prompt,
     load_prompt_set,
@@ -99,9 +102,9 @@ def test_prompt_set_has_canary_and_stable_hash() -> None:
 
 
 def test_prompt_set_requires_canary_placeholder(tmp_path: Path) -> None:
-    for name in ("answer_policy.v1.txt", "rewrite.v1.txt", "guard.v1.yaml"):
+    for name in (POLICY_FILE, REWRITE_FILE, GUARD_FILE):
         (tmp_path / name).write_text((PROMPTS_DIR / name).read_text(encoding="utf-8"), encoding="utf-8")
-    (tmp_path / "answer_policy.v1.txt").write_text("no placeholder here", encoding="utf-8")
+    (tmp_path / POLICY_FILE).write_text("no placeholder here", encoding="utf-8")
     with pytest.raises(ConfigFileError):
         load_prompt_set(tmp_path)
 

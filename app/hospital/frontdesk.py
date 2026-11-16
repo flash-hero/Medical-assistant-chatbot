@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from rapidfuzz import fuzz
 
@@ -179,6 +180,10 @@ _TOPIC_RENDERERS: dict[str, Callable[[HospitalProfile, Texts, str], str | None]]
 }
 
 
+def _render_faq(f: FAQ, texts: Texts, locale: str) -> str:
+    return f"{f.answer.get(locale)}"
+
+
 def _candidates(
     query: str, p: HospitalProfile
 ) -> list[tuple[float, str, Callable[[Texts, str], str | None]]]:
@@ -186,16 +191,15 @@ def _candidates(
     for d in p.departments:
         score = _best(_department_keywords(d), query)
         if score:
-            found.append((score + 1, f"department:{d.id}", lambda t, loc, d=d: render_department(d, t, loc)))
+            found.append((score + 1, f"department:{d.id}", partial(render_department, d)))
     for f in p.faqs:
         score = _best(_faq_keywords(f), query)
         if score:
-            found.append((score, f"faq:{f.id}", lambda t, loc, f=f: f"{f.answer.get(loc)}"))
+            found.append((score, f"faq:{f.id}", partial(_render_faq, f)))
     for topic, keywords in TOPIC_KEYWORDS.items():
         score = _best(list(keywords), query)
         if score:
-            renderer = _TOPIC_RENDERERS[topic]
-            found.append((score - 1, f"topic:{topic}", lambda t, loc, r=renderer: r(p, t, loc)))
+            found.append((score - 1, f"topic:{topic}", partial(_TOPIC_RENDERERS[topic], p)))
     return sorted(found, key=lambda x: -x[0])
 
 

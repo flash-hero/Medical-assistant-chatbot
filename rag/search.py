@@ -26,6 +26,12 @@ from rag.sparse import SparseVec
 FILTERABLE = frozenset(KEYWORD_INDEXES) | frozenset(INTEGER_INDEXES)
 MAX_FILTER_VALUES = 50
 MAX_FILTER_VALUE_CHARS = 200
+# Qdrant breaks RRF score ties arbitrarily: on seed1, 143 of 150 EN gold queries came back in a different
+# order (30 with a different set at the cut) on an immediate repeat, dense results being identical. The fused
+# request therefore fetches a margin past `fused_limit` (a tie group has at most one point per prefetch list)
+# and order_fused() ranks deterministically before cutting.
+FUSED_TIE_MARGIN = 16
+RRF_DECIMALS = 9  # equal rank sums can differ in the last float bits depending on summation order
 
 
 @dataclass(frozen=True)
@@ -97,7 +103,7 @@ def build_requests(plan: QueryPlan, cfg: RetrievalConfig) -> list[models.QueryRe
         prefetch=prefetch,
         query=models.RrfQuery(rrf=models.Rrf(k=cfg.rrf_k)),
         filter=plan.flt,
-        limit=cfg.fused_limit,
+        limit=cfg.fused_limit + FUSED_TIE_MARGIN,
         with_payload=True,
     )
     dense = [
@@ -130,7 +136,19 @@ async def run_search(
             pid = str(p.id)
             dense_scores[pid] = max(dense_scores.get(pid, -1.0), float(p.score))
     sparse_ids = frozenset(str(p.id) for resp in responses[1 + n_dense :] for p in resp.points)
-    return SearchHits(fused, MappingProxyType(dense_scores), sparse_ids)
+    ordered = order_fused(fused, dense_scores, cfg.fused_limit)
+    return SearchHits(ordered, MappingProxyType(dense_scores), sparse_ids)
+
+
+def order_fused(
+    fused: Sequence[Candidate], dense_scores: Mapping[str, float], limit: int
+) -> tuple[Candidate, ...]:
+    """Deterministic fused ranking: RRF score, then best dense cosine (absent = below any cosine), then id."""
+    ranked = sorted(
+        fused,
+        key=lambda c: (-round(c.rrf, RRF_DECIMALS), -dense_scores.get(c.point_id, -2.0), c.point_id),
+    )
+    return tuple(ranked[:limit])
 
 
 def diversify(

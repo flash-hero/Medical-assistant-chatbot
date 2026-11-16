@@ -1,6 +1,6 @@
 "use client";
 
-import { FirstAidIcon } from "@phosphor-icons/react/dist/ssr/FirstAid";
+import { FirstAidIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { useChatActions } from "./ChatContext";

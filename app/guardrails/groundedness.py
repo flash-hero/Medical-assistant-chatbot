@@ -94,9 +94,10 @@ class GroundednessVerifier:
             for i, s in enumerate(batch)
         }
         try:
-            res = await asyncio.wait_for(
-                self._llm.decide(ModelRole.VERIFY, context, questions), self._timeout
-            )
+            # asyncio.timeout, not wait_for: on Python 3.11 wait_for swallows an outer task.cancel() when the
+            # call finishes in the same loop iteration, so a cancelled turn would keep running.
+            async with asyncio.timeout(self._timeout):
+                res = await self._llm.decide(ModelRole.VERIFY, context, questions)
             flags = tuple(
                 (res.answers[k].noul or 0.0) >= self._cfg.supported_min
                 for k in sorted(questions, key=_key_index)
@@ -124,7 +125,8 @@ class GroundednessVerifier:
             timeout_s=self._timeout,
         )
         try:
-            out = await asyncio.wait_for(self._llm.generate(request), self._timeout)
+            async with asyncio.timeout(self._timeout):  # not wait_for: see _verify_batch
+                out = await self._llm.generate(request)
             data = json.loads(out.text)
             flags = tuple(data.get(k) is True for k in ids)
             return GroundednessResult(supported=flags, available=True, model_id=out.model_id)

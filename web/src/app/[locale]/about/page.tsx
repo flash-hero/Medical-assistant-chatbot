@@ -1,5 +1,4 @@
-import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr/CheckCircle";
-import { ProhibitIcon } from "@phosphor-icons/react/dist/ssr/Prohibit";
+import { CheckCircleIcon, ProhibitIcon } from "@/components/ui/icons";
 import type { Metadata } from "next";
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";

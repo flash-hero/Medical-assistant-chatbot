@@ -11,6 +11,7 @@ recall/abstention gate records, so they can never promote a collection.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, replace
@@ -21,10 +22,18 @@ from typing import Any
 import structlog
 from qdrant_client import AsyncQdrantClient
 
+from core.errors import UpstreamError, UpstreamRateLimited
 from core.models import EMBED_DIM
 from core.ports import LLMProvider
 from evals.retrieval.calibrate import Calibration, Sample, calibrate
-from evals.retrieval.evaluate import AblationRun, latency, run_ablation, standard_ablations, summarize
+from evals.retrieval.evaluate import (
+    AblationRun,
+    Sleep,
+    latency,
+    run_ablation,
+    standard_ablations,
+    summarize,
+)
 from evals.retrieval.evaluate import paired_ndcg as paired
 from evals.retrieval.gold import GoldQuery, load_gold
 from evals.retrieval.metrics import percentile
@@ -38,18 +47,28 @@ from evals.retrieval.report import (
 )
 from evals.retrieval.resume_check import measure_resume
 from rag.embed_cache import EmbeddingCache
-from rag.embedding import DocumentEmbedder, QueryEmbedder, embed_model_id, prefixed_query, query_cache_key
+from rag.embedding import (
+    DEFAULT_RATE_LIMIT_WAIT_S,
+    DocumentEmbedder,
+    QueryEmbedder,
+    embed_model_id,
+    prefixed_query,
+    query_cache_key,
+)
 from rag.index import DENSE_VECTOR, point_id
 from rag.manifest import read_manifest
 from rag.offline import StandInLLM
-from rag.paths import DataPaths
+from rag.paths import DRUG_SYNONYMS_PATH, DataPaths
 from rag.rerank import DecisionReranker, NoopReranker, Reranker
 from rag.retrieval import HybridRetriever
 from rag.retrieval_config import RetrievalConfig, load_retrieval_config, save_retrieval_config
 from rag.sparse import SparseEncoder
+from rag.synonyms import load_synonyms
 
 log = structlog.get_logger(__name__)
 RERANK_MIN_GAIN = 0.03  # keep reranking only if nDCG@8 improves by >= 3 points
+RERANK_MIN_PAIRED = 10  # answerable queries actually reranked before the rerank decision counts as measured
+LATENCY_MAX_FAILURES = 3  # failed latency samples before measurement (a) gives up
 CALIBRATION_FEATURES = ("dense_top", "lexical_coverage", "sparse_agreement")
 
 
@@ -60,6 +79,7 @@ class EvalOptions:
     offline: bool = False
     rerank_sample: int = 30
     rerank_pause_s: float = 12.0
+    rerank_min_paired: int = RERANK_MIN_PAIRED
     embed_latency_sample: int = 20
     write_config: bool = True
     resume_check: bool = True
@@ -111,25 +131,81 @@ async def pre_embed(
     return {"texts": len(texts), "cache_hits": outcome.cache_hits, "embedded": outcome.embedded}
 
 
-async def embed_api_latency(llm: LLMProvider, texts: Sequence[str], n: int) -> dict[str, float]:
-    """(a): wall time of single-query embedding calls on a small sample (costs n embedding texts)."""
-    samples = []
+def _failure_wait(exc: UpstreamError, default_s: float) -> float | None:
+    """Seconds to wait before the next latency sample, or None to stop sampling (daily quota)."""
+    if isinstance(exc, UpstreamRateLimited):
+        return None if exc.scope == "day" else (exc.retry_after_s or default_s)
+    return default_s
+
+
+async def embed_api_latency(
+    llm: LLMProvider,
+    texts: Sequence[str],
+    n: int,
+    *,
+    sleep: Sleep = asyncio.sleep,
+    wait_s: float = DEFAULT_RATE_LIMIT_WAIT_S,
+) -> dict[str, Any]:
+    """(a): wall time of single-query embedding calls on a small sample (costs up to n embedding texts).
+
+    Informational only (no gate). It must never fail the evaluation: the 2026-11-16 10:52 run lost every
+    ablation when one of these raw calls hit a per-minute 429 on the shared key. A failed sample is skipped
+    (after waiting out a per-minute 429); a daily 429 or LATENCY_MAX_FAILURES failures end the sample."""
+    samples: list[float] = []
+    failed, stopped = 0, None
     for text in list(texts)[:n]:
         t0 = time.perf_counter()
-        await llm.embed([prefixed_query(text)], dim=EMBED_DIM)
+        try:
+            await llm.embed([prefixed_query(text)], dim=EMBED_DIM)
+        except UpstreamError as exc:
+            failed += 1
+            delay = _failure_wait(exc, wait_s)
+            log.warning("embed_latency_sample_failed", error=exc.code, failed=failed)
+            if delay is None or failed >= LATENCY_MAX_FAILURES:
+                stopped = "daily quota" if delay is None else f"{failed} failed calls"
+                break
+            await sleep(delay)
+            continue
         samples.append((time.perf_counter() - t0) * 1000)
-    if not samples:
-        return {"n": 0.0}
-    return {
-        "n": float(len(samples)),
-        "p50": round(percentile(samples, 50), 2),
-        "p95": round(percentile(samples, 95), 2),
+    out: dict[str, Any] = {"n": float(len(samples)), "requested": n, "failed": failed, "stopped": stopped}
+    if samples:
+        out |= {"p50": round(percentile(samples, 50), 2), "p95": round(percentile(samples, 95), 2)}
+    return out
+
+
+def rerank_decision(base: AblationRun, rerank: AblationRun | None, min_paired: int) -> dict[str, Any]:
+    """Keep reranking only on a measured gain of >= RERANK_MIN_GAIN nDCG@8, paired on the answerable queries
+    the reranker actually scored (a query whose rerank call failed is RRF-only and would dilute the gain)."""
+    decision: dict[str, Any] = {
+        "measured": False,
+        "keep_rerank": False,
+        "min_gain": RERANK_MIN_GAIN,
+        "min_paired": min_paired,
+    }
+    if rerank is None:
+        return decision
+    applied = replace(rerank, outcomes=tuple(o for o in rerank.outcomes if o.reranked))
+    cmp = paired(base, applied)
+    measured = cmp["n"] >= max(1, min_paired)
+    return decision | {
+        **cmp,
+        "reranked_queries": len(applied.outcomes),
+        "sampled_queries": len(rerank.outcomes),
+        "stopped": rerank.stopped,
+        "measured": measured,
+        "keep_rerank": measured and cmp.get("gain", 0.0) >= RERANK_MIN_GAIN,
     }
 
 
 def _retriever(ctx: EvalContext, collection: str, qe: QueryEmbedder, reranker: Reranker) -> HybridRetriever:
+    """Same composition as rag.retrieval.build_retriever (incl. drug-synonym expansion), minus the alias."""
     return HybridRetriever(
-        client=ctx.client, collection=collection, query_embedder=qe, sparse=ctx.sparse, reranker=reranker
+        client=ctx.client,
+        collection=collection,
+        query_embedder=qe,
+        sparse=ctx.sparse,
+        reranker=reranker,
+        synonyms=load_synonyms(DRUG_SYNONYMS_PATH),
     )
 
 
@@ -155,6 +231,9 @@ async def _online(
     out: dict[str, Any] = {}
     with EmbeddingCache(ctx.paths.query_cache_db) as qcache:
         out["pre_embed"] = await pre_embed(ctx.llm, qcache, model, query_strings(rows))
+        out["embed_api_latency"] = await embed_api_latency(  # before the long ablations: cheap to redo
+            ctx.llm, [r.question for r in rows], opts.embed_latency_sample
+        )
         qe = QueryEmbedder(ctx.llm, model_id=model, persistent=qcache)
         retriever = _retriever(ctx, opts.collection, qe, DecisionReranker(ctx.llm))
         await retriever.warmup()
@@ -167,10 +246,7 @@ async def _online(
     out["runs"] = runs
     cal = _calibrate(runs["hybrid"])
     out["calibration"] = _calibration_dict(cal)
-    decision: dict[str, Any] = {"measured": False, "keep_rerank": False, "min_gain": RERANK_MIN_GAIN}
-    if "hybrid_rerank" in runs:
-        cmp = paired(runs["hybrid"], runs["hybrid_rerank"])
-        decision |= {"measured": cmp["n"] > 0, "keep_rerank": cmp.get("gain", 0.0) >= RERANK_MIN_GAIN, **cmp}
+    decision = rerank_decision(runs["hybrid"], runs.get("hybrid_rerank"), opts.rerank_min_paired)
     out["rerank_decision"] = decision
     out["config"] = base.model_copy(
         update={
@@ -178,9 +254,6 @@ async def _online(
             "rerank": decision["keep_rerank"],
             "calibrated_on": f"reports/retrieval/{stamp(ctx.when)}.json",
         }
-    )
-    out["embed_api_latency"] = await embed_api_latency(
-        ctx.llm, [r.question for r in rows], opts.embed_latency_sample
     )
     return out
 

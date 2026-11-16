@@ -1,7 +1,4 @@
-import { EarIcon } from "@phosphor-icons/react/dist/ssr/Ear";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr/MagnifyingGlass";
-import { QuotesIcon } from "@phosphor-icons/react/dist/ssr/Quotes";
-import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
+import { EarIcon, MagnifyingGlassIcon, QuotesIcon, ShieldCheckIcon } from "@/components/ui/icons";
 import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 import { PreviewAnswer, type PreviewCopy } from "./PreviewAnswer";

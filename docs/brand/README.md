@@ -11,7 +11,8 @@ Direction:           Clinical calm (quiet editorial UI, one deep spruce accent, 
 Motion personality:  Calm / organic for reveals, precise for UI feedback (tokens in web/src/styles/tokens.css)
 Signature moment:    The landing preview answer that streams in with its citation chip
 Supporting layer:    One reveal system on the landing page; 120-280 ms hover/press/focus feedback
-Stack:               CSS-native + Motion on the chat route, GSAP + Lenis on the landing page only
+Stack:               CSS-native on the chat route (no animation library: keeps it under the
+                     200 kB gzip JS gate), GSAP + Lenis on the landing page only
 ```
 
 ## The mark

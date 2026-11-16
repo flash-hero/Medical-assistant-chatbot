@@ -1,4 +1,4 @@
-"""Site modules (NIDDK, NCI PDQ, CDC, CDC VIS, NIH institutes): fetch against a mock origin, parse recorded pages."""
+"""Site modules (NIDDK, NCI PDQ, CDC, CDC VIS, NIH institutes): mock-origin fetch, recorded-page parse."""
 
 from __future__ import annotations
 
@@ -150,15 +150,9 @@ def test_pdq_parse_keeps_patient_summary_and_drops_about_section(paths: DataPath
     assert doc.metadata["pdq_version"] == "patient"
     assert "forms in bone or soft tissue" in text
     assert "- Pain or swelling" in text
-    assert (
-        "Enlarge" not in text
-    )
-    assert (
-        "Health Professional Version" not in text
-    )
-    assert (
-        "Purpose of this summary" not in text
-    )
+    assert "Enlarge" not in text
+    assert "Health Professional Version" not in text
+    assert "Purpose of this summary" not in text
 
 
 async def test_pdq_fetch_filters_sitemap_to_patient_summaries(paths: DataPaths) -> None:

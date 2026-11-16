@@ -1,4 +1,4 @@
-import { PhoneIcon } from "@phosphor-icons/react/dist/ssr/Phone";
+import { PhoneIcon } from "@/components/ui/icons";
 import { telHref, type PhoneContact } from "@/lib/api/hospital";
 
 interface ContactLinkProps {

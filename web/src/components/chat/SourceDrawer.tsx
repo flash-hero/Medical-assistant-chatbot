@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowSquareOutIcon } from "@phosphor-icons/react/dist/ssr/ArrowSquareOut";
-import { XIcon } from "@phosphor-icons/react/dist/ssr/X";
+import { ArrowSquareOutIcon, XIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 import type { ChatLocale, Citation } from "@/lib/chat/types";

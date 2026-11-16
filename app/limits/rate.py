@@ -53,7 +53,7 @@ class RateLimiter:
     def __init__(self, uri: str, rules: RateRules, *, clock: Callable[[], float] = time.time) -> None:
         options = {"implementation": "redispy"} if uri.startswith("async+redis") else {}
         self._storage = storage_from_string(uri, **options)
-        self._limiter = MovingWindowRateLimiter(self._storage)  # type: ignore[arg-type]
+        self._limiter = MovingWindowRateLimiter(self._storage)
         self._rules = rules
         self._clock = clock
 

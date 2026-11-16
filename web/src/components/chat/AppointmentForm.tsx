@@ -1,7 +1,6 @@
 "use client";
 
-import { CheckCircleIcon } from "@phosphor-icons/react/dist/ssr/CheckCircle";
-import { LockSimpleIcon } from "@phosphor-icons/react/dist/ssr/LockSimple";
+import { CheckCircleIcon, LockSimpleIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState, type FormEvent } from "react";
 import type { Turn } from "@/lib/chat/reducer";

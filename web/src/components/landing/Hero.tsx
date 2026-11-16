@@ -1,5 +1,4 @@
-import { ArrowDownIcon } from "@phosphor-icons/react/dist/ssr/ArrowDown";
-import { ChatCircleIcon } from "@phosphor-icons/react/dist/ssr/ChatCircle";
+import { ArrowDownIcon, ChatCircleIcon } from "@/components/ui/icons";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";

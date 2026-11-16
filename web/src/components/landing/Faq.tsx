@@ -1,4 +1,4 @@
-import { PlusIcon } from "@phosphor-icons/react/dist/ssr/Plus";
+import { PlusIcon } from "@/components/ui/icons";
 import { getTranslations } from "next-intl/server";
 import type { Locale } from "@/i18n/routing";
 

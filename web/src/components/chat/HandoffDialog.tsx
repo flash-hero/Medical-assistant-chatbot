@@ -1,6 +1,6 @@
 "use client";
 
-import { XIcon } from "@phosphor-icons/react/dist/ssr/X";
+import { XIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { forwardRef } from "react";
 import type { PublicHospital } from "@/lib/api/client";

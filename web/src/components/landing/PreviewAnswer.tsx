@@ -1,6 +1,4 @@
-import { MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr/MagnifyingGlass";
-import { SealCheckIcon } from "@phosphor-icons/react/dist/ssr/SealCheck";
-import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
+import { MagnifyingGlassIcon, SealCheckIcon, ShieldCheckIcon } from "@/components/ui/icons";
 import type { ReactNode } from "react";
 import { Mark } from "@/components/brand/Mark";
 import { parseMarkdown, type Inline } from "@/lib/markdown/parse";

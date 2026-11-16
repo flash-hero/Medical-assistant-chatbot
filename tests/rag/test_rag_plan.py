@@ -124,11 +124,13 @@ def test_cli_plan_prints_counts_eta_and_the_build_command(tmp_path, registry_pat
     assert "chunks/min" in printed
     assert "input tokens/min" in printed
     assert "Paid-tier cost estimate" in printed
-    assert "day(s) of quota" in printed
+    assert "What-if daily cap of 50 texts/day" in printed
     assert "python -m rag build --corpus-version v9 --sources demo_src" in printed
-    assert main(["plan", "--sources", "demo_src,held_src", "--exclude", "demo_src", "--daily-cap", "0"]) == 0
+    assert main(["plan", "--sources", "demo_src,held_src", "--exclude", "demo_src"]) == 0
     printed = capsys.readouterr().out
     assert "not_indexable" in printed
+    assert "daily embedding quota: unknown" in printed  # no cap is assumed by default
+    assert "resumes with zero repeat embeddings" in printed
     assert "day(s) of quota" not in printed
     assert "Build command" not in printed
 

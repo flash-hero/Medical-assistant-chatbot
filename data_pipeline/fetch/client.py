@@ -4,7 +4,8 @@ Guarantees, in this order, before any byte is requested:
   1. the URL is not inside an excluded source (registry domain/path rules)  -> ExcludedSourceError
   2. the source itself is fetchable (not excluded / not optional-noncommercial) -> FetchRefused
   3. the URL host belongs to the source's declared domains                       -> FetchRefused
-  4. robots.txt allows the path (unless the URL was explicitly published as a download) -> RobotsDisallowedError
+  4. robots.txt allows the path (unless the URL was explicitly published as a download) ->
+  RobotsDisallowedError
 Every redirect hop is re-checked with 1-3.  Downloads stream to `<file>.part` and resume with HTTP Range.
 Every outcome is appended to raw/{source_id}/_manifest.jsonl.
 """
@@ -21,6 +22,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import BinaryIO
 from urllib.parse import urljoin
 
 import httpx
@@ -275,7 +277,7 @@ class Fetcher:
             self._record(url, 304, previous.sha256, previous.bytes, rel, note="not_modified", prior=previous)
             return FetchResult(url, 304, target, previous.sha256, previous.bytes, not_modified=True)
         if status == 416:
-            part.unlink(missing_ok=True)
+            self._discard_part(part)
             return status, 0.0
         if status not in (200, 206):
             self._record(url, status, "", 0, rel="", note="client_error")
@@ -287,18 +289,34 @@ class Fetcher:
         )
         return FetchResult(url, status, target, digest, size)
 
-    async def _stream_to_part(self, response: httpx.Response, part: Path) -> int:
-        resuming = response.status_code == 206 and part.exists()
-        encoded = bool(response.headers.get("content-encoding"))
+    @staticmethod
+    def _discard_part(part: Path) -> None:
+        part.unlink(missing_ok=True)
+
+    @staticmethod
+    def _part_size(part: Path) -> int:
+        return part.stat().st_size
+
+    @staticmethod
+    def _open_part(part: Path, resuming: bool) -> BinaryIO:
+        return part.open("ab" if resuming else "wb")
+
+    @staticmethod
+    def _write_part_meta(part: Path, *, resumable: bool, etag: str) -> None:
         part.with_name(part.name + ".meta").write_text(
-            json.dumps({"resumable": not encoded, "etag": response.headers.get("etag", "")}), encoding="utf-8"
+            json.dumps({"resumable": resumable, "etag": etag}), encoding="utf-8"
         )
+
+    async def _stream_to_part(self, response: httpx.Response, part: Path) -> int:
+        resuming = response.status_code == 206 and part.exists()  # noqa: ASYNC240
+        encoded = bool(response.headers.get("content-encoding"))
+        self._write_part_meta(part, resumable=not encoded, etag=response.headers.get("etag", ""))
         declared = int(response.headers.get("content-length") or 0)
         if declared > self._config.max_bytes:
             raise FetchFailedError(f"{response.url}: {declared} bytes exceeds max_bytes")
-        written = part.stat().st_size if resuming else 0
+        written = self._part_size(part) if resuming else 0
         try:
-            with part.open("ab" if resuming else "wb") as handle:
+            with self._open_part(part, resuming) as handle:
                 async for block in response.aiter_bytes(1 << 16):
                     written += len(block)
                     if written > self._config.max_bytes:
@@ -306,7 +324,7 @@ class Fetcher:
                     handle.write(block)
         except httpx.TransportError:
             if encoded:
-                part.unlink(missing_ok=True)
+                self._discard_part(part)
             raise
         return written
 

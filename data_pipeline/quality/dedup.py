@@ -123,7 +123,7 @@ def _first_match(
 
 
 def near_duplicate_rate(documents: Iterable[Document], *, threshold: float = DEFAULT_THRESHOLD) -> float:
-    """Share of documents that have a near-duplicate partner among the given sample (exact copies included)."""
+    """Share of documents with a near-duplicate partner within the given sample (exact copies included)."""
     docs = list(documents)
     if not docs:
         return 0.0

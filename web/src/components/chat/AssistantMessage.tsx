@@ -1,7 +1,6 @@
 "use client";
 
-import { SealCheckIcon } from "@phosphor-icons/react/dist/ssr/SealCheck";
-import { TranslateIcon } from "@phosphor-icons/react/dist/ssr/Translate";
+import { SealCheckIcon, TranslateIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { Mark } from "@/components/brand/Mark";

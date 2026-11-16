@@ -90,9 +90,10 @@ class GuardRouter:
     async def route(self, inp: RouterInput, pre: Precheck) -> RouteResult:
         payload = classifier_input(self._prompts.preamble, inp.text, inp.history[-MAX_HISTORY_TURNS:])
         try:
-            out = await asyncio.wait_for(
-                run_classifier(self._llm, self._prompts, payload), self._cfg.timeouts.router_s * 2
-            )
+            # asyncio.timeout, not wait_for: on Python 3.11 wait_for swallows an outer task.cancel() when the
+            # classifier finishes in the same loop iteration, so a cancelled turn would keep running.
+            async with asyncio.timeout(self._cfg.timeouts.router_s * 2):
+                out = await run_classifier(self._llm, self._prompts, payload)
         except UpstreamBlocked as exc:
             return self._blocked_result(inp, pre, exc)
         except TimeoutError:

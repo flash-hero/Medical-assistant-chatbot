@@ -10,9 +10,10 @@ answer that still shows the emergency number."""
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, replace
+from typing import cast
 
 import structlog
 
@@ -27,7 +28,7 @@ from app.pipeline.rewrite import QueryRewriter
 from app.pipeline.texts import Texts
 from core.errors import UpstreamBlocked, UpstreamError
 from core.models import ModelRole
-from core.ports import GenerationRequest, LLMProvider, Retriever
+from core.ports import GenerationChunk, GenerationRequest, LLMProvider, Retriever
 from core.schemas.chat import GuardVerdict, Intent, RetrievalResult, RetrievedPassage
 from core.schemas.events import AnswerEvent, ChatEvent, DeltaEvent, NoticeEvent, StatusEvent
 from core.schemas.hospital import HospitalProfile
@@ -226,7 +227,8 @@ class MedicalResponder:
         trace: TurnTrace,
     ) -> AsyncIterator[DeltaEvent]:
         buffer = SentenceBuffer()
-        async with aclosing(self._llm.stream(request)) as stream:
+        chunks = cast("AsyncGenerator[GenerationChunk, None]", self._llm.stream(request))  # see core/ports.py
+        async with aclosing(chunks) as stream:
             async for chunk in stream:
                 for sentence in buffer.feed(chunk.text):
                     delta = self._admit(sentence, ctx, emitted, cites, trace)

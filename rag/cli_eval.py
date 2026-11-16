@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -23,7 +23,7 @@ from rag.manifest import (
 )
 from rag.paths import COLLECTION_PREFIX, GOLD_DIR, DataPaths, validate_collection
 
-Handler = Callable[[argparse.Namespace, Settings], Awaitable[int]]
+Handler = Callable[[argparse.Namespace, Settings], Coroutine[Any, Any, int]]
 MIN_OVERRIDE_REASON = 10
 
 

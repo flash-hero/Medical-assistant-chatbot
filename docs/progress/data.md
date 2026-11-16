@@ -13,14 +13,17 @@ Updated after every deliverable. Status: done / in progress / not started.
 | # | Deliverable | Status | Notes |
 |---|---|---|---|
 | 1 | Tests for 0%-coverage modules | done | 249 tests, 93 % coverage at resume; wikipedia_api tests added in step 4a |
-| 1b | ruff check + format clean on data_pipeline/ and tests/data_pipeline/ | not started | do after new code is written |
+| 1b | ruff check + format clean on data_pipeline/ and tests/data_pipeline/ | done | ruff check: All checks passed; ruff format --check: 57 files formatted. Long regex/fixture lines carry inline noqa E501; 302 tests pass |
 | 2 | registry --check passes; every ACTIVE source has licence record + evidence URL | done (re-verify after new sources) | |
 | 3 | report: data_gates.json, data.metrics.json, audit-sample.md, ATTRIBUTION.md, attribution.json | done (first pass) | re-run in step 5 |
 | 4a | Wikipedia EN/FR/AR | partial (code + 19 tests done; live fetch BLOCKED) | registry entry wikipedia_medicine (active, CC BY-SA 4.0, tier 3), parsers/wikipedia{,_api,_text}.py, tests/test_dp_wikipedia.py. Live fetch needs AUSCULTA_CRAWLER_CONTACT (Wikimedia returns HTTP 403 to a User-Agent without contact details; contact is the operator's identity so it is not invented). Run: set AUSCULTA_CRAWLER_CONTACT=<email or URL>; python -m data_pipeline run --source wikipedia_medicine |
-| 4b | EMA product information (FR) | not started | |
+| 4b | EMA product information (FR) | skipped (hold) | re-probed 2026-11-16: robots.txt 200, JSON report still HTTP 429 (CloudFront). Not worked around; reason recorded in registry notes; source stays status hold. |
 | 4c | BDPM (FR) | done | bdpm: 12,643 FR documents (13,559 parsed, 916 near-duplicate by template); registry entry (Licence Ouverte), parsers/bdpm.py, 16 tests; files hold NO SmPC/leaflet text (administrative, composition, prescription, HAS SMR, generics only) |
-| 4d | HAS open data | not started | |
+| 4d | HAS open data | done | has_publications: 2,593 FR documents kept (2,967 parsed, 5 quarantined for real injection-like patterns, 369 dropped: dup/short/language). PDF symbol-font glyphs (U+F0xx) mapped to bullets in parsers/has_publications.py (before the fix 764 were quarantined for unicode_private_use). 18 tests in test_dp_has.py. Ready marker written. |
 | 5 | Re-run report with new sources | not started | |
 
-## Next step
+## Next step (updated)
+Wikipedia full fetch runs in background (ar, fr, then en; log in scratchpad wiki_fetch.log); after it ends: parse --source wikipedia_medicine, then 4b EMA probe, 1b ruff, 5 report, 6 tests.
+
+## Old next step
 Step 4d HAS open data, then 4b EMA (site rate-limits our UA: JSON reports return 429), then ruff clean-up and report re-run.

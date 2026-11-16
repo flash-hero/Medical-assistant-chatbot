@@ -1,7 +1,8 @@
 """CDC content via the CDC Content Syndication API (tools.cdc.gov/api/v2) -> Documents.
 
 Licence (read 2026-11-15, https://www.cdc.gov/other/agencymaterials.html): most CDC content is public domain
-and may be freely used, with four requirements: attribute CDC, show a non-endorsement disclaimer, do NOT change
+and may be freely used, with four requirements: attribute CDC, show a non-endorsement disclaimer, do NOT
+change
 the substantive content, and state the material is available free on the agency site. The registry therefore
 sets reuse_mode=quote_only. Syndicated HTML is fetched unchanged from `contentUrl`; the citation URL is the
 page's own cdc.gov address. Only English HTML items are used; occupational (NIOSH) pages are out of scope.

@@ -90,6 +90,23 @@ def test_french_inversion_is_not_personal(cues: CueSet) -> None:
     assert cues.is_informational(clause, clause.index("avc"))
 
 
+def test_french_inversion_after_the_hit_makes_a_question(cues: CueSet) -> None:
+    clause = plain_form("une surdose de paracetamol abime-t-elle le foie")
+    assert cues.is_informational(clause, clause.index("surdose"))
+
+
+def test_french_inversion_with_personal_cue_is_not_informational(cues: CueSet) -> None:
+    clause = plain_form("mon fils a pris une surdose doit-il aller aux urgences")
+    assert not cues.is_informational(clause, clause.index("surdose"))
+
+
+def test_inversion_rule_works_without_informational_cues() -> None:
+    bare = build_cue_set({"personal": {"fr": ["mon"]}}, plain_form)
+    clause = plain_form("une surdose abime-t-elle le foie")
+    assert bare.is_informational(clause, clause.index("surdose"))
+    assert not bare.is_informational(plain_form("une surdose grave"), 4)
+
+
 def test_split_on_clause_breaks(cues: CueSet) -> None:
     assert cues.split(plain_form("no fever but chest pain")) == ["no fever", "chest pain"]
 

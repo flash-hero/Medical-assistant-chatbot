@@ -44,10 +44,15 @@ def render_plan(plan: BuildPlan) -> list[str]:
     )
     days = plan.days_at_cap()
     if days is not None:
+        lines.append(f"What-if daily cap of {plan.daily_cap:,} texts/day: about {days:g} day(s) of quota.")
+    else:
         lines.append(
-            f"Free-tier daily cap (~{plan.daily_cap:,} texts/day, estimate): about {days:g} day(s) of quota; "
-            "the build stops with exit 3 when the day's quota is spent and resumes with zero repeats."
+            "Free-tier daily embedding quota: unknown (no cap assumed; --daily-cap N for a what-if)."
         )
+    lines.append(
+        "On a day-scope 429 the build stops with exit 3 (progress is in the embedding cache); re-running the "
+        "same command resumes with zero repeat embeddings."
+    )
     return lines
 
 
@@ -90,5 +95,7 @@ def add_plan_parser(sub: Any) -> None:
     p.add_argument("--limit", type=int, default=None, help="max documents per source")
     p.add_argument("--include-unready", action="store_true", help="also count sources without a ready marker")
     p.add_argument("--rate", type=float, default=FREE_TIER_TEXTS_PER_MIN, help="embeddings per minute")
-    p.add_argument("--daily-cap", type=int, default=FREE_TIER_TEXTS_PER_DAY, help="0 = no daily cap")
+    p.add_argument(
+        "--daily-cap", type=int, default=FREE_TIER_TEXTS_PER_DAY, help="what-if daily cap (default: unknown)"
+    )
     p.add_argument("--corpus-version", default=None, help="print the build command for this version")

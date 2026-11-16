@@ -26,6 +26,7 @@ from app.api.routes_chat import router as chat_router
 from app.api.routes_forms import router as forms_router
 from app.api.routes_ops import router as ops_router
 from app.pipeline.factory import app_version
+from app.pipeline.texts import Texts
 from core.config import Settings, get_settings
 
 API_PREFIX = "/api/v1"
@@ -82,7 +83,7 @@ def create_app(settings: Settings | None = None, *, overrides: Overrides | None 
         openapi_url=f"{API_PREFIX}/openapi.json" if public_docs else None,
     )
     app.state.container = container
-    install_error_handlers(app, lambda _request: _texts(_request))
+    install_error_handlers(app, _texts)
     for router in (chat_router, forms_router, ops_router):
         app.include_router(router, prefix=API_PREFIX)
     app.add_middleware(
@@ -102,5 +103,5 @@ def create_app(settings: Settings | None = None, *, overrides: Overrides | None 
     return app
 
 
-def _texts(request: Request) -> object:
-    return request.app.state.container.texts
+def _texts(request: Request) -> Texts:
+    return request.app.state.container.texts  # type: ignore[no-any-return]

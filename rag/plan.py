@@ -21,10 +21,11 @@ from rag.paths import DataPaths
 from rag.registry import Registry
 
 FREE_TIER_TEXTS_PER_MIN = 90.0  # provider throttle (app/llm/throttle.py; quota 100/min, counted per text)
-# Observed 2026-11-15/16: a build stopped on the DAILY embedding quota after ~720 build texts plus the day's
-# other embedding traffic; the published free-tier limit for embeddings is 1,000 requests/day, counted per
-# text. Treat it as an estimate until billing is on (paid tier has no practical daily cap for this corpus).
-FREE_TIER_TEXTS_PER_DAY = 1000
+# The free-tier DAILY embedding quota is unknown. The 2026-11-15 build stopped once on a 429 the provider
+# classified as day-scope, but on 2026-11-16 embedding kept answering after ~1,000 texts and no day-scope 429
+# was logged, so no cap is assumed by default (`--daily-cap N` gives a what-if). Whatever the cap, a build
+# stops cleanly with exit 3 on a real day-scope 429 and the same command resumes with zero repeats.
+FREE_TIER_TEXTS_PER_DAY: int | None = None
 
 
 @dataclass(frozen=True)

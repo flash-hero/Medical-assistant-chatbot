@@ -1,7 +1,6 @@
 "use client";
 
-import { HeadsetIcon } from "@phosphor-icons/react/dist/ssr/Headset";
-import { NotePencilIcon } from "@phosphor-icons/react/dist/ssr/NotePencil";
+import { HeadsetIcon, NotePencilIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { Mark } from "@/components/brand/Mark";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";

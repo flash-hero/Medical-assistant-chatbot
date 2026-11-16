@@ -10,7 +10,7 @@ any long-running step so a cancelled turn never loses a safety decision."""
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
@@ -110,7 +110,7 @@ class TurnEngine:
     def precheck(self, message: IngressResult) -> Precheck:
         return self._router.precheck(message.text, message.sanitize_flags)
 
-    async def run(self, req: TurnRequest, trace: TurnTrace) -> AsyncIterator[ChatEvent]:
+    async def run(self, req: TurnRequest, trace: TurnTrace) -> AsyncGenerator[ChatEvent, None]:
         ctx = _Ctx(req=req, profile=self._profiles.active(self._today()), trace=trace)
         yield MetaEvent(
             turn_id=req.turn_id,
@@ -163,8 +163,8 @@ class TurnEngine:
             return
         yield StatusEvent(stage="checking")
         route = await self._route(ctx, session)
-        async for ev in self._after_route(ctx, session, route, pre_kinds):
-            yield ev
+        async for event in self._after_route(ctx, session, route, pre_kinds):
+            yield event
 
     async def _route(self, ctx: _Ctx, session: SessionState) -> RouteResult:
         req = ctx.req
@@ -211,8 +211,8 @@ class TurnEngine:
             yield await self._strike(ctx, session, current, v.intent, lang)
             return
         await self._sessions.put(session)
-        async for ev in self._dispatch(ctx, session, v):
-            yield ev
+        async for event in self._dispatch(ctx, session, v):
+            yield event
         left = self._settings.max_turns_per_session - session.turns_used
         if 0 < left <= SESSION_LIMIT_NOTICE_AT:
             yield NoticeEvent(

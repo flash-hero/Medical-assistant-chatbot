@@ -12,6 +12,7 @@ from app.guardrails.lexicon_combos import (
     WordPattern,
     find,
     parse_combinations,
+    token_forms,
 )
 from app.guardrails.lexicon_text import normalize
 from core.schemas.chat import RiskKind
@@ -95,6 +96,14 @@ def test_arabic_words_accept_proclitics_and_article() -> None:
     assert _find(groups, "عندي وجع كبير فصدري", "ar") is not None
     assert _find(groups, "والألم في الصدر", "ar") is not None
     assert _find(groups, "مصدر الوجع", "ar") is None  # "مصدر" (source) is not "صدر" with a proclitic
+
+
+def test_negation_particle_glued_to_a_conjunction() -> None:
+    assert "ما" in token_forms("وما")
+    assert "لا" in token_forms("ولا")
+    assert token_forms("وم") == ("وم",)  # other two-letter stems are never split off
+    groups = [["طاح"], ["ما بقاش كيجاوب"]]
+    assert _find(groups, "بابا طاح وما بقاش كيجاوب", "ar") is not None
 
 
 def test_arabic_suffix_wildcard_matches_verb_prefixes() -> None:

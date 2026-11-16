@@ -1,7 +1,6 @@
 "use client";
 
-import { InfoIcon } from "@phosphor-icons/react/dist/ssr/Info";
-import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
+import { InfoIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useRef } from "react";
 import type { ChatLocale } from "@/lib/chat/types";
@@ -30,7 +29,7 @@ function DemoBanner() {
   );
 }
 
-export function ChatApp({ locale, nonce }: { readonly locale: ChatLocale; readonly nonce?: string }) {
+export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
   const t = useTranslations("Chat");
   const { session, hospital, renew, turns, actions, inputRef, handoffRef, source, closeSource, closeHandoff, demoMode, turnsLeft } =
     useChatController(locale);
@@ -46,9 +45,7 @@ export function ChatApp({ locale, nonce }: { readonly locale: ChatLocale; readon
   };
 
   return (
-    <LazyMotion features={domAnimation} strict>
-      <MotionConfig reducedMotion="user" nonce={nonce}>
-        <ChatProvider value={actions}>
+    <ChatProvider value={actions}>
           <div className="flex min-h-dvh flex-col">
             <ChatHeader locale={locale} onHandoff={actions.openHandoff} onNewConversation={actions.newConversation} />
             {demoMode ? <DemoBanner /> : null}
@@ -83,8 +80,6 @@ export function ChatApp({ locale, nonce }: { readonly locale: ChatLocale; readon
             <SourceDrawer source={source} onClose={closeSource} />
             <HandoffDialog ref={handoffRef} hospital={hospital} onClose={closeHandoff} />
           </div>
-        </ChatProvider>
-      </MotionConfig>
-    </LazyMotion>
+    </ChatProvider>
   );
 }

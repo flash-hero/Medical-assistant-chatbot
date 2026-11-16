@@ -167,12 +167,8 @@ def test_ingredient_index_refreshes_best_when_same_set_is_updated() -> None:
     index.add(_label("s", effective="20200101"))
     index.add(_label("s", effective="20240101", indications_and_usage=["Updated indication text."]))
     (group,) = list(index.chosen())
-    assert (
-        group.best is not None
-    )
-    assert (
-        "Updated indication" in dict(group.best.sections)["indications_and_usage"]
-    )
+    assert group.best is not None
+    assert "Updated indication" in dict(group.best.sections)["indications_and_usage"]
 
 
 # ---- openfda_labels ------------------------------------------------------------------------------
@@ -213,7 +209,7 @@ def test_partition_urls_accepts_label_prefix_only_and_sorts() -> None:
     "bad", [{}, {"results": {"drug": {}}}, {"results": {"drug": {"label": {"partitions": []}}}}]
 )
 def test_partition_urls_rejects_malformed_index(bad: dict[str, object]) -> None:
-    with pytest.raises(ValueError, match="download.json"):
+    with pytest.raises(ValueError, match=r"download\.json"):
         labels.partition_urls(bad)
 
 
@@ -231,9 +227,7 @@ def test_group_to_document_builds_title_synonyms_and_metadata() -> None:
     doc = labels.group_to_document(group, _record(), STAMP)
     assert doc is not None
     assert doc.title.startswith("Metformin Hydrochloride (Glucophage Xr)")
-    assert doc.title.endswith(
-        "US drug label"
-    )
+    assert doc.title.endswith("US drug label")
     assert doc.doc_id.startswith("openfda_labels:set-")
     assert "dailymed.nlm.nih.gov" in str(doc.url)
     assert "Fortamet" in doc.synonyms or "GLUCOPHAGE XR" in doc.synonyms

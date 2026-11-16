@@ -5,8 +5,9 @@ Matching runs on normalised clauses (core.text.detection_form):
   1. exact, word-bounded matches of every term (one regex per risk kind); Arabic-script terms also match with
      an attached proclitic (و ف ب ل ك: "بنوبة قلبية" matches "نوبة قلبية"),
   2. Arabizi entries also on a consonant skeleton (3/7/9 digits, vowels and digraphs folded),
-  3. combinations (app/guardrails/lexicon_combos.py): groups of words that must co-occur within a few tokens,
-     in any order, across clause punctuation; judged like condition terms. Only for kinds without an exact hit,
+  3. combinations (app/guardrails/lexicon_combos.py): groups of words that must co-occur within a few
+     tokens, in any order, across clause punctuation; judged like condition terms. Only for kinds without an
+     exact hit,
   4. token-level fuzzy matches for multi-word terms (misspellings), only for kinds still without a hit.
 Every hit is judged on the plain clause for negation ("no chest pain"), historical context ("diagnosed last
 month", per kind) and, for condition names, purely informational questions

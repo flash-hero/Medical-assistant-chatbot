@@ -5,8 +5,30 @@ from qdrant_client import models
 
 from core.errors import InvalidInput
 from rag.retrieval_config import RetrievalConfig
-from rag.search import Candidate, QueryPlan, build_filter, build_requests, diversify
+from rag.search import (
+    FUSED_TIE_MARGIN,
+    Candidate,
+    QueryPlan,
+    build_filter,
+    build_requests,
+    diversify,
+    order_fused,
+)
 from rag.sparse import SparseVec
+
+
+def test_fused_order_breaks_rrf_ties_deterministically_then_cuts():
+    def c(pid: str, rrf: float) -> Candidate:
+        return Candidate(pid, MappingProxyType({}), rrf)
+
+    tie = 1 / 61 + 1 / 70
+    server_order_1 = [c("b", tie), c("a", tie + 1e-17), c("top", 0.5), c("d", tie), c("low", 0.001)]
+    server_order_2 = list(reversed(server_order_1))
+    dense = {"a": 0.71, "b": 0.74, "top": 0.8}  # "d" has no dense score: ranked after tied dense hits
+    first = order_fused(server_order_1, dense, limit=4)
+    assert [x.point_id for x in first] == ["top", "b", "a", "d"]
+    assert order_fused(server_order_2, dense, limit=4) == first
+    assert [x.point_id for x in order_fused(server_order_1, {}, limit=3)] == ["top", "a", "b"]  # id breaks
 
 
 def cand(pid: str, doc: str, parent: str, reuse: str = "paraphrase_ok") -> Candidate:
@@ -44,7 +66,8 @@ def test_requests_use_explicit_rrf_k_and_prefetch_limits_at_least_the_final_limi
     assert fused.query.rrf.k == 60
     assert len(fused.prefetch) == 4
     assert [p.using for p in fused.prefetch] == ["dense", "dense", "bm25_fr", "bm25_en"]
-    assert all(p.limit >= fused.limit for p in fused.prefetch)
+    assert fused.limit == cfg.fused_limit + FUSED_TIE_MARGIN  # margin so RRF ties at the cut resolve locally
+    assert all(p.limit >= cfg.fused_limit for p in fused.prefetch)
     assert all(p.filter == plan.flt for p in fused.prefetch)
     assert fused.prefetch[0].params.quantization.rescore is True
     assert len(singles) == 4

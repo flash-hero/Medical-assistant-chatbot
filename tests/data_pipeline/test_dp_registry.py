@@ -61,7 +61,8 @@ def test_every_active_source_has_verified_licence(bundled: tuple[SourceRecord, .
     for record in active:
         lic = record.license
         assert lic.evidence_url is not None, record.id
-        assert lic.verified_on is not None and lic.verified_on <= date.today(), record.id
+        assert lic.verified_on is not None, record.id
+        assert lic.verified_on <= date.today(), record.id
         assert lic.verified_by, record.id
         assert lic.attribution.strip(), record.id
         assert lic.conditions, f"{record.id}: record the conditions that were read"

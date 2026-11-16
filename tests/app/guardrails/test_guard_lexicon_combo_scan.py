@@ -131,7 +131,7 @@ def test_lexicon_without_combinations_still_loads(tmp_path: Path) -> None:
 
 
 def test_malformed_combinations_fail_fast(tmp_path: Path) -> None:
-    with pytest.raises(ConfigFileError, match="emergency.yaml"):
+    with pytest.raises(ConfigFileError, match=r"emergency\.yaml"):
         _load(tmp_path, combos={"en": [[["chest"]]]})
 
 

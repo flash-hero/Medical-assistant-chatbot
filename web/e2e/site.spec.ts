@@ -19,12 +19,17 @@ for (const locale of LOCALES) {
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.locator('link[rel="icon"][href="/brand/ausculta-favicon.svg"]')).toHaveCount(1);
       await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/brand\/ausculta-og\.png$/);
-      await expectNoSeriousA11yViolations(page, metrics, "landing");
 
       const cta = page.locator('section[aria-labelledby="hero-title"]').getByRole("link", { name: m.Common.askCta });
       await cta.click();
       await expect(page).toHaveURL(new RegExp(`/${locale}/chat$`));
       await expect(page.getByTestId("ai-label")).toHaveText(m.Common.aiAssistant);
+
+      // axe runs on a fresh landing document, after the client-side navigation: in Playwright's
+      // Firefox any client-side navigation that follows an axe run (aria-allowed-attr) crashes the
+      // content process, on every route; without axe the same navigation is fine.
+      await page.goto(`/${locale}`);
+      await expectNoSeriousA11yViolations(page, metrics, "landing");
     });
 
     test("sources and about pages are accessible", async ({ page, metrics }) => {

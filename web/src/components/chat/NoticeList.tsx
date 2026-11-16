@@ -1,7 +1,6 @@
 "use client";
 
-import { HeadsetIcon } from "@phosphor-icons/react/dist/ssr/Headset";
-import { InfoIcon } from "@phosphor-icons/react/dist/ssr/Info";
+import { HeadsetIcon, InfoIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import type { NoticeEvent } from "@/lib/chat/types";
 import { useChatActions } from "./ChatContext";

@@ -1,5 +1,4 @@
-import { TranslateIcon } from "@phosphor-icons/react/dist/ssr/Translate";
-import { CheckIcon } from "@phosphor-icons/react/dist/ssr/Check";
+import { CheckIcon, TranslateIcon } from "@/components/ui/icons";
 import { LOCALES, directionOf, type Locale } from "@/i18n/routing";
 import type { SitePath } from "@/lib/site";
 

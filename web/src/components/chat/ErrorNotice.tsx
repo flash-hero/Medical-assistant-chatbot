@@ -1,7 +1,6 @@
 "use client";
 
-import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react/dist/ssr/ArrowCounterClockwise";
-import { InfoIcon } from "@phosphor-icons/react/dist/ssr/Info";
+import { ArrowCounterClockwiseIcon, InfoIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { TurnError } from "@/lib/chat/reducer";

@@ -67,6 +67,22 @@ function parseSource(raw: unknown): AttributionSource | null {
   return { id, name, publisher, homepage, languages: strings(raw.languages, 5), trustTier: asInt(raw.trust_tier, 1, 5), license };
 }
 
+/**
+ * A short, varied selection for the landing page: the first source of each publisher, in file
+ * order, at most `max`. The full list lives on the Sources page.
+ */
+export function featuredSources(sources: readonly AttributionSource[], max: number): readonly AttributionSource[] {
+  const publishers = new Set<string>();
+  const featured: AttributionSource[] = [];
+  for (const source of sources) {
+    if (featured.length >= max) break;
+    if (publishers.has(source.publisher)) continue;
+    publishers.add(source.publisher);
+    featured.push(source);
+  }
+  return featured;
+}
+
 export function parseAttribution(raw: unknown): Attribution {
   if (!isRecord(raw) || !Array.isArray(raw.sources)) return { generatedOn: null, sources: [] };
   const sources = raw.sources.map(parseSource).filter((s): s is AttributionSource => s !== null);

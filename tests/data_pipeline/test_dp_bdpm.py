@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import shutil
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
 import httpx
 import pytest
@@ -107,8 +107,8 @@ def test_load_tables_groups_rows_by_cis(paths: DataPaths) -> None:
 
 def test_malformed_rows_are_ignored(tmp_path: Path) -> None:
     short = ["1", "name"]
-    assert bdpm._speciality(short) is None  # noqa: SLF001
-    assert bdpm._speciality(["", "x", *[""] * 10]) is None  # noqa: SLF001
+    assert bdpm._speciality(short) is None
+    assert bdpm._speciality(["", "x", *[""] * 10]) is None
 
 
 def test_parse_keeps_only_authorised_marketed_specialities(paths: DataPaths) -> None:
@@ -146,12 +146,12 @@ def test_document_without_optional_tables_still_has_a_presentation(paths: DataPa
 
 
 def test_unknown_generic_type_and_missing_fields_are_tolerated() -> None:
-    text = bdpm._generic_text([["9", "GROUPE X", "1", "7", "1"]])  # noqa: SLF001
+    text = bdpm._generic_text([["9", "GROUPE X", "1", "7", "1"]])
     assert text == "Groupe générique n° 9 : GROUPE X."
     spec = bdpm.Speciality(
         "1", "NOM", "forme", (), "Autorisation active", "p", "Commercialisée", None, "", True
     )
-    presentation = bdpm._presentation(spec)  # noqa: SLF001
+    presentation = bdpm._presentation(spec)
     assert "surveillance renforcée" in presentation
     assert "Voie(s)" not in presentation
     assert "Date d'autorisation" not in presentation
@@ -159,7 +159,7 @@ def test_unknown_generic_type_and_missing_fields_are_tolerated() -> None:
 
 def test_composition_labels_therapeutic_fractions() -> None:
     rows = [["1", "solution", "c", "FRACTION X", "", "", "ST", "2"]]
-    text, substances = bdpm._composition(rows)  # noqa: SLF001
+    text, substances = bdpm._composition(rows)
     assert text == "- Fraction thérapeutique (solution) : FRACTION X"
     assert substances == []
 

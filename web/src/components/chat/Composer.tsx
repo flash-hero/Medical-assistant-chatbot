@@ -1,7 +1,6 @@
 "use client";
 
-import { PaperPlaneRightIcon } from "@phosphor-icons/react/dist/ssr/PaperPlaneRight";
-import { StopIcon } from "@phosphor-icons/react/dist/ssr/Stop";
+import { PaperPlaneRightIcon, StopIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useId, useState, type KeyboardEvent, type RefObject } from "react";
 import { MAX_MESSAGE_CHARS } from "@/lib/site";

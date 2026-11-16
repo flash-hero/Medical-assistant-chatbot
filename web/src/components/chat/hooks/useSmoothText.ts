@@ -1,8 +1,8 @@
 "use client";
 
-import { useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { nextRevealLength, safeCut } from "@/lib/chat/smooth-text";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 const FRAME_MS = 33; // ~30 updates per second is smooth for text and cheap for React
 
@@ -11,7 +11,7 @@ const FRAME_MS = 33; // ~30 updates per second is smooth for text and cheap for 
  * replaced or verified answer) appears at once, as it does under reduced motion.
  */
 export function useSmoothText(text: string, enabled: boolean): string {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const smooth = enabled && !reduced;
   const initial = smooth ? 0 : text.length;
   const shownRef = useRef(initial);

@@ -46,6 +46,7 @@ from data_pipeline.paths import DataPaths
 
 SOURCE_ID = "wikipedia_medicine"
 TARGET_LANGS: tuple[str, ...] = ("fr", "ar")
+FETCH_ORDER: tuple[str, ...] = ("ar", "fr", "en")  # Arabic and French first: they are the priority languages
 IMPORTANCE_CATEGORIES: tuple[tuple[str, str], ...] = (
     ("top", "Category:Top-importance medicine articles"),
     ("high", "Category:High-importance medicine articles"),
@@ -193,10 +194,14 @@ async def fetch(fetcher: Fetcher, _paths: DataPaths | None = None, *, limit: int
     english = list(await list_english_titles(fetcher))
     if limit is not None:
         english = english[:limit]
-    total = await fetch_articles(fetcher, "en", english)
-    for lang in TARGET_LANGS:
-        mapping = await linked_titles(fetcher, english, lang)
-        total += await fetch_articles(fetcher, lang, list(dict.fromkeys(mapping.values())))
+    total = 0
+    for lang in FETCH_ORDER:
+        if lang == "en":
+            titles = english
+        else:
+            mapping = await linked_titles(fetcher, english, lang)
+            titles = list(dict.fromkeys(mapping.values()))
+        total += await fetch_articles(fetcher, lang, titles)
     return total
 
 

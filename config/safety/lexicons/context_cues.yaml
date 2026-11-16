@@ -27,9 +27,12 @@ negation:
             "makaynche", "mafamech", "mafamach", "bla", "bidoun", "la"]
 # Phrases that start with a negation word but do not negate ("ما زال" = still, "pas mal de" = quite a lot).
 negation_exceptions:
-  en: ["not only", "no doubt", "never mind"]
-  fr: ["pas mal de", "pas que", "pas seulement"]
-  ar: ["ما زال", "ما زلت", "ما زالت", "ما زالو", "لا زال", "لا زلت", "لا زالت", "ما عرفت", "ما عرفتش"]
+  en: ["not only", "no doubt", "never mind", "not sure", "not certain", "not even sure", "no idea", "dont know if",
+       "don't know if", "no matter"]
+  fr: ["pas mal de", "pas que", "pas seulement", "sans arret", "sans cesse", "sans arreter", "sans doute",
+       "pas sur", "pas sure", "pas certain", "pas certaine", "sais pas si"]
+  ar: ["ما زال", "ما زلت", "ما زالت", "ما زالو", "لا زال", "لا زلت", "لا زالت", "ما عرفت", "ما عرفتش",
+       "لا اعرف", "ما نعرفش", "ما نعرف", "مانعرفش", "ما عرفتش واش"]
   arabizi: ["ma zal", "ma zalt", "mazal", "mazalt"]
 historical:
   en: ["last month", "last week", "last year", "last summer", "last winter", "years ago", "year ago", "months ago",
@@ -38,11 +41,14 @@ historical:
        "in \\d{4}", "when i was a child", "when i was young", "as a kid"]
   fr: ["le mois dernier", "la semaine derniere", "l annee derniere", "l an dernier", "l ete dernier",
        "il y a \\d+ ans", "il y a des annees", "il y a \\d+ mois", "il y a quelques mois", "il y a \\d+ semaines",
-       "diagnostique", "diagnostiquee", "on m a diagnostique", "s est avere", "s est revele", "antecedent",
+       "il y a un an", "il y a deux ans", "il y a trois ans", "il y a quatre ans", "il y a cinq ans", "il y a six ans",
+       "il y a dix ans", "il y a quelques annees", "il y a longtemps", "diagnostique", "diagnostiquee",
+       "on m a diagnostique", "s est avere", "s est revele", "antecedent",
        "antecedents", "dans le passe", "autrefois", "quand j etais petit", "quand j etais petite", "en \\d{4}"]
   ar: ["الشهر الماضي", "الشهر اللي فات", "الشهر لي فات", "السنه الماضيه", "العام الماضي", "العام اللي فات",
        "العام لي فات", "عام اللي فات", "قبل سنوات", "قبل سنين", "هادي سنين", "هادي شي سنين", "من سنين",
-       "تم تشخيص", "شخصوه", "شخصوها", "شخصوني", "تشخيص", "تبين انه", "في الماضي", "سابقا", "ملي كنت صغير",
+       "قبل سنتين", "قبل عامين", "قبل ثلاث سنوات", "قبل خمس سنوات", "قبل عشر سنوات", "منذ سنوات", "هادي عامين",
+       "هادي خمس سنين", "تم تشخيص", "شخصوه", "شخصوها", "شخصوني", "تشخيص", "تبين انه", "في الماضي", "سابقا", "ملي كنت صغير",
        "ملي كنت صغيره", "كي كنت صغير", "في سنه \\d{4}", "عام \\d{4}"]
   arabizi: ["chhar li fat", "chhar lifat", "chher li fat", "l3am li fat", "l3am lifat", "3am lfayt", "hadi snin",
             "chakhsouh", "chakhsouha", "chakhsouni", "diagnostiquer", "melli kont sghir", "ki kont sghir"]
@@ -54,34 +60,39 @@ informational:
        "is it true that", "statistics", "first aid for", "what does", "meaning of", "article about", "learn about",
        "what happens during", "what happens if", "what happens when", "how does", "how do", "why does",
        "how is", "why do people", "how do doctors", "can you", "can a person",
-       "can someone", "is it possible", "how much", "how many", "is it normal", "is it dangerous"]
+       "can someone", "is it possible", "how much", "how many", "is it normal", "is it dangerous", "how can i tell if", "how can i tell", "how do i know if",
+       "how to tell if", "how do i recognise", "how do i recognize", "how to recognize",
+       "how would i know", "how do i spot", "what happens", "does a", "does an", "why do", "why does", "why is", "why are", "in the tv series",
+       "in the series", "in the show", "in the film", "in the movie", "in a film", "in a movie", "in the book",
+       "in the novel", "the character"]
   fr: ["c est quoi", "qu est ce que", "qu est ce qu", "est ce que", "est ce qu", "comment", "quels sont", "quelles sont", "symptomes de", "symptomes d",
        "signes de", "signes d", "causes de", "difference entre", "comment reconnaitre", "comment prevenir",
        "explique", "expliquez", "definition", "parle moi de", "parlez moi de", "informations sur", "infos sur",
        "facteurs de risque", "traitement de", "traitements de", "premiers secours", "que signifie", "pourquoi les gens",
        "comment les medecins", "peut on", "est ce qu on peut", "est il possible", "combien", "est ce normal",
-       "est ce dangereux"]
+       "est ce dangereux", "que se passe t il", "qu arrive t il", "en quoi consiste", "comment savoir si", "pourquoi", "dans la serie", "dans une serie",
+       "dans le film", "dans un film", "le personnage", "dans le livre", "dans le roman"]
   ar: ["ما هو", "ما هي", "ماهو", "ماهي", "اعراض", "علامات", "اسباب", "الفرق بين", "كيف اعرف", "كيف نعرف",
        "شنو هو", "شنو هي", "شنو هوا", "اش هو", "اش هي", "شنيه", "شنوه", "واش هو", "معلومات عن", "اشرح", "تعريف",
        "كيفاش نعرف", "كيف نوقاو", "كيف نتجنب", "الوقايه من", "علاج", "عوامل الخطر", "الاسعافات الاوليه", "ماذا يعني",
        "لماذا يصاب", "كيف يتم", "هل يمكن", "واش يمكن", "شحال", "بشحال", "كم", "هل من الطبيعي",
-       "هل هو خطير"]
+       "هل هو خطير", "ماذا يحدث", "كيف اعرف ان", "لماذا", "في المسلسل", "في الفيلم", "الشخصيه"]
   arabizi: ["chno howa", "chnou howa", "chno hiya", "chnou hia", "achno", "ach howa", "chnowa", "chnia", "chnouwa",
             "a3rad", "3alamat", "asbab", "kifach n3ref", "kifach n3rfo", "chno hiya l a3rad", "ma3loumat"]
 personal:
   en: ["i", "i m", "im", "i ve", "ive", "i d", "me", "my", "mine", "myself", "we", "us", "our", "he", "she", "him",
-       "her", "his", "they", "them", "their", "someone", "somebody", "baby", "son", "daughter", "husband", "wife",
+       "her", "his", "they", "them", "their", "baby", "son", "daughter", "husband", "wife",
        "mom", "mum", "dad", "mother", "father", "friend", "kid", "child", "boyfriend", "girlfriend", "partner",
        "grandma", "grandpa", "brother", "sister", "right now", "now", "currently", "today", "tonight"]
-  fr: ["je", "j", "moi", "mon", "ma", "mes", "nous", "notre", "il", "elle", "lui", "son", "sa", "ses", "quelqu un",
-       "bebe", "fils", "fille", "mari", "femme", "mere", "pere", "maman", "papa", "ami", "amie", "enfant", "copain",
+  fr: ["je", "j", "moi", "mon", "ma", "mes", "nous", "notre", "il", "elle", "lui", "son", "sa", "ses",
+       "bebe", "fils", "fille", "mari", "mere", "pere", "maman", "papa", "ami", "amie", "enfant", "copain",
        "copine", "conjoint", "frere", "soeur", "grand mere", "grand pere", "maintenant", "en ce moment",
        "aujourd hui", "ce soir"]
   ar: ["انا", "عندي", "عندو", "عنده", "عندها", "ابني", "بنتي", "زوجي", "زوجتي", "امي", "ابي", "بابا", "ماما",
-       "صاحبي", "صاحبتي", "ولدي", "راجلي", "مراتي", "خويا", "ختي", "هو", "هي", "شي واحد", "حد", "واحد", "طفلي",
+       "صاحبي", "صاحبتي", "ولدي", "راجلي", "مراتي", "خويا", "ختي", "هو", "هي", "طفلي",
        "دابا", "الان", "توا", "درك", "اليوم", "هاد الليله", "بيا", "فيا", "ليا", "نحس", "كنحس"]
   arabizi: ["ana", "3andi", "3ndi", "3ando", "3andha", "weldi", "bnti", "rajli", "mrati", "mama", "baba", "khoya",
-            "khti", "howa", "hiya", "chi wa7ed", "daba", "drk", "tawa", "lyoum", "biya", "fiya", "liya", "kan7ess",
+            "khti", "howa", "hiya", "daba", "drk", "tawa", "lyoum", "biya", "fiya", "liya", "kan7ess",
             "n7ess", "nhes"]
 clause_breaks:
   en: ["but", "however", "although", "though", "yet", "and now", "now"]

@@ -2,10 +2,13 @@
 
 A source module exposes:
   SOURCE_ID: str
-  async fetch(fetcher, paths, *, limit=None) -> object       download raw files (optional for local-only sources)
+  async fetch(fetcher, paths, *, limit=None) -> object       download raw files (optional for local-only
+  sources)
   parse(paths, record) -> Iterator[Document]                  raw files -> Documents (pre-gate)
-  BUILD_OPTIONS: dict   keyword arguments for pipeline.build_corpus (min_chars, check_language, ...)   optional
-  FETCH_CONFIG: FetchConfig                                   per-source politeness overrides            optional
+  BUILD_OPTIONS: dict   keyword arguments for pipeline.build_corpus (min_chars, check_language, ...)
+  optional
+  FETCH_CONFIG: FetchConfig                                   per-source politeness overrides
+  optional
 """
 
 from __future__ import annotations

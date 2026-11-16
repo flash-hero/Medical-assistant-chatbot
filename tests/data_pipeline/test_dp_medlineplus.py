@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# ruff: noqa: E501  (recorded MedlinePlus XML fixtures contain long lines)
 import json
 from pathlib import Path
 
@@ -178,12 +179,8 @@ def test_genetics_parse_all_entry_kinds(tmp_path: Path, genetics_record) -> None
     assert "SNOMED" not in cond.model_dump_json()
     assert cond.reviewed_on.isoformat() == "2019-09-01"
     assert cond.published_on.isoformat() == "2020-09-08"
-    assert (
-        gene.title == "EXG1 gene (example gene one)"
-    )
-    assert (
-        gene.sections[0].heading_path[1] == "Normal function"
-    )
+    assert gene.title == "EXG1 gene (example gene one)"
+    assert gene.sections[0].heading_path[1] == "Normal function"
     assert "example gene one" in gene.synonyms
     assert "EX1" in gene.synonyms
     assert docs["chromosome"].title == "Chromosome 1"

@@ -1,4 +1,4 @@
-import { ListIcon } from "@phosphor-icons/react/dist/ssr/List";
+import { ListIcon } from "@/components/ui/icons";
 import { getTranslations } from "next-intl/server";
 import { Logo } from "@/components/brand/Logo";
 import { Link } from "@/i18n/navigation";

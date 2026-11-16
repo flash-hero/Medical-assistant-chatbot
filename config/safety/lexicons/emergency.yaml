@@ -30,6 +30,40 @@ exclusions:
   - je meurs d'envie
   - je meurs de rire
   - mort de rire
+  # routine medication intake is not an overdose
+  - all my pills this morning
+  - all my pills in the morning
+  - all my pills as prescribed
+  - all my tablets this morning
+  - all my tablets in the morning
+  - all my tablets as prescribed
+  - all my meds this morning
+  - all my meds in the morning
+  - all my medication this morning
+  - all my medication as prescribed
+  - all her tablets in the morning
+  - all his tablets in the morning
+  - all her pills in the morning
+  - all his pills in the morning
+  - tous mes médicaments le matin
+  - tous mes comprimés le matin
+  - toutes mes pilules le matin
+  - pass out from boredom
+  - faint from boredom
+  - pass out of boredom
+  # names of wards and services are not emergencies
+  - stroke unit
+  - stroke ward
+  - stroke clinic
+  - stroke centre
+  - stroke center
+  - stroke rehab
+  - stroke rehabilitation
+  - stroke team
+  - stroke nurse
+  - unité avc
+  - unité neurovasculaire
+  - service avc
 terms:
   en:
     - clutching his chest
@@ -98,7 +132,6 @@ terms:
     - throat closing up
     - throat is swelling
     - tongue is swelling
-    - having a stroke
     - face is drooping
     - one side of my face
     - speech is slurred
@@ -159,11 +192,20 @@ terms:
     - call an ambulance
     - need an ambulance
     - send an ambulance
+    - going to pass out
+    - about to pass out
+    - going to faint
+    - about to faint
+    - cant get her words out
+    - cant get his words out
+    - cant get my words out
+    - talking gibberish
+    - speaking gibberish
+    - cant finish a sentence
   fr:
     - douleur à la poitrine
     - douleurs à la poitrine
     - se tient la poitrine
-    - poitrine qui serre fort
     - langue gonfle
     - langue qui gonfle
     - bébé est tout mou
@@ -268,6 +310,24 @@ terms:
     - appeler le samu
     - appelez le samu
     - appelez les pompiers
+    - articule mal
+    - articule plus
+    - n'articule plus
+    - bafouille
+    - parole pâteuse
+    - parle bizarrement
+    - mélange ses mots
+    - mélange les mots
+    - cherche ses mots
+    - du mal à parler
+    - vais tomber dans les pommes
+    - vais m'évanouir
+    - va s'évanouir
+    - cherche son air
+    - cherche son souffle
+    - cherche sa respiration
+    - cherche mon air
+    - respire à peine
   ar:
     # MSA
     - ألم شديد في صدري
@@ -485,6 +545,12 @@ condition_terms:
     - heat stroke
     - hypothermia
     - ambulance
+    - having a stroke
+    - car crash
+    - motorbike accident
+    - motorcycle accident
+    - road accident
+    - carbon monoxide poisoning
   fr:
     - s'étouffe
     - convulse
@@ -581,3 +647,137 @@ condition_terms:
     - jalta
     - sakta 9albiya
     - nazif
+# Co-occurrence entries (app/guardrails/lexicon_combos.py): every group must match within 12 tokens, in any
+# order. "word*" = prefix, "*word" = suffix. Judged like condition terms (negation, historical, informational).
+# Added from failures of the `tune` split of evals/safety/sets (the held-out split is never inspected).
+combinations:
+  en:
+    # chest pain / pressure in any word order
+    - [["chest", "sternum", "breastbone"], ["pain", "pains", "hurt*", "ache*", "aching", "heavy", "heaviness", "pressure", "tight*", "crush*", "squeez*", "elephant", "band", "vice"]]
+    - [["spread*", "radiat*", "going down", "down my", "into my", "up to my"], ["left arm", "jaw", "arm and jaw"]]
+    # stroke signs
+    - [["face", "mouth", "smile", "lip"], ["droop*", "lopsided", "crooked", "sagg*", "fell", "fallen", "uneven", "twisted"]]
+    - [["slurred", "slurring", "garbled", "jumbled", "mixed up", "muddled"], ["speech", "words", "talking", "speaking", "voice"]]
+    - [["cant", "cannot", "unable to", "can barely", "couldnt"], ["lift", "move", "raise", "feel", "use"], ["arm", "arms", "leg", "legs", "side", "hand", "face"]]
+    - [["sudden*", "all of a sudden"], ["lost", "losing", "loss of", "went blind", "blind", "cant see", "double"], ["vision", "sight", "eye", "eyes", "eyesight", "see"]]
+    # breathing
+    - [["cant", "cannot", "barely", "struggl*", "gasping", "fighting", "unable to"], ["breath*", "air"]]
+    - [["cant", "cannot", "unable to"], ["finish", "complete", "speak in"], ["sentence", "sentences"]]
+    - [["lips", "tongue", "throat", "face", "mouth", "eyes"], ["swell*", "swollen", "puff*", "closing", "blue", "grey", "gray"]]
+    - [["stung", "sting", "wasp", "bee", "peanut*", "nut", "nuts", "shellfish", "allerg*", "epipen", "epi pen"], ["wheez*", "throat", "breath*", "lips", "tongue", "dizzy", "faint*", "collaps*"]]
+    - [["asthma", "inhaler", "ventolin", "puffer", "nebuliser", "nebulizer"], ["attack", "not working", "isnt working", "doesnt help", "isnt helping", "not helping", "doesnt work", "didnt work", "severe"]]
+    - [["epipen", "epi pen", "adrenaline", "adrenalin"], ["not working", "still", "didnt work", "used", "again"]]
+    # infants and children
+    - [["baby", "newborn", "infant", "week old", "weeks old", "month old", "months old"], ["floppy", "limp", "blue", "grunting", "wont feed", "not feeding", "unresponsive", "breathing fast", "breathing very fast", "purple", "wont wake", "cant wake"]]
+    # head injury, falls
+    - [["hit", "banged", "bumped", "knocked", "fell on", "struck", "landed on"], ["head"], ["vomit*", "throwing up", "threw up", "confused", "drowsy", "sleepy", "unconscious", "passed out", "knocked out", "blacked out", "bleeding", "seizure", "fit", "wont wake", "sick", "being sick"]]
+    - [["fell", "fallen", "fall", "jumped"], ["roof", "ladder", "balcony", "storey", "story", "window", "height", "scaffold*", "floor up", "cliff"]]
+    # poisoning, overdose
+    - [["drank", "drunk", "swallowed", "ate", "eaten", "ingested", "got into", "has had", "licked", "sipped"], ["bleach", "antifreeze", "poison*", "detergent", "chemical*", "drain cleaner", "cleaning product", "laundry pod", "laundry capsule", "battery", "batteries", "magnet*", "weed killer", "weedkiller", "pesticide", "rat poison", "methanol", "paraffin", "lamp oil", "white spirit", "nail polish remover", "dishwasher tablet", "washing powder", "mushrooms"]]
+    - [["took", "taken", "swallowed", "ate", "eaten", "downed", "has taken", "had"], ["10", "12", "15", "20", "25", "30", "40", "50", "60", "100", "all my", "all the", "whole bottle", "whole packet", "whole box", "whole strip", "whole pack", "entire bottle", "a bottle of", "box of", "packet of", "handful", "lots of", "dozens", "a lot of"], ["pills", "tablets", "paracetamol", "ibuprofen", "sleeping", "painkillers", "meds", "medication*", "medicine*", "insulin", "aspirin", "antidepressants", "capsules"]]
+    - [["swallowed", "took", "ate", "eaten", "taken", "got into"], ["pills", "tablets", "medicine*", "medication*", "meds"], ["drowsy", "sleepy", "wont wake", "unconscious", "floppy", "not breathing", "vomiting", "fitting", "confused", "unresponsive"]]
+    - [["took", "taken", "used", "injected", "smoked", "snorted"], ["heroin", "fentanyl", "cocaine", "meth", "opioids", "ecstasy", "mdma", "ketamine", "ghb", "spice"], ["barely", "not breathing", "unconscious", "blue", "wont wake", "unresponsive", "collapsed", "chest", "seizure", "passed out", "breathing"]]
+    - [["carbon monoxide", "co alarm", "gas leak", "fumes"], ["headache*", "dizzy", "sick", "vomit*", "sleepy", "drowsy", "alarm", "collapsed", "unconscious", "confused"]]
+    - [["blood sugar", "sugar", "hypo", "glucose"], ["shaking", "sweating", "confused", "drowsy", "unconscious", "cant think", "slurring", "passed out", "fitting"]]
+    # bleeding, wounds, burns
+    - [["cough*", "vomit*", "throwing up", "threw up", "spitting", "spat"], ["blood"]]
+    - [["bleed*", "blood"], ["wont stop", "a lot", "heavily", "everywhere", "spurting", "pouring", "gushing", "so much", "soaked", "wont clot", "squirting"]]
+    - [["stabbed", "stab", "knifed", "slashed"], ["me", "him", "her", "my", "stomach", "chest", "neck", "back", "knife"]]
+    - [["boiling", "burn", "burned", "burnt", "scald*", "fire", "flames", "acid"], ["skin"], ["peel*", "coming off", "off", "blister*", "charred", "white", "black", "melted"]]
+    - [["bitten", "bit", "bite"], ["snake", "adder", "viper", "scorpion"]]
+    # circulation, sepsis, meningitis
+    - [["sudden*"], ["cold", "pale", "numb", "white"], ["leg", "arm", "foot", "hand"]]
+    - [["heart", "pulse", "heartbeat"], ["pounding", "racing", "200", "180", "very fast", "irregular"], ["pass out", "faint*", "dizzy", "chest", "breath*", "collaps*", "black out"]]
+    - [["spots", "rash", "blotches"], ["dont fade", "doesnt fade", "do not fade", "wont fade", "glass", "purple"]]
+    - [["stiff"], ["neck"], ["fever", "temperature", "drowsy", "light", "rash", "vomit*"]]
+    # pregnancy, abdomen, testicle
+    - [["pregnant", "pregnancy", "contractions", "labour", "labor", "waters broke", "water broke"], ["bleed*", "blood", "severe pain", "cord", "baby isnt moving", "not moving"]]
+    - [["umbilical cord", "the cord"], ["see", "coming out", "hanging", "visible", "out"]]
+    - [["testicle", "testicular", "scrotum"], ["sudden*", "severe", "twist*", "torsion", "vomit*", "throwing up"]]
+    # collapse, seizures
+    - [["collapsed", "fell", "fainted", "passed out", "on the floor", "on the ground"], ["not responding", "unresponsive", "wont wake", "not waking", "not answering", "isnt answering", "wont answer", "doesnt respond", "isnt responding", "not moving"]]
+    - [["shaking", "jerking", "convuls*", "fitting", "seizing", "seizure", "fit"], ["minutes", "wont stop", "unconscious", "foaming", "wont wake", "not responding", "blue"]]
+    - [["heart", "pulse", "heartbeat", "heart rate"], ["200", "180", "190", "220", "250"]]
+    - [["hurts so much", "unbearable", "excruciating", "worst pain", "doubled over", "cant stand up", "cant stand", "cant walk"], ["fever", "vomit*", "throwing up", "faint*", "pale", "sweating"]]
+    - [["week old", "weeks old", "day old", "days old", "newborn"], ["fever", "temperature", "38", "39", "40", "hot"]]
+    - [["crash", "crashed", "collision", "accident"], ["bleeding", "unconscious", "drowsy", "trapped", "not moving", "head"]]
+  fr:
+    - [["poitrine", "thorax", "thoracique", "sternum"], ["douleur*", "mal", "serre*", "ecras*", "lourd*", "poids", "barre", "oppress*", "pression", "etau", "comprim*"]]
+    - [["irradie", "descend", "remonte", "monte", "file"], ["bras gauche", "machoire", "le bras", "la machoire"]]
+    - [["bouche", "visage", "sourire", "levre"], ["travers", "tombe", "affaisse*", "paralyse*", "tordu*", "deform*", "de travers"]]
+    - [["arrive pas", "arrive plus", "arrive toujours pas", "peux pas", "peux plus", "peut pas", "peut plus", "parviens pas", "parvient pas", "a du mal", "ai du mal"], ["respirer", "respire", "bouger", "lever", "parler"]]
+    - [["respire", "respirer", "souffle"], ["a peine", "difficilement", "tres vite", "tres mal", "avec difficulte", "bruyamment"]]
+    - [["levres", "langue", "gorge", "visage", "bouche", "yeux", "paupieres"], ["gonfl*", "enfl*", "bleu*", "violet*", "gris*"]]
+    - [["pique*", "piqure", "guepe", "abeille", "frelon", "cacahuete*", "arachide*", "allerg*", "fruits a coque", "noix"], ["siffle*", "gonfl*", "gorge", "respir*", "vertige*", "malaise", "levres", "langue", "evanoui*"]]
+    - [["asthme", "ventoline", "inhalateur", "bronchodilatateur", "nebuliseur"], ["crise", "marche pas", "fait rien", "fonctionne pas", "agit pas", "grosse", "severe", "soulage pas"]]
+    - [["stylo", "adrenaline", "epipen", "anapen"], ["toujours", "marche pas", "fait rien", "deuxieme", "utilise"]]
+    - [["bebe", "nourrisson", "nouveau ne", "nouveau nee"], ["tout mou", "mou", "molle", "bleu", "bleue", "geint", "gemit", "respire vite", "respire tres vite", "tete plus", "boit plus", "reveille pas", "inconscient*"]]
+    - [["tombe*", "cogne*", "choc", "coup"], ["tete"], ["vomi*", "somnolent*", "confus*", "inconscient*", "mou", "saigne", "convuls*", "endormi*"]]
+    - [["tombe", "tombee", "chute"], ["etage", "toit", "echelle", "balcon", "fenetre", "haut", "falaise", "echafaudage"]]
+    - [["sent plus", "sens plus", "sentent plus"], ["jambes", "jambe", "bras", "corps", "pieds"]]
+    - [["bu", "avale", "avalee", "ingere", "mange", "leche", "bois"], ["javel", "antigel", "poison", "detergent", "produit menager", "deboucheur", "pile", "piles", "aimant*", "pesticide", "mort aux rats", "white spirit", "lave vaisselle", "capsule de lessive", "lessive", "champignons", "methanol", "petrole"]]
+    - [["pris", "avale", "avalee", "mange", "ingere"], ["toute une plaquette", "toute la plaquette", "une plaquette", "toute sa plaquette", "toute sa boite", "tout son flacon", "toute ma plaquette", "toute ma boite", "tout mon flacon", "plaquette entiere", "boite entiere", "toute la boite", "une boite", "tout le flacon", "trop de", "tous les", "toutes les", "beaucoup de", "10", "15", "20", "30", "40", "50", "100"], ["medicament*", "comprime*", "cachet*", "pilule*", "gelule*", "doliprane", "paracetamol", "somnifere*", "insuline", "anxiolytique*", "antidepresseur*"]]
+    - [["avale", "avalee", "pris", "mange"], ["medicament*", "comprime*", "cachet*", "pilule*"], ["somnolent*", "endormi*", "reveille pas", "inconscient*", "respire mal", "mou", "vomit", "convuls*", "confus*"]]
+    - [["pris", "injecte", "fume", "sniffe"], ["heroine", "fentanyl", "cocaine", "opiace*", "ecstasy", "mdma", "ketamine", "ghb"], ["respire", "inconscient*", "bleu*", "reveille", "convuls*", "malaise", "poitrine"]]
+    - [["monoxyde", "fuite de gaz", "detecteur", "chaudiere", "emanations"], ["mal a la tete", "maux de tete", "vomir", "nausee*", "vertige*", "somnolent*", "malaise", "sonne"]]
+    - [["glycemie", "hypo", "hypoglycemie", "sucre"], ["tremble*", "transpire", "confus*", "malaise", "inconscient*", "reflechir", "somnolent*", "convuls*"]]
+    - [["crache*", "vomi*", "vomit", "tousse*", "recrache"], ["sang"]]
+    - [["saign*", "sang", "hemorragie"], ["enormement", "beaucoup", "abondamment", "partout", "s arrete pas", "arrete pas", "jet", "gicle", "flots", "a flots", "sans arret", "pisse"]]
+    - [["poignard*", "coup de couteau", "coups de couteau", "planter", "plante"], ["ventre", "poitrine", "cou", "dos", "couteau", "moi", "lui"]]
+    - [["bouillant*", "brule", "brulee", "brules", "brulure*", "ebouillant*", "feu", "acide"], ["peau part", "la peau", "cloques", "tout le bras", "tout l avant bras", "tout le visage", "le visage", "grande surface", "carbonis*"]]
+    - [["soudain*", "d un coup", "brutalement", "subitement", "tout a coup"], ["froide", "froid", "pale", "engourdi*", "blanche", "bleue"], ["jambe", "bras", "pied", "main"]]
+    - [["brutalement", "soudain*", "d un coup", "subitement", "tout a coup"], ["perdu", "perte", "plus rien", "vois plus", "aveugle", "double"], ["vue", "vision", "œil", "oeil", "yeux"]]
+    - [["cœur", "coeur", "pouls"], ["200", "180", "tres vite", "s emballe", "emballe", "bat vite", "tachycardie", "irregulier"], ["pommes", "malaise", "evanouir", "vertige*", "poitrine", "respir*"]]
+    - [["taches", "boutons", "plaques"], ["violet*", "s effacent pas", "effacent pas", "pourpre*", "purpura"]]
+    - [["nuque", "cou"], ["raide", "raideur"], ["fievre", "temperature", "somnolent*", "lumiere", "vomi*"]]
+    - [["enceinte", "grossesse", "contractions", "accouch*", "poche des eaux", "perdu les eaux"], ["saign*", "sang", "hemorragie", "cordon", "bouge plus"]]
+    - [["testicule*", "bourse*", "scrotum"], ["brutal*", "soudain*", "violent*", "tres forte", "vomi*", "torsion"]]
+    - [["malaise", "effondre*", "tombe", "tombee", "evanoui*"], ["par terre", "au sol", "inconscient*", "repond plus", "reagit plus", "repond pas", "reagit pas", "bouge plus"]]
+    - [["tremble", "convulse", "secoue*", "crise"], ["minutes", "arrete pas", "s arrete pas", "bave", "inconscient*", "bleu*"]]
+    - [["mord*", "morsure", "pique", "piquee"], ["serpent", "vipere", "scorpion"]]
+    - [["cœur", "coeur", "pouls"], ["200", "180", "190", "220", "250"]]
+    - [["bebe de", "nourrisson de", "bebe a", "il a"], ["semaines", "jours"], ["fievre", "38", "39", "40", "mou", "molle", "bleu", "boire", "tete"]]
+    - [["arrive pas", "arrive plus", "peut pas", "peux pas", "peut plus", "peux plus"], ["finir", "terminer"], ["phrase*"]]
+    - [["mal au ventre", "douleur", "mal"], ["insupportable", "plie en deux", "pliee en deux", "tenir debout", "atroce"], ["fievre", "vomi*", "malaise"]]
+    - [["accident", "collision", "carambolage"], ["saigne", "inconscient*", "coince*", "bouge plus", "somnolent*", "tete"]]
+  ar:
+    - [["صدري", "الصدر", "صدر", "صدرو", "صدره", "صدرها"], ["ضغط", "ثقل", "ثقيل", "الم", "وجع", "*وجع*", "وجيعه", "الوجيعه", "*وجيع*", "كيضر*", "يضرني", "عصره", "عصر", "ضيق", "*زير", "حجره", "تقل"]]
+    - [["فمها", "فمه", "فمو", "الفم", "وجهو", "وجهه", "وجهها", "الوجه", "شدقها", "شدقه"], ["تعوج", "معوج", "عوج", "مايل", "مائل", "مايله", "مائله", "اعوج", "تلوى", "*عوج", "مال"]]
+    - [["كلام*", "الكلام", "لسانها", "لسانه", "لسانو", "هضرتو", "هضرتها", "الهضره", "هدرتو"], ["متلعثم", "ثقيل", "ثقل", "مخربق", "تخلط", "مشوش*", "غير مفهوم", "تقيل", "تبدل", "معوج"]]
+    - [["تحريك", "يحرك", "تحرك", "نحرك", "يتحرك", "تهز", "يهز", "نهز", "يحس", "تحس", "نحس", "كنحس", "نرفع", "يرفع", "ترفع"], ["رجليه", "رجليها", "رجلي", "رجليا", "يديه", "يديها", "يدها", "يده", "يدو", "يدي", "ذراعه", "ذراعها", "ذراعي", "جسمه", "رجلو", "جنبه", "جنبها"]]
+    - [["فجاه", "بغته", "فالحين", "دغيا"], ["فقد*", "عميت", "ما بقيتش كنشوف", "ما نشوفش", "لا ارى", "ما عادش نشوف"], ["الرؤيه", "البصر", "النظر", "عيني", "نشوف", "الشوف"]]
+    - [["ما قادرش", "ما قادراش", "ما نقدرش", "ما كنقدرش", "ما كيقدرش", "ما كتقدرش", "ما نجمش", "ما ينجمش", "ما تنجمش", "لا استطيع", "لا يستطيع", "لا تستطيع", "صعيب", "يصعب", "صعوبه", "بالسيف"], ["*تنفس", "التنفس", "النفس"]]
+    - [["شفايف*", "شفاه*", "شفتاه", "شفتيه", "شفتيها", "شفتي", "وجهو", "وجهه", "وجهها", "لسانه", "لسانها", "لسانو", "حلقي", "حلقه", "الحلق", "عينيه", "عينيها"], ["*زرق*", "رمادي", "*نتفخ*", "منفوخ*", "*تنفخ", "تورم*", "متورم*", "كيتنفخ", "مسدود", "تسد"]]
+    - [["قرصه", "قرصتني", "لسعه", "لسعتني", "نحله", "زنبور", "فول سوداني", "كاوكاو", "حساسيه", "الحساسيه"], ["*تنفس", "التنفس", "حلق*", "الحلق", "شفايف*", "شفتاه", "*نتفخ*", "*تنفخ", "دوخه", "دايخ", "طاح", "صفير"]]
+    - [["الربو", "ربو", "الضيقه", "البخاخ", "بخاخ", "فانتولين", "الفانتولين"], ["ما خدامش", "ما نفعش", "ما كينفعش", "لا يعمل", "لا ينفع", "ازمه", "نوبه", "قويه", "شديده", "ما خدمش"]]
+    - [["طفل*", "الطفل", "رضيع*", "الرضيع", "مولود*", "بيبي", "البيبي", "وليد*", "الوليد"], ["رخو", "رخوه", "مرتخي", "مرخي", "ارخى", "ازرق", "زرقاء", "يزرق", "خامل", "ما كيتحركش", "ما يتحركش", "لا يتحرك", "ما بغاش يرضع", "لا يرضع", "ما يرضعش", "ما كيرضعش", "كيشخر", "يين"]]
+    - [["سقط", "سقطت", "طاح", "طاحت", "وقع", "وقعت", "تيح"], ["الطابق", "السطح", "الطبقه", "الشرفه", "البالكون", "السلم", "الدروج", "علو", "الشجره", "السقاله", "الطاق"]]
+    - [["طاح", "طاحت", "سقط", "سقطت", "ضرب", "ضربت", "تضرب", "تضربت"], ["راسو", "راسه", "راسها", "راسي", "راس", "الراس"], ["يتقيا", "كيتقيا", "يرجع", "كيرجع", "دايخ", "مغمى", "ما فاقش", "غايب", "ينزف", "كينزف", "يتشنج", "ما يفيقش", "تقيو"]]
+    - [["شرب*", "بلع*", "ابتلع*", "كلا", "اكل", "كلات", "سرط*", "لحس"], ["جافيل", "مبيد*", "سم", "سما", "السم", "الكلور", "كلور", "بطاريه", "بيله", "حجره", "مغناطيس", "ماء النار", "دوا الفيران", "دواء الفيران", "الماء القاطع", "الما القاطع", "الاسيد", "اسيد", "مواد التنظيف", "المازوط", "البنزين", "الفطر"]]
+    - [["ابتلعت", "ابتلع", "بلعت", "بلع", "شربت", "شرب", "كليت", "كلا", "خديت", "خدا", "اخذت", "اخذ", "تناولت", "تناول", "كلات"], ["ثلاثين", "عشرين", "عشره", "خمسين", "اربعين", "30", "20", "40", "50", "100", "بزاف", "كامل", "كاملين", "گاع", "قاع", "علبه", "العلبه", "الكل", "برشا", "كثير"], ["حبه", "حبات", "حبوب", "الحبوب", "دوا", "الدوا", "الدواء", "اقراص", "كينه", "الكينه", "منوم*", "دوايات", "الدوايات", "فانيد"]]
+    - [["كلا", "كلات", "شرب", "شربت", "بلع", "اكل", "خذا", "خدا", "ابتلع", "تناول"], ["الدوا", "الدواء", "دوا", "دواء", "الحبوب", "حبوب", "الكينه", "الفانيد", "دوايات", "الدوايات", "اقراص"], ["راقد", "ناعس", "ما يفيقش", "ما كيفيقش", "ما فاقش", "يفيق", "دايخ", "مغمى", "فاقد", "يتقيا", "كيرجع", "نعسان", "يتشنج", "غايب"]]
+    - [["*نزف", "*نزيف", "الدم", "دم", "يسيل", "كيسيل", "سايل"], ["بغزاره", "بزاف", "برشا", "كثير", "بشده", "بالزاف", "ما بغاش يحبس", "ما بغاش يوقف", "لا يتوقف", "ما حبسش", "ما وقفش", "ما يحبسش", "بلا حبس", "غزير"]]
+    - [["طعن*", "ضربوه", "ضربوني", "ضربوها", "ضربني", "ضربو", "ضربها", "جرحوه", "جرحوني"], ["سكين", "بسكين", "موس", "بموس", "بالموس", "خنجر", "بالسكين", "جنوي", "بجنوي", "شاقور", "بالشاقور"]]
+    - [["يترعش", "كيترعش", "ترعش", "يرتعش", "يتشنج", "كيتشنج", "تتشنج", "كتتشنج", "يتنفض", "يرجف", "تشنجات"], ["دقايق", "دقائق", "دقيقه", "ما بغاش يحبس", "ما حبسش", "الرغوه", "الكشكوشه", "فاقد", "ما فاقش", "زرق", "ازرق"]]
+    - [["طاح", "طاحت", "سقط", "سقطت", "داخ", "داخت", "تيح", "مغمى", "مغشي*", "انهار", "انهارت", "طايح", "طايحه", "في الارض", "فالارض", "على الارض"], ["تجاوبش", "يجاوبش", "كيجاوبش", "كتجاوبش", "يفيقش", "تفيقش", "ما بقاش كيجاوب", "ما بقاتش كتجاوب", "ما كيجاوبش", "ما كتجاوبش", "ما يجاوبش", "ما تجاوبش", "يجاوب", "كيجاوب", "تجاوب", "كتجاوب", "لا يستجيب", "لا تستجيب", "تستجيب", "يستجيب", "ما يفيقش", "ما كيفيقش", "ما فاقش", "ما فاقتش", "يفيق", "تفيق", "ما يتحركش", "ما كيتحركش", "يتحرك"]]
+    - [["حامل", "حبلى", "الحمل", "الولاده", "كتولد", "تولد"], ["*نزف", "*نزيف", "الدم", "دم", "الحبل السري"]]
+    - [["الخصيه", "خصيه", "خصيتي", "البيضات", "بيضاتي"], ["فجاه", "شديد", "قوي", "*تقيا", "كنتقيا", "التواء"]]
+    - [["قلبي", "القلب", "قلبه", "النبض", "نبضات"], ["*دق*", "كيضرب", "يضرب", "سريع", "200", "بزاف"], ["دوخه", "دايخ", "غادي نطيح", "غادي يغمى", "يغمى", "صدري", "*تنفس"]]
+    - [["الرقبه", "رقبتو", "رقبته", "رقبتها", "عنقه"], ["متصلبه", "قاصحه", "يابسه", "تصلب", "قاسحه"], ["حمى", "سخانه", "سخونيه", "الحراره", "حراره", "سخون"]]
+    - [["لدغه", "لدغني", "لدغو", "قرصو", "عضه", "عضو", "عضني", "لسعه"], ["افعى", "ثعبان", "حنش", "لفعه", "عقرب", "العقرب"]]
+    - [["حرق*", "تحرق*", "اتحرق*", "زيت سخون", "الما سخون", "ماء مغلي", "مغلي"], ["الجلد", "جلدي", "جلدو", "كامل", "كاملين", "الوجه", "وجهو", "فقاعات"]]
+    - [["اول اكسيد", "اكسيد الكربون", "الغاز", "البوطا", "الشوفاج", "السخان"], ["دوخه", "دايخين", "صداع", "راسنا", "كنتقياو", "غاب", "مغمى", "ناعسين", "يتقيا"]]
+    - [["السكر", "الگليسيمي", "السكري"], ["هبط", "طاح", "منخفض", "ناقص", "يرجف", "كنرجف", "كيعرق", "غايب", "مغمى", "ما فاقش"]]
+  arabizi:
+    - [["sdri", "sder", "sadri", "sedri", "sdr", "sdro", "sdrha", "sadr"], ["wja3", "wje3", "wjaa", "kayderni", "kaywje3ni", "kaydrni", "dagt", "daght", "t9al", "tqal", "dyq", "di9a", "alam", "kayzir", "kayzirni", "yewja3ni", "youje3ni", "kat9tel", "msdod"]]
+    - [["fmha", "fommha", "fomha", "fmmha", "fmo", "fommo", "foumou", "fmou", "wjho", "wjhha", "wjhou", "wjha", "fmmou", "fomm"], ["t3awej", "m3awej", "3awej", "t3wej", "ta3waj", "mayl", "mayel", "mayla", "maylin", "m3wja", "m3wej", "t3wjat", "3wej"]]
+    - [["ma9adrach", "ma9adrch", "ma9adrich", "man9derch", "ma9dertch", "ma9dartch", "mat9derch", "ma kan9derch", "makan9derch", "mannajamch", "manajemch", "ma nnajemch", "mana9derch", "s3ib", "b sif", "bsif"], ["ntnfs", "ntnfes", "ntnaffes", "netnefes", "ytnfs", "yetnafes", "kanetnfes", "tnfs", "nfs", "nefs", "netnafes", "nitnaffas"]]
+    - [["chfayfi", "chfaifo", "chfayfo", "chfayfha", "chfaif", "chefayef", "chfayef", "wjho", "wjhha", "lsano", "lsanha", "7al9i", "7al9o"], ["zr9in", "zr9", "zre9", "zer9in", "zr9a", "zr9o", "zr9ou", "kaydr9", "zr9at", "tnfkh", "mnfoukh", "ntfkh", "kaytnfkh", "msdod"]]
+    - [["ta7", "ta7et", "ta7t", "s9at", "s9et", "dakh", "dakhet", "ghma 3lih", "ghma 3liha", "ghayeb", "tay7", "ta7at"], ["kayjawb", "kayjaweb", "katjawb", "katjaweb", "yjaweb", "ijaweb", "tjaweb", "kayfi9", "katfi9", "fa9", "fa9t", "yfi9", "tfi9", "kaytharrak", "kayt7errek", "yt7arrak"]]
+    - [["bla3", "bel3", "bl3at", "bal3", "bl3", "kla", "klat", "chreb", "chrbat", "chrb", "chrbt", "sret", "sretat"], ["7ajra", "pile", "batterie", "javel", "jafel", "aimant", "sem", "smm", "dwa dial far", "dwa dyal far", "ma l9ate3", "acide", "mazout", "essence"]]
+    - [["chreb", "chrbat", "kla", "klat", "bla3", "khda", "khdat", "khdit", "kliit", "chrebt", "bl3t"], ["bzaf", "bzzaf", "ga3", "kaml", "kamla", "kamlin", "barcha", "boite", "lboite", "30", "20", "50", "tlatin", "3chrin"], ["dwa", "ddwa", "l7bob", "7bob", "7ba", "7bat", "comprime", "comprimes", "dwayat", "lkina"]]
+    - [["kaynzef", "katnzef", "kanenzef", "kaynzf", "katnzf", "tnzef", "ynzef", "nazif", "kaysil", "katsil", "ysil"], ["bzaf", "bzzaf", "barcha", "bezzaf", "ktir", "ma bghach i7bes", "ma bghach ywqef", "ma 7besch", "ma w9efch", "bla 7bess"]]
+    - [["drbouh", "drbouha", "drbouni", "drboh", "dreb", "drbo", "drbha", "drbni", "t3en", "t3na", "ta3no", "ta3nouh", "t3nouh", "t3nou"], ["mous", "bmous", "jenwi", "khanjar", "sekkin", "skin", "couteau", "chakour"]]
+    - [["kaytchenj", "kaytchennej", "katchenj", "kayterte3", "yterte3", "kayrtta3", "ytchenj", "tchennej", "kayrjef", "crise"], ["d9aye9", "d9i9a", "dqayeq", "minutes", "ma bghach i7bes", "ma 7besch", "fa9d", "kawkaw"]]
+    - [["7amla", "hamla", "7bla", "l7aml", "kat wled", "katwled", "wlada"], ["kanenzef", "katnzef", "tnzef", "nzef", "nazif", "kaynzef"]]
+    - [["ta7", "ta7et", "ta7t", "s9at", "s9et", "dakh", "dakhet", "ghma 3lih", "ghma 3liha", "tay7", "ta7at"], ["ma b9ach kayjawb", "ma b9atch katjawb", "ma kayjawbch", "ma katjawbch", "ma b9ach kayfi9", "ma b9atch katfi9", "ma fa9ch", "ma fa9tch", "ma kayfi9ch", "ma 3adech yjaweb", "ma 3adech tjaweb", "ma kaytharrakch"]]

@@ -86,6 +86,7 @@
     "sourcesBody": "Les réponses proviennent uniquement d’éditeurs de santé publique dont la licence autorise la réutilisation. Chaque source est listée avec sa licence, pour que vous puissiez lire l’original.",
     "sourcesLink": "Voir toutes les sources et licences",
     "sourcesLicence": "Licence : {licence}",
+    "sourcesMore": "{count, plural, one {# autre source publique, avec sa licence, dans la page Sources.} other {# autres sources publiques, chacune avec sa licence, dans la page Sources.}}",
     "deskTitle": "Aussi à l’accueil",
     "deskBody": "Les questions pratiques sur l’hôpital reçoivent des réponses tirées d’informations vérifiées par l’hôpital, jamais de l’imagination de l’IA.",
     "desk": {

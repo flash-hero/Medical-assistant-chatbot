@@ -47,9 +47,18 @@ COMMON_REMOVE: tuple[str, ...] = (
     "//button",
     "//*[@role='navigation' or @role='banner' or @role='contentinfo' or @aria-hidden='true']",
     "//*[@hidden]",
-) + tuple(
-    f"//*[{class_xpath(token)}]"
-    for token in ("breadcrumb", "breadcrumbs", "share", "social-share", "print-only", "skip-link", "sr-only")
+    *tuple(
+        f"//*[{class_xpath(token)}]"
+        for token in (
+            "breadcrumb",
+            "breadcrumbs",
+            "share",
+            "social-share",
+            "print-only",
+            "skip-link",
+            "sr-only",
+        )
+    ),
 )
 
 

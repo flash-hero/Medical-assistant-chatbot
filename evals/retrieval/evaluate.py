@@ -19,12 +19,13 @@ from core.schemas.chat import RetrievalQuery
 from evals.retrieval.gold import GoldQuery
 from evals.retrieval.metrics import mean, ndcg_at_k, percentile, recall_at_k, reciprocal_rank
 from rag.confidence import DEGRADED_MIN_COVERAGE
-from rag.retrieval import HybridRetriever
+from rag.retrieval import HybridRetriever, RetrievalTrace
 from rag.retrieval_config import RetrievalConfig
 
 Sleep = Callable[[float], Awaitable[None]]
 TOP_K = 20
 K_VALUES = (8, 20)
+RERANK_STOP_STREAK = 5  # consecutive failed reranks (~1 min at the default pacing): quota spent or outage
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class Ablation:
     per_language_sample: int | None = None  # costly ablations (rerank) run on a sample
     pause_s: float = 0.0  # pacing between queries (free-tier Decisions TPM)
     scored: bool = True  # False: latency-only run (stand-in query vectors), rankings are meaningless
+    max_unreranked_streak: int = 0  # rerank ablations: stop after this many consecutive unreranked queries
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,7 @@ class AblationRun:
     ablation: Ablation
     outcomes: tuple[Outcome, ...]
     errors: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    stopped: str | None = None  # why the run ended before its last query (e.g. reranking unavailable)
 
 
 def standard_ablations(
@@ -72,7 +75,15 @@ def standard_ablations(
     ]
     if rerank_sample > 0:
         rr = plain.model_copy(update={"rerank": True})
-        out.append(Ablation("hybrid_rerank", rr, per_language_sample=rerank_sample, pause_s=rerank_pause_s))
+        out.append(
+            Ablation(
+                "hybrid_rerank",
+                rr,
+                per_language_sample=rerank_sample,
+                pause_s=rerank_pause_s,
+                max_unreranked_streak=RERANK_STOP_STREAK,
+            )
+        )
     return out
 
 
@@ -94,11 +105,31 @@ def to_query(row: GoldQuery, *, use_search_queries: bool, top_k: int = TOP_K) ->
     )
 
 
+def _outcome(row: GoldQuery, ablation: Ablation, tr: RetrievalTrace) -> Outcome:
+    return Outcome(
+        qid=row.qid,
+        language=row.language,
+        kind=row.kind,
+        answerable=row.answerable,
+        ablation=ablation.name,
+        gold=row.relevant_chunk_ids,
+        covered=tr.covered_chunk_ids,
+        confident=tr.result.confident,
+        confidence=tr.result.confidence,
+        signals=MappingProxyType({**tr.signals.features(), "degraded": float(tr.signals.degraded)}),
+        timings=MappingProxyType(dict(tr.result.timings_ms)),
+        reranked=tr.result.reranked,
+    )
+
+
 async def run_ablation(
     retriever: HybridRetriever, rows: Sequence[GoldQuery], ablation: Ablation, *, sleep: Sleep = asyncio.sleep
 ) -> AblationRun:
+    """Per-query failures are recorded and skipped. A rerank ablation whose reranker keeps failing (daily
+    Decisions quota, outage) stops early instead of spending the rest of its paced sample on RRF-only runs."""
     outcomes: list[Outcome] = []
     errors: dict[str, str] = {}
+    streak, stopped = 0, None
     for i, row in enumerate(sample_rows(rows, ablation.per_language_sample)):
         if i and ablation.pause_s:
             await sleep(ablation.pause_s)
@@ -108,23 +139,12 @@ async def run_ablation(
         except Exception as exc:
             errors[row.qid] = type(exc).__name__
             continue
-        outcomes.append(
-            Outcome(
-                qid=row.qid,
-                language=row.language,
-                kind=row.kind,
-                answerable=row.answerable,
-                ablation=ablation.name,
-                gold=row.relevant_chunk_ids,
-                covered=tr.covered_chunk_ids,
-                confident=tr.result.confident,
-                confidence=tr.result.confidence,
-                signals=MappingProxyType({**tr.signals.features(), "degraded": float(tr.signals.degraded)}),
-                timings=MappingProxyType(dict(tr.result.timings_ms)),
-                reranked=tr.result.reranked,
-            )
-        )
-    return AblationRun(ablation, tuple(outcomes), MappingProxyType(errors))
+        outcomes.append(_outcome(row, ablation, tr))
+        streak = 0 if tr.result.reranked or not ablation.config.rerank else streak + 1
+        if ablation.max_unreranked_streak and streak >= ablation.max_unreranked_streak:
+            stopped = f"reranking failed on {streak} consecutive queries"
+            break
+    return AblationRun(ablation, tuple(outcomes), MappingProxyType(errors), stopped)
 
 
 # ---- aggregation ---------------------------------------------------------------------------------
@@ -198,6 +218,7 @@ def summarize(run: AblationRun) -> dict[str, Any]:
         "scored": run.ablation.scored,
         "queries": len(run.outcomes),
         "errors": dict(run.errors),
+        "stopped": run.stopped,
         "reranked_queries": sum(o.reranked for o in run.outcomes),
         "missed_at_20": missed(run.outcomes) if run.ablation.scored else [],
         "by_language": by_lang,

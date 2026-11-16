@@ -14,8 +14,8 @@ FR = (
     "Le diabète est une maladie chronique qui se caractérise par un excès de sucre dans le sang. "
     "Les personnes atteintes doivent consulter leur médecin pour adapter le traitement et les repas."
 )
-AR = "السكري مرض مزمن يحدث عندما لا ينتج البنكرياس كمية كافية من الأنسولين أو عندما لا يستخدم الجسم الأنسولين بفعالية."
-ES = "La diabetes es una enfermedad crónica que afecta la forma en que el cuerpo convierte los alimentos en energía para el cuerpo."
+AR = "السكري مرض مزمن يحدث عندما لا ينتج البنكرياس كمية كافية من الأنسولين أو عندما لا يستخدم الجسم الأنسولين بفعالية."  # noqa: E501
+ES = "La diabetes es una enfermedad crónica que afecta la forma en que el cuerpo convierte los alimentos en energía para el cuerpo."  # noqa: E501
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,7 @@
 """NCI PDQ cancer information summaries, PATIENT version only (cancer.gov) -> Documents.
 
-Licence (read 2026-11-15, https://www.cancer.gov/policies/copyright-reuse): "Unless otherwise indicated, all text
+Licence (read 2026-11-15, https://www.cancer.gov/policies/copyright-reuse): "Unless otherwise indicated, all
+text
 within National Cancer Institute (NCI) products is free of copyright and may be reused without our permission.
 Credit the National Cancer Institute as the source." Health-professional PDQ versions, Spanish pages, images
 and the "About This PDQ Summary" section are not ingested. cancer.gov redirects retired patient summaries to

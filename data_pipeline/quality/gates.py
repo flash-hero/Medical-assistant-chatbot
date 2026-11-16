@@ -4,7 +4,8 @@ smuggling characters are still visible), then sanitisation, boilerplate, length 
 Outcome verdicts:
   keep        -> goes to normalized/{source}.jsonl (document is the cleaned copy)
   quarantine  -> goes to quarantine/{source}.jsonl with the reasons (injection / smuggling)
-  drop        -> logged in reports/{source}_dropped.jsonl (excluded, licence mismatch, too short, wrong language)
+  drop        -> logged in reports/{source}_dropped.jsonl (excluded, licence mismatch, too short, wrong
+  language)
 """
 
 from __future__ import annotations

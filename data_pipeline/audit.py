@@ -51,7 +51,7 @@ def automated_checks(doc: Document, record: SourceRecord | None) -> dict[str, bo
 
 
 def stratified_quotas(counts: Mapping[str, int], size: int) -> dict[str, int]:
-    """Documents to draw per source: proportional to its size, at least one per non-empty source, total <= size."""
+    """Documents per source: proportional to its size, one per non-empty source at least, total <= size."""
     pools = {source: n for source, n in counts.items() if n > 0}
     total = sum(pools.values())
     if not pools or size <= 0:
@@ -85,8 +85,8 @@ def render_audit_markdown(rows: Sequence[AuditRow], *, generated_on: str, corpus
         f"{len(rows)} documents drawn from {corpus_size:,} normalised documents, stratified by source.",
         "",
         "For each entry the auditor decides whether the text is a clean, correct health-information document "
-        "(readable, on topic, no navigation or advertising text, no personal data, no instructions aimed at an AI) "
-        "and records the result in the checklist below. The automated checks are a pre-filter, not the audit.",
+        "(readable, on topic, no navigation or advertising text, no personal data, no instructions aimed at an AI) "  # noqa: E501
+        "and records the result in the checklist below. The automated checks are a pre-filter, not the audit.",  # noqa: E501
         f"Automated pre-check: {clean} of {len(rows)} pass all automated checks. "
         "`data.manual_audit_clean` (target 0.97) is **not run** by the data agent.",
         "",
@@ -122,7 +122,7 @@ def render_attribution_markdown(records: Sequence[SourceRecord], *, generated_on
         f"Generated {generated_on} from the ACTIVE entries of `data_pipeline/sources/registry.yaml`. "
         "Do not edit by hand; change the registry and run `python -m data_pipeline report`.",
         "",
-        "Ausculta shows information from the sources below. Each answer cites its source; this page records the "
+        "Ausculta shows information from the sources below. Each answer cites its source; this page records the "  # noqa: E501
         "licence evidence and the credit line each publisher asks for. Images and logos are never used.",
         "",
     ]

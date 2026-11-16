@@ -16,9 +16,9 @@ from core.schemas.document import Document, Section
 
 _STATIC_LINE = re.compile(
     r"^\W*(?:"
-    r"(?:skip (?:to|navigation|directly)|jump to|you are here|url of this page|page last (?:reviewed|updated)|"
+    r"(?:skip (?:to|navigation|directly)|jump to|you are here|url of this page|page last (?:reviewed|updated)|"  # noqa: E501
     r"last (?:updated|reviewed|modified|medically reviewed)|official websites use|secure \.?gov websites|"
-    r"to use the sharing features|we use cookies|accept (?:all )?cookies|was this (?:page|article|information)|"
+    r"to use the sharing features|we use cookies|accept (?:all )?cookies|was this (?:page|article|information)|"  # noqa: E501
     r"sign up for|follow us|copyright\s*(?:©|\(c\))|all rights reserved).*"
     r"|(?:back to top|share(?: this| on)?(?: page)?|print(?: this page)?|email(?: this)?|tweet|subscribe|"
     r"cookies?(?: policy| notice)?|rate this|breadcrumb|related (?:pages|topics|links)|on this page|"

@@ -1,8 +1,6 @@
 "use client";
 
-import { DesktopIcon } from "@phosphor-icons/react/dist/ssr/Desktop";
-import { MoonIcon } from "@phosphor-icons/react/dist/ssr/Moon";
-import { SunIcon } from "@phosphor-icons/react/dist/ssr/Sun";
+import { DesktopIcon, MoonIcon, SunIcon } from "@/components/ui/icons";
 import { useCallback, useSyncExternalStore } from "react";
 
 type ThemeChoice = "system" | "light" | "dark";

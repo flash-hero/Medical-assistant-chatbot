@@ -1,4 +1,4 @@
-"""python -m data_pipeline fetch|parse|run --source <id> | --wave <n>   and   python -m data_pipeline report"""
+"""python -m data_pipeline fetch|parse|run --source <id> | --wave <n>, and python -m data_pipeline report"""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             if args.command in ("parse", "run"):
                 report = catalog.run_parse(source_id, paths, limit=args.limit)
                 sys.stdout.write(
-                    f"{source_id}: parsed={report.parsed} kept={report.kept} quarantined={report.quarantined} "
+                    f"{source_id}: parsed={report.parsed} kept={report.kept} quarantined={report.quarantined} "  # noqa: E501
                     f"dropped={report.dropped}\n"
                 )
         except Exception as exc:

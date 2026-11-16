@@ -2,13 +2,13 @@
 
 A combination is a list of groups; a group lists alternatives; an alternative is one or more words matched as
 consecutive tokens. The combination matches when every group matches a different token span, all within
-MAX_SPAN tokens of each other, in any order. This generalises over word order and filler words ("my chest feels
-heavy", "heavy pressure in the middle of my chest"), which literal phrases cannot.
+MAX_SPAN tokens of each other, in any order. This generalises over word order and filler words ("my chest
+feels heavy", "heavy pressure in the middle of my chest"), which literal phrases cannot.
 
-Word syntax: a trailing "*" matches a prefix ("breath*" = breathe, breathing), a leading "*" a suffix ("*نزف" =
-ينزف, تنزف, كتنزف), both a substring. Arabic-script words also match a token carrying up to two proclitics
-(و ف ب ل ك) and/or the article ("فصدري", "بالصدر"). Arabizi words are compared on the consonant skeleton
-("sadri" = "sdri" = "sedri").
+Word syntax: a trailing "*" matches a prefix ("breath*" = breathe, breathing), a leading "*" a suffix
+("*نزف" = ينزف, تنزف, كتنزف), both a substring. Arabic-script words also match a token carrying up to two
+proclitics (و ف ب ل ك) and/or the article ("فصدري", "بالصدر"). Arabizi words are compared on the consonant
+skeleton ("sadri" = "sdri" = "sedri").
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ COMBO_LANGS: tuple[str, ...] = ("en", "fr", "ar", "arabizi")
 _PROCLITICS = frozenset("وفبلك")
 _ARTICLE = "ال"
 _MIN_STEM = 3  # a proclitic is only stripped when at least this many letters remain
+_SHORT_STEMS = frozenset({"ما", "لا"})  # negation particles glued to و / ف: "وما بقاش كيجاوب", "ولا يتنفس"
 
 Span = tuple[int, int]  # [start, end) token indices
 
@@ -42,8 +43,9 @@ def token_forms(token: str) -> tuple[str, ...]:
         return (token,)
     forms = [token]
     for n in (1, 2):
-        if len(token) - n >= _MIN_STEM and all(c in _PROCLITICS for c in token[:n]):
-            forms.append(token[n:])
+        stem = token[n:]
+        if (len(stem) >= _MIN_STEM or stem in _SHORT_STEMS) and all(c in _PROCLITICS for c in token[:n]):
+            forms.append(stem)
     forms += [f[len(_ARTICLE) :] for f in forms if f.startswith(_ARTICLE) and len(f) - 2 >= _MIN_STEM]
     return tuple(dict.fromkeys(forms))
 

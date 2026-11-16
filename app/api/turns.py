@@ -28,7 +28,7 @@ import structlog
 
 from app.api.errors import TurnInProgress
 from app.pipeline.engine import TurnEngine, TurnRequest
-from app.pipeline.record import TurnRecord, TurnTrace
+from app.pipeline.record import TurnRecord, TurnStatus, TurnTrace
 from core.schemas.events import ChatEvent, DoneEvent, ErrorEvent, to_sse
 
 log = structlog.get_logger(__name__)
@@ -252,7 +252,7 @@ class TurnStream:
             await asyncio.wait({task}, timeout=min(remaining, RECANCEL_INTERVAL_S))
 
     async def _finish(self) -> None:
-        status = "completed" if self._completed else "cancelled"
+        status: TurnStatus = "completed" if self._completed else "cancelled"
         record = self._trace.finish(status if not self._trace.record.error_code else "error")
         frames = tuple(self._frames) if self._completed else None
         self._registry.finish(

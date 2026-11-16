@@ -5,11 +5,29 @@ from qdrant_client import AsyncQdrantClient
 from rag_fixtures import QDRANT_LOCAL_WARNINGS, build_index, retrieval_docs
 
 from core.config import Settings
+from core.errors import UpstreamRateLimited, UpstreamUnavailable
+from core.models import ModelRole
 from evals.fakes.fake_llm import FakeLLMProvider
-from evals.retrieval.evaluate import Ablation, AblationRun, Outcome, paired_ndcg, sample_rows, summarize
+from evals.retrieval.evaluate import (
+    RERANK_STOP_STREAK,
+    Ablation,
+    AblationRun,
+    Outcome,
+    paired_ndcg,
+    sample_rows,
+    summarize,
+)
 from evals.retrieval.gold import GoldQuery, save_gold
 from evals.retrieval.resume_check import measure_resume
-from evals.retrieval.runner import EvalContext, EvalOptions, evaluable, run_eval
+from evals.retrieval.runner import (
+    RERANK_MIN_GAIN,
+    EvalContext,
+    EvalOptions,
+    embed_api_latency,
+    evaluable,
+    rerank_decision,
+    run_eval,
+)
 from rag.chunking import chunk_document
 from rag.paths import DataPaths
 from rag.retrieval_config import RetrievalConfig, load_retrieval_config
@@ -105,6 +123,7 @@ async def test_online_eval_runs_all_ablations_calibrates_and_writes_config(setup
         gold_dir=tmp / "gold",
         rerank_sample=2,
         rerank_pause_s=0.0,
+        rerank_min_paired=1,
         embed_latency_sample=2,
         resume_check=False,
         backend="fake",
@@ -127,6 +146,81 @@ async def test_online_eval_runs_all_ablations_calibrates_and_writes_config(setup
     assert {g["gate"] for g in report["gates"]} >= {"rag.recall_at_20_en", "rag.retrieval_p95_ms"}
     second = await run_eval(ctx, opts)  # query cache: nothing embedded twice
     assert second["pre_embed"]["embedded"] == 0
+
+
+async def test_online_eval_completes_when_reranking_is_out_of_quota(setup, sparse):
+    client, collection, tmp = setup
+    day = UpstreamRateLimited("spent", scope="day", retry_after_s=None)
+    llm = FakeLLMProvider(failures={ModelRole.RERANK: day})
+    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW)
+    opts = EvalOptions(
+        collection=collection,
+        gold_dir=tmp / "gold",
+        rerank_sample=4,  # 12 sampled queries; the ablation stops after RERANK_STOP_STREAK failures
+        rerank_pause_s=0.0,
+        rerank_min_paired=1,
+        embed_latency_sample=1,
+        resume_check=False,
+        backend="fake",
+    )
+    report = await run_eval(ctx, opts)
+    rerank = report["ablations"][-1]
+    assert rerank["ablation"] == "hybrid_rerank"
+    assert rerank["queries"] == RERANK_STOP_STREAK
+    assert rerank["stopped"].startswith("reranking failed")
+    decision = report["rerank_decision"]
+    assert (decision["measured"], decision["keep_rerank"], decision["reranked_queries"]) == (False, False, 0)
+    assert load_retrieval_config(ctx.paths, collection).rerank is False
+    assert {g["gate"] for g in report["gates"]} >= {"rag.recall_at_20_en"}
+
+
+async def test_embed_latency_sample_skips_rate_limits_and_stops_on_daily_quota():
+    sleeps: list[float] = []
+
+    async def sleep(s: float) -> None:
+        sleeps.append(s)
+
+    minute = UpstreamRateLimited("busy", scope="minute", retry_after_s=7.0)
+    llm = FakeLLMProvider(embed_error=minute, embed_failures_remaining=1)
+    got = await embed_api_latency(llm, ["a", "b", "c"], 3, sleep=sleep)
+    assert (got["n"], got["failed"], got["stopped"], sleeps) == (2.0, 1, None, [7.0])
+    assert got["p95"] >= got["p50"] >= 0
+
+    llm = FakeLLMProvider(embed_error=UpstreamUnavailable("down"), embed_failures_remaining=9)
+    got = await embed_api_latency(llm, ["a", "b", "c", "d"], 4, sleep=sleep, wait_s=1.0)
+    assert (got["n"], got["failed"], got["stopped"]) == (0.0, 3, "3 failed calls")
+    assert "p95" not in got
+
+    day = UpstreamRateLimited("spent", scope="day", retry_after_s=None)
+    llm = FakeLLMProvider(embed_error=day, embed_failures_remaining=9)
+    got = await embed_api_latency(llm, ["a", "b"], 2, sleep=sleep)
+    assert (got["n"], got["failed"], got["stopped"]) == (0.0, 1, "daily quota")
+    assert llm.count("embed") == 1
+
+
+def test_rerank_decision_pairs_only_the_queries_the_reranker_scored():
+    base_abl, rr_abl = Ablation("hybrid", RetrievalConfig()), Ablation("hybrid_rerank", RetrievalConfig())
+
+    def outcome(qid: str, covered: tuple[str, ...], *, reranked: bool) -> Outcome:
+        cov = tuple((c,) for c in covered)
+        return Outcome(qid, "en", "passage", True, "x", ("g",), cov, True, 0.9, {}, {}, reranked=reranked)
+
+    base = AblationRun(
+        base_abl, (outcome("q1", ("a", "g"), reranked=False), outcome("q2", ("g",), reranked=False))
+    )
+    rr = AblationRun(rr_abl, (outcome("q1", ("g",), reranked=True), outcome("q2", ("g",), reranked=False)))
+    got = rerank_decision(base, rr, min_paired=1)
+    assert (got["n"], got["reranked_queries"], got["sampled_queries"]) == (1.0, 1, 2)
+    assert got["measured"]
+    assert got["keep_rerank"]
+    assert got["gain"] > 0.3
+    assert not rerank_decision(base, rr, min_paired=2)["measured"]
+    assert rerank_decision(base, None, min_paired=1) == {
+        "measured": False,
+        "keep_rerank": False,
+        "min_gain": RERANK_MIN_GAIN,
+        "min_paired": 1,
+    }
 
 
 async def test_offline_eval_makes_no_api_call_and_emits_only_latency_records(setup, sparse):

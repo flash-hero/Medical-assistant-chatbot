@@ -160,7 +160,9 @@ def load_heldout(root: Path = SETS_DIR) -> frozenset[str]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise SetFormatError(f"cannot load {SPLITS_FILE}; run `python -m evals.safety.sets --make-splits`") from exc
+        raise SetFormatError(
+            f"cannot load {SPLITS_FILE}; run `python -m evals.safety.sets --make-splits`"
+        ) from exc
     ids = raw.get("heldout") if isinstance(raw, dict) else None
     if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
         raise SetFormatError(f"{SPLITS_FILE}: 'heldout' must be a list of ids")
@@ -196,10 +198,14 @@ def make_splits(root: Path = SETS_DIR, *, force: bool = False) -> frozenset[str]
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--sets", type=Path, default=SETS_DIR)
     parser.add_argument("--make-splits", action="store_true", help="freeze the held-out split")
-    parser.add_argument("--force", action="store_true", help="overwrite an existing split (never while tuning)")
+    parser.add_argument(
+        "--force", action="store_true", help="overwrite an existing split (never while tuning)"
+    )
     args = parser.parse_args(argv)
     try:
         items = load_sets(args.sets)

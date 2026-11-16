@@ -4,7 +4,8 @@ core.text walks the text one character at a time in Python, roughly 150 KB/s: fa
 MB of corpus text the quality gates scan. The results below are identical to core.text for every input
 (tests/data_pipeline/test_dp_fastpath.py checks this with Hypothesis); only the strategy differs:
 
-  * sanitize: if the text contains none of the code points the core removes, the per-character walk is a no-op,
+  * sanitize: if the text contains none of the code points the core removes, the per-character walk is a no-
+  op,
     so only the whitespace regexes run. Otherwise the call is delegated to core.text.sanitize().
   * detection_form: the same pipeline as the core, but accent stripping touches only the non-ASCII runs.
 """
@@ -32,7 +33,7 @@ from core.text import (
 
 _NONCHARACTERS = "".join(chr(plane * 0x10000 + low) for plane in range(17) for low in (0xFFFE, 0xFFFF))
 _SPECIAL = re.compile(
-    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"  # controls (tab and newline are kept; carriage returns are folded first)
+    "[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f"  # controls (tab and newline are kept; carriage returns are folded first)  # noqa: E501
     "­͏ᅟᅠ᠎​⁠-⁤‪-‮⁦-⁩"  # invisibles, bidi controls
     "︀-️﻿ㅤﾠ￹-￻﷐-﷯"  # variation selectors, fillers, annotations
     "-\U000e0000-\U000e007f\U000e0100-\U000e01ef\U000f0000-\U000ffffd\U00100000-\U0010fffd"
