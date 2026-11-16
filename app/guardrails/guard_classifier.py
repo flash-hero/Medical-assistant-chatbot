@@ -22,6 +22,20 @@ from core.schemas.chat import Intent, Locale, Population, RiskKind
 
 log = structlog.get_logger(__name__)
 
+# Every risk and population question asks about the LATEST message only. Earlier messages are context (who
+# "he" is, what "it" refers to) but must not re-raise a risk that only an earlier message described: the
+# pipeline keeps that one visible as a sticky session flag. Without this, a live guard model classified
+# "What are the visiting hours?" as an emergency because the previous message was one.
+LATEST_MESSAGE_SCOPE = (
+    'Judge only the latest message (the one marked role="current"). Earlier messages only help to '
+    "understand what it refers to: a risk described only in earlier messages does not count unless the "
+    'latest message itself describes it, adds to it or asks about it (for example "he is still not '
+    'breathing" or "what should I do now?").'
+)
+POPULATION_SCOPE = (
+    'Judge the latest message (the one marked role="current"); earlier messages may say who it is about.'
+)
+
 
 @dataclass(frozen=True)
 class ClassifierOutput:
@@ -37,11 +51,12 @@ class ClassifierOutput:
 
 def decision_questions(prompts: GuardPrompts) -> dict[str, DecisionQuestion]:
     questions: dict[str, DecisionQuestion] = {
-        f"risk_{k.value}": DecisionQuestion(kind="noul", instructions=q) for k, q in prompts.risks.items()
+        f"risk_{k.value}": DecisionQuestion(kind="noul", instructions=f"{q} {LATEST_MESSAGE_SCOPE}")
+        for k, q in prompts.risks.items()
     }
     questions.update(
         {
-            f"pop_{p.value}": DecisionQuestion(kind="noul", instructions=q)
+            f"pop_{p.value}": DecisionQuestion(kind="noul", instructions=f"{q} {POPULATION_SCOPE}")
             for p, q in prompts.populations.items()
         }
     )
@@ -119,6 +134,7 @@ def fallback_schema() -> dict[str, Any]:
 def fallback_system(prompts: GuardPrompts) -> str:
     definitions = "\n".join(f"- {k.value}: {q}" for k, q in prompts.risks.items())
     definitions += "\n" + "\n".join(f"- {p.value}: {q}" for p, q in prompts.populations.items())
+    definitions += f"\nRisks: {LATEST_MESSAGE_SCOPE}\nPopulations: {POPULATION_SCOPE}"
     intents = ", ".join(f"{k} ({v})" for k, v in prompts.intent_options.items())
     return prompts.fallback_system.replace("{definitions}", definitions).replace("{intents}", intents)
 

@@ -14,6 +14,7 @@ import binascii
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 from app.guardrails.ingress import SMUGGLING_FLAG_WEIGHTS
 from core.schemas.chat import RiskKind, Signal
@@ -155,7 +156,9 @@ class InjectionResult:
         return self.score >= threshold
 
     def signal(self) -> Signal:
-        source = "sanitizer" if all(r.startswith("smuggling:") for r in self.reasons) else "lexicon"
+        source: Literal["sanitizer", "lexicon"] = (
+            "sanitizer" if all(r.startswith("smuggling:") for r in self.reasons) else "lexicon"
+        )
         return Signal(
             kind=RiskKind.INJECTION,
             source=source,

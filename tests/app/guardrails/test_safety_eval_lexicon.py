@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -260,3 +261,26 @@ def test_default_out_is_under_the_data_root(monkeypatch: pytest.MonkeyPatch, tmp
 
     monkeypatch.setattr(le, "get_settings", _Settings)
     assert le.default_out() == tmp_path / "reports" / le.METRICS_FILE
+
+
+def test_main_survives_a_console_that_cannot_encode_arabic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A cp1252 Windows console used to crash on an Arabic failure line, before the records were written."""
+    sets = tmp_path / "sets"
+    _tiny_sets(sets)
+    miss = {"id": "ar-emergency-01", "lang": "ar", "text": "الجو جميل اليوم", "expected_kinds": ["emergency"]}
+    (sets / "ar" / "emergency.jsonl").write_text(json.dumps(miss) + "\n", encoding="utf-8")
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    monkeypatch.setattr(le.sys, "stdout", console)
+    out = tmp_path / "reports" / "x.metrics.json"
+    assert le.main(["--sets", str(sets), "--out", str(out), "--show-failures", ALL]) == 0
+    assert out.exists()
+    console.flush()
+    printed = console.buffer.getvalue().decode("cp1252")  # type: ignore[attr-defined]
+    assert "ar-emergency-01" in printed
+    assert r"\u0627\u0644\u062c\u0648" in printed  # "الجو", escaped instead of crashing
+
+
+def test_console_safe_ignores_streams_without_reconfigure() -> None:
+    le.console_safe(object())  # no reconfigure(): nothing to do, no error

@@ -229,7 +229,16 @@ def default_out() -> Path:
     return get_settings().data_root / "reports" / METRICS_FILE
 
 
+def console_safe(stream: Any) -> None:
+    """Escape what the console cannot encode: an Arabic failure preview on a cp1252 Windows console used to
+    raise UnicodeEncodeError before the metric records were written."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(errors="backslashreplace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    console_safe(sys.stdout)
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

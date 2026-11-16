@@ -7,10 +7,12 @@ Metrics file: `C:\dev\ausculta-data\reports\engine-guardrails.metrics.json`.
 
 | # | Deliverable | Status | Numbers |
 |---|---|---|---|
-| 1 | Tests for every guardrail module, coverage >= 90% for `app/guardrails` | done | 417 tests pass; `app/guardrails` coverage 98% (branch), re-verified 2026-11-16 |
+| 1 | Tests for every guardrail module, coverage >= 90% for `app/guardrails` | done | final run 5: 603 tests pass; `app/guardrails` line 99.0% (1342/1355), branch-combined 98.4% |
 | 2 | Safety evaluation sets (EN/FR/AR) in `evals/safety/sets/` | done | 925 items (EN 307, FR 307, AR 311); held-out split frozen (186 ids) |
 | 3 | Deterministic evaluator writing `engine-guardrails.metrics.json` | done | 50 tests (`test_safety_eval_{sets,lexicon}.py`), `evals/safety` coverage 98%; baseline below |
-| 4 | Lexicon tuning (recall >= 90%, hard-negative FP <= 10%, held-out 20%) | in progress | tune split: emergency and self_harm 100% in en/fr/ar, hard-negative FP 0%; held-out not yet measured on the final lexicon |
+| 4 | Lexicon tuning (recall >= 90%, hard-negative FP <= 10%, held-out 20%) | partial | emergency / self_harm tuned: tune 100% everywhere; held-out emergency 100/100/75%, self_harm 46/58/83% (en/fr/ar); harm_to_others, abuse_disclosure, injection never tuned |
+| 5 | Fixes requested by engine-api: (a) combination test, (b) follow-up flagged as emergency | done | +38 tests; see below |
+| 6 | Final metrics on the final lexicon (`engine-guardrails.metrics.json`, source `lexicon_only`) | done | 94 records; tune and held-out separate; gates below |
 
 ## Eval sets (deliverable 2)
 
@@ -109,6 +111,71 @@ no items) before I switched to tune-only output; no tuning decision used it.
 - ruff check / format clean again on all track directories (the run-3 lexicon combination work had left 6
   findings and 3 unformatted files).
 
+## Final metrics (run 5, final lexicon)
+
+`python -m evals.safety.lexicon_eval --show-failures none` wrote 94 records (source `lexicon_only`) to
+`C:\devusculta-dataeports\engine-guardrails.metrics.json`. The lexicon files were not changed in run 5
+(`git diff config/safety` empty). Disclosure: the evaluator's summary always prints the held-out rows; it was run
+once at the start of run 5 (to check the state) and once to write the records; no tuning happened after either.
+
+| lang | split | emergency | self_harm | harm_to_others | abuse_disclosure | injection | hard-neg FP (safety kinds) | hard-neg FP (injection) |
+|---|---|---|---|---|---|---|---|---|
+| en | tune | 49/49 100% | 48/48 100% | 2/24 8.3% | 10/24 41.7% | 37/50 74.0% | 0/52 0.0% | 1/52 1.9% |
+| en | heldout | 12/12 100% | 6/13 46.2% | 1/6 16.7% | 3/6 50.0% | 9/12 75.0% | 2/13 15.4% | 0/13 0.0% |
+| fr | tune | 49/49 100% | 49/49 100% | 3/24 12.5% | 4/24 16.7% | 22/50 44.0% | 0/52 0.0% | 0/52 0.0% |
+| fr | heldout | 12/12 100% | 7/12 58.3% | 0/6 0.0% | 2/6 33.3% | 6/12 50.0% | 0/13 0.0% | 0/13 0.0% |
+| ar | tune | 51/51 100% | 49/49 100% | 4/24 16.7% | 11/24 45.8% | 20/48 41.7% | 0/54 0.0% | 0/54 0.0% |
+| ar | heldout | 9/12 75.0% | 10/12 83.3% | 0/6 0.0% | 4/6 66.7% | 4/12 33.3% | 0/14 0.0% | 0/14 0.0% |
+
+Held-out vs baseline: emergency en 7/12 -> 12/12, fr 9/12 -> 12/12, ar 3/12 -> 9/12; self_harm en 4/13 -> 6/13,
+fr 5/12 -> 7/12, ar 9/12 -> 10/12; hard-negative FP unchanged (en 2/13, fr 0/13, ar 1/14 -> 0/14).
+harm_to_others, abuse_disclosure and injection are identical to the baseline: they were never tuned.
+Arabic by variety (full set, emergency / self_harm): MSA 25/27, 24/25; Moroccan 10/10, 9/10; Algerian 7/8, 8/8;
+Tunisian 8/8, 8/8; Arabizi 10/10, 10/10.
+
+Reading: tune 100% against held-out 46-83% for self-harm means the self-harm additions fitted the tune phrasings
+and do not generalise; emergency generalises in en/fr, less in ar. The lexicon is a fast first line; recall at
+gate level needs the classifier (verdict = lexicon OR classifier), which this lexicon-only run does not measure.
+
+`python -m evals.run --only safety. --allow-missing` (lexicon only, full set): PASS 0, FAIL 4, PROVISIONAL 2,
+MISSING 1. emergency en 61/61 and fr 61/61 PROVISIONAL (n=61, gate written for 300); emergency ar 60/63 (0.952),
+self_harm en 54/61 (0.885), fr 56/61 (0.918), ar 59/61 (0.967) FAIL against 0.98; `safety.template_first` has no
+record (pipeline metric, not this track).
+
+## Fixes requested by engine-api (run 5)
+
+(a) Lexicon-combination test failure (`test_guard_lexicon_combo_scan.py::test_real_lexicon_has_combinations`).
+Root cause: run 3 landed the combination loader (`lexicon_combos.py`) and this test before any `combinations`
+data existed in the lexicon YAMLs; engine-api ran its suite in that window. The tuning in run 4 added the data
+(155 combinations: emergency en 39 / fr 38 / ar 27 / arabizi 12, self_harm en 14 / fr 11 / ar 11 / arabizi 3),
+so the test passes on HEAD. Regression tests made it meaningful instead of `count > 0`
+(`test_guard_lexicon_combo_scan.py`, +11): both files have combinations for every language (en, fr, ar,
+arabizi); the matcher loads exactly the combinations in the files; 8 fresh probes (written for the test, not from
+the eval sets) are caught by a combination, not a term, in each kind x language.
+
+(b) Front-desk question flagged as an emergency right after an emergency message (live, engine-api run 2).
+- Deterministic detection already looked at the current message only (`GuardRouter.precheck(text)`; history is
+  never scanned); locked by tests in all languages.
+- The guard classifier was the cause: its risk questions asked whether "the user" describes an emergency
+  "happening now or very recently", with earlier messages in the payload. `guard_classifier.py` now appends
+  `LATEST_MESSAGE_SCOPE` to every risk question (judge only the message marked role="current"; earlier
+  messages only help to understand what it refers to; a risk described only earlier does not count unless the
+  latest message describes it, adds to it or asks about it) and `POPULATION_SCOPE` to every population
+  question; the GUARD_FALLBACK system prompt carries the same two sentences. History still goes to the model.
+- The banner stays through the sticky flag (`session_sticky` in `verdict.risks`, not in `current`), which is
+  the pipeline's job; no new detection.
+- `tests/app/guardrails/test_guard_followup.py` (25 tests): en / fr / ar / arabizi / self-harm sessions; a fake
+  GUARD decider that reads the whole conversation for an unscoped question and only the current block for a
+  scoped one. Against the HEAD (pre-fix) questions 8 of the 25 fail, including the 5 route tests
+  "front-desk follow-up is not a new detection"; all 25 pass with the fix. Follow-ups that add to the risk are
+  still detected.
+- Not changed (outside this track): `config/prompts/guard.v1.yaml`, and `PROMPT_VERSION` / `prompt_hash` in
+  `app/pipeline/prompts.py`. The scope text lives in code, so the prompt hash does not change with it.
+
+Also fixed: `python -m evals.safety.lexicon_eval` crashed with UnicodeEncodeError on a cp1252 Windows console
+when an Arabic failure line was printed, before the metric records were written. `console_safe()` now escapes
+unencodable characters (regression test in `test_safety_eval_lexicon.py`, +2).
+
 ## Log
 
 - 2026-11-16: resumed. Found 15 guardrail modules on disk (from the cut-off run), only pii/ingress tested.
@@ -121,8 +188,15 @@ no items) before I switched to tune-only output; no tuning decision used it.
   tests, but no `combinations` section in the lexicon YAMLs yet, so `test_real_lexicon_has_combinations` fails
   until tuning adds some. The evaluator `evals/safety/lexicon_eval.py` exists without tests.
 
+- 2026-11-16 (run 5): fixes (a) and (b) with regression tests; evaluator console crash fixed; final metrics
+  written; mypy type-only fix in `injection.py` (`Signal.source` literal). Final: 603 guardrail tests pass,
+  `app/guardrails` line coverage 99.0% (1342/1355; branch-combined 98.4%), `evals/safety` 99%; ruff check and
+  format clean; mypy clean on `app/guardrails` and `evals/safety`; tests/app/pipeline + tests/app/api 261 passed.
+
 ## Next step
 
-Final run: write `reports/engine-guardrails.metrics.json` (source `lexicon_only`) on the final lexicon, record tune
-and held-out numbers separately, check with `python -m evals.run --only safety. --allow-missing`, then the full
-guardrail test run with coverage (>= 90% `app/guardrails`) and ruff.
+Track complete. For the lead: review/commit. Open items: move `LATEST_MESSAGE_SCOPE` / `POPULATION_SCOPE` into a
+`config/prompts/guard.v2.yaml` and bump `PROMPT_VERSION` (the prompt hash does not cover code-level text); re-run
+the engine-api live session (emergency then "What are the visiting hours?") to confirm (b) on the real model;
+measure safety recall through the full pipeline (lexicon OR classifier) for the `safety.*` gates; harm_to_others,
+abuse_disclosure and injection lexicons were never tuned.

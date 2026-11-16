@@ -8,8 +8,9 @@ from typing import Any
 import pytest
 import yaml
 
-from app.config_files import ConfigFileError
-from app.guardrails.lexicon import LexiconMatcher, load_lexicon
+from app.config_files import ConfigFileError, load_yaml
+from app.guardrails.lexicon import LEXICON_DIR, LexiconMatcher, load_lexicon
+from app.guardrails.lexicon_combos import COMBO_LANGS, parse_combinations
 from core.schemas.chat import RiskKind
 
 CUES: dict[str, Any] = {
@@ -135,5 +136,47 @@ def test_malformed_combinations_fail_fast(tmp_path: Path) -> None:
         _load(tmp_path, combos={"en": [[["chest"]]]})
 
 
+# ---- the shipped lexicon (engine-api saw test_real_lexicon_has_combinations fail: the combination loader had
+# landed before any `combinations` data, so the real lexicon had none) ---------------------------------------
+COMBO_KINDS = (RiskKind.EMERGENCY, RiskKind.SELF_HARM)
+# Written for these tests (not taken from the eval sets): each one is caught by a combination, not a term.
+REAL_COMBO_PROBES = [
+    (RiskKind.EMERGENCY, "en", "there is a crushing weight sitting on my chest right now"),
+    (RiskKind.EMERGENCY, "fr", "une barre lourde sur la poitrine depuis ce matin"),
+    (RiskKind.EMERGENCY, "ar", "صدري فيه ضغط قوي دابا"),
+    (RiskKind.EMERGENCY, "arabizi", "sdri fih dagt kbira"),
+    (RiskKind.SELF_HARM, "en", "been hoarding my painkillers in a drawer"),
+    (RiskKind.SELF_HARM, "fr", "j'ai mis de côté tous mes somnifères"),
+    (RiskKind.SELF_HARM, "ar", "جمعت الحبوب ديالي"),
+    (RiskKind.SELF_HARM, "arabizi", "bghit nrmi rasi mn sta7"),
+]
+
+
 def test_real_lexicon_has_combinations() -> None:
     assert load_lexicon().combination_count > 0
+
+
+@pytest.mark.parametrize("kind", COMBO_KINDS, ids=lambda k: k.value)
+def test_real_combinations_cover_every_language(kind: RiskKind) -> None:
+    name = f"{kind.value}.yaml"
+    combos = parse_combinations(load_yaml(LEXICON_DIR / name).get("combinations"), kind, name)
+    assert {c.lang for c in combos} == set(COMBO_LANGS)
+    assert all(c.kind is kind for c in combos)
+
+
+def test_real_lexicon_loads_every_combination_of_its_files(lexicon: LexiconMatcher) -> None:
+    in_files = 0
+    for kind in RiskKind:
+        path = LEXICON_DIR / f"{kind.value}.yaml"
+        if path.exists():
+            in_files += len(parse_combinations(load_yaml(path).get("combinations"), kind, path.name))
+    assert lexicon.combination_count == in_files > 0
+
+
+@pytest.mark.parametrize(("kind", "lang", "text"), REAL_COMBO_PROBES)
+def test_real_lexicon_detects_by_combination(
+    lexicon: LexiconMatcher, kind: RiskKind, lang: str, text: str
+) -> None:
+    hits = [h for h in lexicon.scan(text) if h.active and h.kind is kind]
+    assert [(h.method, h.lang) for h in hits] == [("combo", lang)]
+    assert kind in _kinds(lexicon, text)
