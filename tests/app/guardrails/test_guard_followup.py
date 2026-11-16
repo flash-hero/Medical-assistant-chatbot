@@ -15,13 +15,8 @@ import re
 
 import pytest
 
-from app.guardrails.guard_classifier import (
-    LATEST_MESSAGE_SCOPE,
-    POPULATION_SCOPE,
-    decision_questions,
-    fallback_system,
-)
-from app.guardrails.guard_prompts import GuardPrompts
+from app.guardrails.guard_classifier import decision_questions, fallback_system
+from app.guardrails.guard_prompts import GuardPrompts, load_guard_prompts
 from app.guardrails.lexicon import LexiconMatcher
 from app.guardrails.router import GuardRouter, RouterInput
 from app.guardrails.safety_config import SafetyConfig
@@ -58,6 +53,9 @@ SESSIONS: dict[str, tuple[RiskKind, str, str, str]] = {
         "I still want to end my life",
     ),
 }
+_PROMPTS = load_guard_prompts()
+LATEST_MESSAGE_SCOPE = _PROMPTS.risk_scope
+POPULATION_SCOPE = _PROMPTS.population_scope
 _CURRENT_BLOCK = re.compile(r'<user_message role="current" nonce="[0-9a-f]+">\n(.*?)\n</user_message', re.S)
 
 

@@ -1,4 +1,4 @@
-"""Typed view of config/prompts/guard.v1.yaml: decision questions for the GUARD role, the GUARD_FALLBACK JSON
+"""Typed view of config/prompts/guard.v2.yaml: decision questions for the GUARD role, the GUARD_FALLBACK JSON
 classifier prompt and the VERIFY prompts. Validated at startup."""
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from app.config_files import CONFIG_ROOT, ConfigFileError, load_yaml
 from app.guardrails.groundedness import VerifyPrompts
 from core.schemas.chat import Intent, Population, RiskKind
 
-GUARD_PROMPTS_PATH = CONFIG_ROOT / "prompts" / "guard.v1.yaml"
+GUARD_PROMPTS_PATH = CONFIG_ROOT / "prompts" / "guard.v2.yaml"
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,8 @@ class GuardPrompts:
     language_options: Mapping[str, str]
     fallback_system: str
     verify: VerifyPrompts
+    risk_scope: str  # appended to every risk question (latest message only)
+    population_scope: str  # appended to every population question
 
 
 def _text(raw: Mapping[str, Any], key: str, where: str = "guard prompts") -> str:
@@ -87,6 +89,8 @@ def parse_guard_prompts(raw: Mapping[str, Any]) -> GuardPrompts:
             question=question,
             fallback_system=_text(verify, "fallback_system", "verify prompts"),
         ),
+        risk_scope=_text(raw, "risk_scope"),
+        population_scope=_text(raw, "population_scope"),
     )
 
 

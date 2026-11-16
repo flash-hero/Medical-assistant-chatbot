@@ -1,4 +1,4 @@
-"""Typed view of config/prompts/guard.v1.yaml (app/guardrails/guard_prompts.py)."""
+"""Typed view of config/prompts/guard.v2.yaml (app/guardrails/guard_prompts.py)."""
 
 from __future__ import annotations
 

@@ -19,8 +19,8 @@ from core.schemas.chat import Locale, RetrievedPassage
 PROMPTS_DIR = CONFIG_ROOT / "prompts"
 POLICY_FILE = "answer_policy.v2.txt"  # v1 kept for the audit trail of turns recorded under it
 REWRITE_FILE = "rewrite.v1.txt"
-GUARD_FILE = "guard.v1.yaml"
-PROMPT_VERSION = "answer_policy.v2+rewrite.v1+guard.v1"
+GUARD_FILE = "guard.v2.yaml"  # v1 kept for the audit trail
+PROMPT_VERSION = "answer_policy.v2+rewrite.v1+guard.v2"
 # Sent with every answer request, NOT in the system prompt: the output check withdraws an answer that shares
 # word 8-grams with the system prompt, and a compliant answer repeats this guidance almost word for word.
 CLOSING_GUIDANCE = (
