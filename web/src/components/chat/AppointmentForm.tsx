@@ -2,22 +2,36 @@
 
 import { CheckCircleIcon, LockSimpleIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { ApiError } from "@/lib/api/errors";
+import type { PublicHospital } from "@/lib/api/hospital";
 import type { Turn } from "@/lib/chat/reducer";
 import type { FormEvent as ChatFormEvent } from "@/lib/chat/types";
 import { buildAppointmentBody, validateForm, type FormErrors } from "@/lib/forms/validate";
+import { dirOf } from "@/lib/i18n/text-language";
 import { AppointmentField, errorText } from "./AppointmentFields";
 import { useChatActions } from "./ChatContext";
 
-function Success({ requestId, message }: { readonly requestId: string; readonly message: string }) {
+interface SuccessProps {
+  readonly requestId: string;
+  readonly message: string;
+  /** The form this replaces had focus inside it: take the focus (review T8). */
+  readonly takeFocus: boolean;
+}
+
+function Success({ requestId, message, takeFocus }: SuccessProps) {
   const t = useTranslations("Chat.form");
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (takeFocus) ref.current?.focus();
+  }, [takeFocus]);
   return (
-    <div role="status" className="grid gap-1 rounded-2xl bg-brand-soft p-4 text-brand-ink" data-testid="appointment-success">
+    <div ref={ref} tabIndex={-1} role="status" className="grid gap-1 rounded-2xl bg-brand-soft p-4 text-brand-ink" data-testid="appointment-success">
       <p className="flex items-center gap-2 text-lg font-bold">
         <CheckCircleIcon size={24} weight="fill" aria-hidden="true" />
         {t("successTitle")}
       </p>
-      {message ? <p>{message}</p> : null}
+      {message ? <p dir={dirOf(message)}>{message}</p> : null}
       <p className="font-semibold" dir="auto">
         {t("reference", { id: requestId })}
       </p>
@@ -26,6 +40,31 @@ function Success({ requestId, message }: { readonly requestId: string; readonly 
 }
 
 const CONSENT_NAME = "consent";
+const DEPARTMENT_FIELD = "department_id";
+/** Submission failures with their own explanation; anything else gets the generic text. */
+const SUBMIT_ERRORS = new Set(["invalid_input", "rate_limited", "not_found", "unauthorized", "network"]);
+
+function submitErrorCode(error: unknown): string | null {
+  if (!(error instanceof ApiError)) return null;
+  const code = error.code === "timeout" ? "network" : error.code;
+  return SUBMIT_ERRORS.has(code) ? code : null;
+}
+
+/** "internal_medicine" -> "Internal medicine": only when the hospital profile has no name for an id. */
+function humanizeId(id: string): string {
+  const words = id.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** The form's department options are ids (contract); patients see the profile's localised names (T3). */
+function departmentLabel(hospital: PublicHospital | null): (id: string) => string {
+  return (id) => hospital?.departments.find((d) => d.id === id)?.name ?? humanizeId(id);
+}
+
+function newIdempotencyKey(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 /**
  * Move focus to the first invalid control, in visual order. Called right after validation, before
@@ -37,18 +76,24 @@ function focusFirstInvalid(form: HTMLFormElement | null, order: readonly string[
   if (control instanceof HTMLElement) control.focus();
 }
 
-/** Appointment request form rendered from the `form` event. Its contents go to staff, never to the model. */
+/**
+ * Appointment request form rendered from the `form` event. Its contents go to staff, never to the model.
+ * A retry of the same request reuses its idempotency key; a changed request gets a new one (T14).
+ */
 export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly form: ChatFormEvent }) {
   const t = useTranslations("Chat");
-  const { submitForm } = useChatActions();
+  const { submitForm, hospital } = useChatActions();
   const id = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const lastAttempt = useRef<{ readonly key: string; readonly body: string } | null>(null);
   const [values, setValues] = useState<Readonly<Record<string, string>>>({});
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
+  const [failure, setFailure] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  if (turn.formResult) return <Success requestId={turn.formResult.requestId} message={turn.formResult.message} />;
+  if (turn.formResult) return <Success requestId={turn.formResult.requestId} message={turn.formResult.message} takeFocus={submitted} />;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -58,9 +103,18 @@ export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly 
       focusFirstInvalid(formRef.current, [...form.fields.map((f) => f.name), CONSENT_NAME], found);
       return;
     }
+    const body = buildAppointmentBody(form.fields, values, consent);
+    const serialized = JSON.stringify(body);
+    const key = lastAttempt.current?.body === serialized ? lastAttempt.current.key : newIdempotencyKey();
+    lastAttempt.current = { key, body: serialized };
     setStatus("sending");
-    submitForm(turn, buildAppointmentBody(form.fields, values, consent)).catch(() => setStatus("error"));
+    setSubmitted(true);
+    submitForm(turn, body, key).catch((error: unknown) => {
+      setFailure(submitErrorCode(error));
+      setStatus("error");
+    });
   };
+  const optionLabel = departmentLabel(hospital);
 
   const errorCount = Object.keys(errors).length;
   return (
@@ -84,6 +138,7 @@ export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly 
           value={values[field.name] ?? ""}
           error={errors[field.name]}
           onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+          optionLabel={field.name === DEPARTMENT_FIELD ? optionLabel : undefined}
         />
       ))}
       <div className="grid gap-1.5">
@@ -110,8 +165,8 @@ export function AppointmentForm({ turn, form }: { readonly turn: Turn; readonly 
         {t("form.privacyNote")}
       </p>
       {status === "error" ? (
-        <p role="alert" className="font-semibold text-danger-ink">
-          {t("form.error")}
+        <p role="alert" className="font-semibold text-danger-ink" data-testid="appointment-error">
+          {failure ? t(`form.errors.${failure}`) : t("form.error")}
         </p>
       ) : null}
       <button type="submit" className="btn btn-primary w-fit" disabled={status === "sending"}>

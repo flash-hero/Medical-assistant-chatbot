@@ -1,6 +1,6 @@
 /** PublicHospital (GET /api/v1/hospital, and embedded in the session response), validated. */
 
-import { asBool, asPhone, asString, isRecord } from "@/lib/validate";
+import { asBool, asPhone, asString, isRecord, uniqueBy } from "@/lib/validate";
 
 export interface PhoneContact {
   readonly label: string;
@@ -79,15 +79,20 @@ export function parseHospital(raw: unknown): PublicHospital | null {
     address: optionalText(raw.address),
     mainPhone: parseContact(raw.main_phone),
     emergency: parseContact(raw.emergency),
-    crisisLines: parseList(raw.crisis_lines, parseContact, MAX_CRISIS_LINES),
+    crisisLines: uniqueBy(parseList(raw.crisis_lines, parseContact, MAX_CRISIS_LINES), (c) => telHref(c.number)),
     handoff: parseContact(raw.handoff),
     visitingHours: optionalText(raw.visiting_hours),
-    departments: parseList(raw.departments, parseDepartment, MAX_DEPARTMENTS),
+    departments: uniqueBy(parseList(raw.departments, parseDepartment, MAX_DEPARTMENTS), (d) => d.id),
   };
 }
 
-/** A dialable tel: URI from a validated display number (digits and a leading +). */
+/**
+ * A dialable tel: URI from a validated display number (digits and a leading +). In international
+ * format the national trunk prefix written "(0)" is not dialled: "+33 (0)4 72..." is tel:+33472...
+ */
 export function telHref(number: string): string {
-  const digits = number.replace(/[^\d+]/g, "");
-  return `tel:${digits.startsWith("+") ? "+" + digits.slice(1).replace(/\+/g, "") : digits.replace(/\+/g, "")}`;
+  const trimmed = number.trim();
+  const international = trimmed.startsWith("+");
+  const dialled = international ? trimmed.replace(/\(\s*0\s*\)/g, "") : trimmed;
+  return `tel:${international ? "+" : ""}${dialled.replace(/\D/g, "")}`;
 }

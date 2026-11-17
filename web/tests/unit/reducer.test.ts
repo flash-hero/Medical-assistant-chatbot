@@ -20,6 +20,7 @@ const answer = (overrides: Partial<AnswerEvent> = {}): AnswerEvent => ({
   replaces_stream: false,
   source_language_note: false,
   show_seek_care: false,
+  language: null,
   ...overrides,
 });
 const safety: SafetyEvent = {
@@ -30,11 +31,12 @@ const safety: SafetyEvent = {
   message: "Call now.",
   contacts: [{ label: "Emergency", number: "112", hours: "" }],
   sticky: true,
+  language: null,
 };
 
-function run(events: readonly ChatEvent[], start: ChatState = INITIAL_CHAT_STATE): ChatState {
-  let state = chatReducer(start, { type: "turn/submit", id: "c1", question: "Q?", locale: "en" });
-  for (const event of events) state = chatReducer(state, { type: "turn/event", id: "c1", event });
+function run(events: readonly ChatEvent[], start: ChatState = INITIAL_CHAT_STATE, id = "c1"): ChatState {
+  let state = chatReducer(start, { type: "turn/submit", id, question: "Q?", locale: "en" });
+  for (const event of events) state = chatReducer(state, { type: "turn/event", id, event });
   return state;
 }
 
@@ -71,16 +73,16 @@ describe("chatReducer", () => {
 
   it("keeps a sticky safety banner for the session, even across turns", () => {
     const first = run([meta, safety, answer({ mode: "template" }), { type: "done", turn_id: "srv-1", turns_left: 5 }]);
-    expect(first.safety?.kind).toBe("emergency");
-    expect(first.turns[0]!.safety?.kind).toBe("emergency");
+    expect(first.safety.map((s) => s.kind)).toEqual(["emergency"]);
+    expect(first.turns[0]!.safety.map((s) => s.kind)).toEqual(["emergency"]);
     const second = chatReducer(first, { type: "turn/submit", id: "c2", question: "next", locale: "en" });
-    expect(second.safety?.kind).toBe("emergency");
+    expect(second.safety.map((s) => s.kind)).toEqual(["emergency"]);
   });
 
   it("does not make a non-sticky safety event a session banner", () => {
     const state = run([meta, { ...safety, sticky: false }]);
-    expect(state.safety).toBeNull();
-    expect(state.turns[0]!.safety).not.toBeNull();
+    expect(state.safety).toEqual([]);
+    expect(state.turns[0]!.safety).toHaveLength(1);
   });
 
   it("records notices once per code, the form, and errors", () => {
@@ -146,5 +148,90 @@ describe("chatReducer", () => {
     const frozen = JSON.stringify(before);
     chatReducer(before, { type: "turn/event", id: "c1", event: { type: "delta", text: "x" } });
     expect(JSON.stringify(before)).toBe(frozen);
+  });
+
+  describe("T2 several safety events in one turn", () => {
+    const abuse: SafetyEvent = { ...safety, kind: "abuse_disclosure", template_id: "abuse.v1", title: "You deserve to be safe", contacts: [{ label: "Help line", number: "3919", hours: "" }] };
+
+    it("keeps every kind, highest priority first, whatever the arrival order", () => {
+      const inOrder = run([meta, safety, abuse]);
+      expect(inOrder.safety.map((s) => s.kind)).toEqual(["emergency", "abuse_disclosure"]);
+      const reversed = run([meta, abuse, safety]);
+      expect(reversed.safety.map((s) => s.kind)).toEqual(["emergency", "abuse_disclosure"]);
+      expect(reversed.turns[0]!.safety.map((s) => s.kind)).toEqual(["emergency", "abuse_disclosure"]);
+    });
+
+    it("replaces an event of the same kind with the newer one", () => {
+      const state = run([meta, safety, { ...safety, template_id: "emergency.v2", title: "Newer" }]);
+      expect(state.safety).toHaveLength(1);
+      expect(state.safety[0]?.title).toBe("Newer");
+    });
+  });
+
+  describe("T13 non-sticky safety events", () => {
+    it("stay on their turn (rendered inline) but never become the session banner", () => {
+      const state = run([meta, { ...safety, sticky: false }, safety]);
+      expect(state.safety.map((s) => s.sticky)).toEqual([true]);
+      expect(state.turns[0]!.safety.map((s) => s.sticky)).toEqual([true]);
+      const onlyInline = run([meta, { ...safety, kind: "harm_to_others", sticky: false }]);
+      expect(onlyInline.turns[0]!.safety.map((s) => s.kind)).toEqual(["harm_to_others"]);
+      expect(onlyInline.safety).toEqual([]);
+    });
+  });
+
+  describe("T15 done without an answer", () => {
+    it("turns an empty turn into a no_answer error instead of a blank bubble", () => {
+      const state = run([meta, { type: "status", stage: "checking" }, { type: "done", turn_id: "srv-1", turns_left: 4 }]);
+      expect(state.turns[0]).toMatchObject({ phase: "error", stage: null, error: { code: "no_answer", message: "", retryAfterS: null } });
+    });
+
+    it("marks streamed text that was never confirmed as an unanswered turn too", () => {
+      const state = run([meta, { type: "delta", text: "Unconfirmed." }, { type: "done", turn_id: "srv-1", turns_left: 4 }]);
+      expect(state.turns[0]).toMatchObject({ phase: "error", error: { code: "no_answer" }, streamed: "Unconfirmed." });
+    });
+
+    it("keeps a server error, and accepts a form-only turn", () => {
+      const failed = run([meta, { type: "error", code: "upstream_error", message: "m", retry_after_s: null }, { type: "done", turn_id: "srv-1", turns_left: 4 }]);
+      expect(failed.turns[0]!.error?.code).toBe("upstream_error");
+      const form = run([
+        meta,
+        { type: "form", form_id: "appointment_request", title: "t", description: "d", fields: [], submit_url: "/api/v1/appointments" },
+        { type: "done", turn_id: "srv-1", turns_left: 4 },
+      ]);
+      expect(form.turns[0]!.phase).toBe("done");
+    });
+  });
+
+  describe("T18 questions-left counter", () => {
+    it("starts from the session, counts an admitted turn at once, then takes the server's number", () => {
+      let state = chatReducer(INITIAL_CHAT_STATE, { type: "session/started", turnsLeft: 20 });
+      expect(state.turnsLeft).toBe(20);
+      state = run([meta], state);
+      expect(state.turnsLeft).toBe(19);
+      state = chatReducer(state, { type: "turn/ended", id: "c1" });
+      expect(state.turnsLeft).toBe(19);
+      state = run([meta, answer(), { type: "done", turn_id: "srv-2", turns_left: 12 }], state, "c2");
+      expect(state.turnsLeft).toBe(12);
+    });
+
+    it("drops to zero when the server says the session is exhausted, and never below zero", () => {
+      let state = chatReducer(INITIAL_CHAT_STATE, { type: "session/started", turnsLeft: 3 });
+      state = chatReducer(state, { type: "turn/submit", id: "c1", question: "Q", locale: "en" });
+      state = chatReducer(state, { type: "turn/failed", id: "c1", error: { code: "session_exhausted", message: "", retryAfterS: null } });
+      expect(state.turnsLeft).toBe(0);
+      expect(run([meta], state, "c2").turnsLeft).toBe(0);
+    });
+
+    it("leaves an unknown counter unknown until the server sends one", () => {
+      expect(run([meta]).turnsLeft).toBeNull();
+    });
+  });
+});
+
+describe("T18 session/started", () => {
+  it("only seeds an unknown counter and never overwrites the conversation's own count", () => {
+    const seeded = chatReducer(INITIAL_CHAT_STATE, { type: "session/started", turnsLeft: 20 });
+    const counted = chatReducer({ ...seeded, turnsLeft: 7 }, { type: "session/started", turnsLeft: 20 });
+    expect(counted.turnsLeft).toBe(7);
   });
 });

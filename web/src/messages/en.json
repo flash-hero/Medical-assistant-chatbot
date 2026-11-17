@@ -18,7 +18,11 @@
     "close": "Close",
     "newTab": "(opens in a new tab)",
     "languageLabel": "Language",
-    "languages": { "en": "English", "fr": "Français", "ar": "العربية" },
+    "languages": {
+      "en": "English",
+      "fr": "Français",
+      "ar": "العربية"
+    },
     "nav": {
       "how": "How it works",
       "sources": "Sources",
@@ -90,9 +94,18 @@
     "deskTitle": "Also at the front desk",
     "deskBody": "Practical questions about the hospital are answered from information the hospital has verified, never from the AI’s imagination.",
     "desk": {
-      "hours": { "title": "Opening hours and directions", "body": "When departments are open and how to find them." },
-      "departments": { "title": "Departments and contacts", "body": "Who to call, and where each service is." },
-      "visiting": { "title": "Visiting rules", "body": "Visiting times and what to bring for a stay." },
+      "hours": {
+        "title": "Opening hours and directions",
+        "body": "When departments are open and how to find them."
+      },
+      "departments": {
+        "title": "Departments and contacts",
+        "body": "Who to call, and where each service is."
+      },
+      "visiting": {
+        "title": "Visiting rules",
+        "body": "Visiting times and what to bring for a stay."
+      },
       "appointment": {
         "title": "Appointment requests",
         "body": "A simple form sends your request to hospital staff. What you enter in it is never shared with the AI."
@@ -176,7 +189,7 @@
     "counter": "{count} of {max} characters",
     "send": "Send",
     "stop": "Stop",
-    "stopped": "Stopped. This answer is incomplete.",
+    "stopped": "You stopped this answer.",
     "status": {
       "checking": "Checking your message",
       "searching": "Searching trusted sources",
@@ -187,7 +200,6 @@
     "answering": "Ausculta is answering.",
     "answerReady": "Answer from Ausculta:",
     "verified": "Checked against its sources",
-    "sourceLanguage": "The sources for this answer are in English.",
     "sourcesHeading": "Sources",
     "citation": "Source {n}: {title}",
     "sourceNumber": "Source {n}:",
@@ -234,9 +246,16 @@
       "network": "The connection was lost. Check your connection and try again.",
       "unknown": "Something went wrong on our side.",
       "retryIn": "{seconds, plural, one {You can try again in # second.} other {You can try again in # seconds.}}",
-      "retry": "Try again"
+      "retry": "Try again",
+      "timeout": "Ausculta stopped responding. Check your connection and try again.",
+      "no_answer": "Ausculta could not answer this question. Please try again."
     },
-    "languageNames": { "en": "English", "fr": "French", "ar": "Arabic", "es": "Spanish" },
+    "languageNames": {
+      "en": "English",
+      "fr": "French",
+      "ar": "Arabic",
+      "es": "Spanish"
+    },
     "form": {
       "required": "Required",
       "requiredError": "Please fill in this field.",
@@ -252,7 +271,27 @@
       "successTitle": "Request sent",
       "reference": "Reference: {id}",
       "error": "Your request could not be sent. Please try again or call the hospital.",
-      "fixErrors": "{count, plural, one {Please correct # field.} other {Please correct # fields.}}"
+      "fixErrors": "{count, plural, one {Please correct # field.} other {Please correct # fields.}}",
+      "errors": {
+        "invalid_input": "Some details were not accepted. Check the phone number and email address, then try again.",
+        "rate_limited": "Too many requests were sent from this conversation. Please call the hospital.",
+        "not_found": "Appointment requests are not available at the moment. Please call the hospital.",
+        "unauthorized": "Your conversation expired. Start a new conversation, or call the hospital.",
+        "network": "The connection was lost. Check your connection and try again."
+      }
+    },
+    "incomplete": "This answer is incomplete and was not checked against its sources. Do not rely on it.",
+    "sourceLanguages": "{scope, select, all {The sources for this answer are in {languages}.} other {Some sources for this answer are in {languages}.}}",
+    "safetyFallback": {
+      "title": "This may be an emergency",
+      "message": "If you or someone near you is in danger, call the emergency number now. Do not wait for an answer here.",
+      "noNumber": "Call your local emergency number."
+    },
+    "sendBlocked": {
+      "connecting": "Ausculta is still connecting. Your message is kept: send it again in a moment.",
+      "busy": "Wait for the current answer to finish, or press Stop.",
+      "exhausted": "This conversation has no questions left. Start a new conversation to continue.",
+      "tooLong": "Your message is too long. Please shorten it."
     }
   },
   "Sources": {
@@ -299,6 +338,16 @@
   "NotFound": {
     "title": "This page does not exist",
     "body": "The link may be broken or the page may have moved.",
+    "home": "Go to the home page"
+  },
+  "ErrorPage": {
+    "title": "Something went wrong",
+    "body": "This page stopped working. Your conversation could not be kept.",
+    "emergency": "If this is an emergency, call now:",
+    "emergencyNoNumber": "If this is an emergency, call your local emergency number now.",
+    "call": "Call {label}",
+    "emergencyLabel": "Emergency",
+    "retry": "Try again",
     "home": "Go to the home page"
   }
 }

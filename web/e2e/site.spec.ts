@@ -44,6 +44,8 @@ for (const locale of LOCALES) {
       await page.goto(`/${locale}/chat`);
       await expect(page.getByTestId("example-question").first()).toBeEnabled();
       await expect(page.getByTestId("demo-banner")).toBeVisible();
+      // T18: health text stays out of browser spell-check services.
+      await expect(page.getByTestId("composer-input")).toHaveAttribute("spellcheck", "false");
       await expectNoSeriousA11yViolations(page, metrics, "chat light");
       await page.emulateMedia({ colorScheme: "dark" });
       await expectNoSeriousA11yViolations(page, metrics, "chat dark");

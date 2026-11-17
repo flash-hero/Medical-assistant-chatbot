@@ -1,6 +1,7 @@
 /** Client-side validation for the appointment request form (the server validates again). */
 
 import type { FormField } from "@/lib/chat/types";
+import { isIsoDate } from "@/lib/validate";
 
 export type FieldError =
   | { readonly code: "required" }
@@ -14,17 +15,12 @@ export type FieldError =
 export type FormValues = Readonly<Record<string, string>>;
 export type FormErrors = Readonly<Record<string, FieldError>>;
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const PHONE = /^\+?[0-9][0-9 ()\-.]{4,24}$/;
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-function isValidDate(value: string): boolean {
-  const match = ISO_DATE.exec(value);
-  if (!match) return false;
-  const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
-}
+/**
+ * Same rules as the server (app/api/schemas.py `_PHONE`, `_EMAIL`), so a form the browser accepts is
+ * never refused later with a generic error (review T14).
+ */
+const PHONE = /^\+?[0-9][0-9 ()\-.]{5,24}$/;
+const EMAIL = /^[^@\s<>"'`]{1,64}@[^@\s<>"'`]{1,189}\.[^@\s<>"'`]{2,}$/;
 
 function kindError(field: FormField, value: string): FieldError | null {
   switch (field.kind) {
@@ -33,7 +29,7 @@ function kindError(field: FormField, value: string): FieldError | null {
     case "tel":
       return PHONE.test(value) ? null : { code: "phone" };
     case "date":
-      return isValidDate(value) ? null : { code: "date" };
+      return isIsoDate(value) ? null : { code: "date" };
     case "select":
       return field.options.includes(value) ? null : { code: "option" };
     default:

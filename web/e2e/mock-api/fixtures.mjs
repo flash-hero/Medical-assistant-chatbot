@@ -79,6 +79,16 @@ export const CITATIONS = {
     language: "en",
     snippet: "Take with food or milk if stomach upset occurs. Do not take more than directed.",
   },
+  ibuprofenFr: {
+    n: 2,
+    title: "Ibuprofène 200 mg, comprimé (synthèse fictive)",
+    publisher: "Base de données publique des médicaments (exemple)",
+    url: "https://base-donnees-publique.medicaments.gouv.fr/",
+    heading: "Conditions de délivrance",
+    reviewed_on: "2025-10-01",
+    language: "fr",
+    snippet: "Médicament disponible sans ordonnance en pharmacie. Respecter la dose indiquée sur la notice.",
+  },
 };
 
 export const RELEASE = {

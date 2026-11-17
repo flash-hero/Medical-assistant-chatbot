@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/errors";
 import type { ChatAction } from "@/lib/chat/reducer";
 import { runTurn } from "@/lib/chat/run-turn";
+import { SseBufferOverflow } from "@/lib/sse/parser";
+import { SseTimeoutError } from "@/lib/sse/stream";
 
 const encoder = new TextEncoder();
 
@@ -84,5 +86,47 @@ describe("runTurn", () => {
     const open = vi.fn().mockRejectedValue(new DOMException("aborted", "AbortError"));
     await expect(runTurn({ ...base, signal: new AbortController().signal }, dispatch, open)).resolves.toBe("stopped");
     expect(actions).toEqual([{ type: "turn/stopped", id: "c1" }]);
+  });
+
+  it("T5: never forwards a bare code as the patient-facing message", async () => {
+    const { actions, dispatch } = collect();
+    await runTurn({ ...base, signal: new AbortController().signal }, dispatch, vi.fn().mockRejectedValue(new ApiError("http_502", 502)));
+    expect(actions).toEqual([{ type: "turn/failed", id: "c1", error: { code: "http_502", message: "", retryAfterS: null } }]);
+  });
+
+  it("T10: a silent stream becomes a timeout error, not a hang", async () => {
+    const { actions, dispatch } = collect();
+    const open = vi.fn().mockResolvedValue(streamOf([meta]));
+    const failing = vi.fn().mockImplementation(async () => {
+      throw new SseTimeoutError();
+    });
+    await runTurn({ ...base, signal: new AbortController().signal }, dispatch, async (request) => {
+      await open(request);
+      return failing();
+    });
+    expect(actions.at(-1)).toEqual({ type: "turn/failed", id: "c1", error: { code: "timeout", message: "", retryAfterS: null } });
+  });
+
+  it("T6: an oversized event fails the turn as an invalid response", async () => {
+    const { actions, dispatch } = collect();
+    const huge = `event: answer
+data: ${"x".repeat(300_000)}
+
+`;
+    const outcome = await runTurn({ ...base, signal: new AbortController().signal }, dispatch, vi.fn().mockResolvedValue(streamOf([meta, huge])));
+    expect(outcome).toBe("failed");
+    expect(actions.at(-1)).toEqual({ type: "turn/failed", id: "c1", error: { code: "invalid_response", message: "", retryAfterS: null } });
+    expect(new SseBufferOverflow(10)).toBeInstanceOf(Error);
+  });
+
+  it("T4: a safety event that fails validation still dispatches a fallback banner", async () => {
+    const { actions, dispatch } = collect();
+    const broken = `event: safety
+data: {"type":"safety","kind":"emergency","title":${JSON.stringify("t".repeat(10))},"message":null,"contacts":"112"}
+
+`;
+    await runTurn({ ...base, signal: new AbortController().signal }, dispatch, vi.fn().mockResolvedValue(streamOf([meta, broken, done])));
+    const safety = actions.find((a) => a.type === "turn/event" && a.event.type === "safety");
+    expect(safety).toMatchObject({ event: { type: "safety", kind: "emergency", message: "", contacts: [] } });
   });
 });

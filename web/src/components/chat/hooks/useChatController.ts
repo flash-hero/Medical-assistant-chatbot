@@ -13,13 +13,14 @@ import { useTurns } from "./useTurns";
 export function useChatController(locale: ChatLocale) {
   const { state: session, hospital, renew } = useSession(locale);
   const token = session.status === "ready" ? session.session.token : null;
-  const turns = useTurns(token, locale);
+  const sessionTurnsLeft = session.status === "ready" ? session.session.turnsLeft : null;
+  const turns = useTurns(token, locale, sessionTurnsLeft);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const handoffRef = useRef<HTMLDialogElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [source, setSource] = useState<OpenSource | null>(null);
   const demoMode = isDemoMode(session.status === "ready" ? session.session.demoMode : null, turns.state.demoMode);
-  const turnsLeft = turns.state.turnsLeft ?? (session.status === "ready" ? session.session.turnsLeft : null);
+  const turnsLeft = turns.state.turnsLeft ?? sessionTurnsLeft;
 
   const { send, reset } = turns;
   const newConversation = useCallback(() => {
@@ -47,9 +48,9 @@ export function useChatController(locale: ChatLocale) {
       newConversation,
       sendFeedback: turns.sendFeedback,
       submitForm: turns.submitForm,
-      openSource: (citation: Citation, answerLocale: ChatLocale, trigger: HTMLElement) => {
+      openSource: (citation: Citation, answerLanguage: ChatLocale, trigger: HTMLElement) => {
         returnFocus.current = trigger;
-        setSource({ citation, answerLocale });
+        setSource({ citation, answerLanguage });
       },
       openHandoff: (trigger: HTMLElement) => {
         returnFocus.current = trigger;

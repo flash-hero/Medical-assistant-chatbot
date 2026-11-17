@@ -18,7 +18,11 @@
     "close": "Fermer",
     "newTab": "(s’ouvre dans un nouvel onglet)",
     "languageLabel": "Langue",
-    "languages": { "en": "English", "fr": "Français", "ar": "العربية" },
+    "languages": {
+      "en": "English",
+      "fr": "Français",
+      "ar": "العربية"
+    },
     "nav": {
       "how": "Fonctionnement",
       "sources": "Sources",
@@ -90,9 +94,18 @@
     "deskTitle": "Aussi à l’accueil",
     "deskBody": "Les questions pratiques sur l’hôpital reçoivent des réponses tirées d’informations vérifiées par l’hôpital, jamais de l’imagination de l’IA.",
     "desk": {
-      "hours": { "title": "Horaires et accès", "body": "Quand les services sont ouverts et comment les trouver." },
-      "departments": { "title": "Services et contacts", "body": "Qui appeler, et où se trouve chaque service." },
-      "visiting": { "title": "Règles de visite", "body": "Horaires de visite et affaires à prévoir pour un séjour." },
+      "hours": {
+        "title": "Horaires et accès",
+        "body": "Quand les services sont ouverts et comment les trouver."
+      },
+      "departments": {
+        "title": "Services et contacts",
+        "body": "Qui appeler, et où se trouve chaque service."
+      },
+      "visiting": {
+        "title": "Règles de visite",
+        "body": "Horaires de visite et affaires à prévoir pour un séjour."
+      },
       "appointment": {
         "title": "Demandes de rendez-vous",
         "body": "Un formulaire simple transmet votre demande au personnel de l’hôpital. Ce que vous y saisissez n’est jamais transmis à l’IA."
@@ -176,7 +189,7 @@
     "counter": "{count} sur {max} caractères",
     "send": "Envoyer",
     "stop": "Arrêter",
-    "stopped": "Arrêté. Cette réponse est incomplète.",
+    "stopped": "Vous avez arrêté cette réponse.",
     "status": {
       "checking": "Analyse de votre message",
       "searching": "Recherche dans les sources fiables",
@@ -187,7 +200,6 @@
     "answering": "Ausculta est en train de répondre.",
     "answerReady": "Réponse d’Ausculta :",
     "verified": "Vérifiée par rapport aux sources",
-    "sourceLanguage": "Les sources de cette réponse sont en anglais.",
     "sourcesHeading": "Sources",
     "citation": "Source {n} : {title}",
     "sourceNumber": "Source {n} :",
@@ -234,9 +246,16 @@
       "network": "La connexion a été perdue. Vérifiez votre connexion et réessayez.",
       "unknown": "Un problème est survenu de notre côté.",
       "retryIn": "{seconds, plural, one {Vous pourrez réessayer dans # seconde.} other {Vous pourrez réessayer dans # secondes.}}",
-      "retry": "Réessayer"
+      "retry": "Réessayer",
+      "timeout": "Ausculta ne répond plus. Vérifiez votre connexion et réessayez.",
+      "no_answer": "Ausculta n’a pas pu répondre à cette question. Réessayez."
     },
-    "languageNames": { "en": "anglais", "fr": "français", "ar": "arabe", "es": "espagnol" },
+    "languageNames": {
+      "en": "anglais",
+      "fr": "français",
+      "ar": "arabe",
+      "es": "espagnol"
+    },
     "form": {
       "required": "Obligatoire",
       "requiredError": "Veuillez remplir ce champ.",
@@ -252,7 +271,27 @@
       "successTitle": "Demande envoyée",
       "reference": "Référence : {id}",
       "error": "Votre demande n’a pas pu être envoyée. Réessayez ou appelez l’hôpital.",
-      "fixErrors": "{count, plural, one {Veuillez corriger # champ.} other {Veuillez corriger # champs.}}"
+      "fixErrors": "{count, plural, one {Veuillez corriger # champ.} other {Veuillez corriger # champs.}}",
+      "errors": {
+        "invalid_input": "Certaines informations n’ont pas été acceptées. Vérifiez le numéro de téléphone et l’adresse e-mail, puis réessayez.",
+        "rate_limited": "Trop de demandes ont été envoyées depuis cette conversation. Appelez l’hôpital.",
+        "not_found": "Les demandes de rendez-vous ne sont pas disponibles pour le moment. Appelez l’hôpital.",
+        "unauthorized": "Votre conversation a expiré. Commencez une nouvelle conversation ou appelez l’hôpital.",
+        "network": "La connexion a été perdue. Vérifiez votre connexion et réessayez."
+      }
+    },
+    "incomplete": "Cette réponse est incomplète et n’a pas été vérifiée par rapport à ses sources. Ne vous y fiez pas.",
+    "sourceLanguages": "{scope, select, all {Les sources de cette réponse sont en {languages}.} other {Certaines sources de cette réponse sont en {languages}.}}",
+    "safetyFallback": {
+      "title": "Il peut s’agir d’une urgence",
+      "message": "Si vous ou une personne près de vous êtes en danger, appelez les urgences maintenant. N’attendez pas de réponse ici.",
+      "noNumber": "Appelez le numéro d’urgence local."
+    },
+    "sendBlocked": {
+      "connecting": "Ausculta se connecte encore. Votre message est conservé : renvoyez-le dans un instant.",
+      "busy": "Attendez la fin de la réponse en cours, ou appuyez sur Arrêter.",
+      "exhausted": "Cette conversation n’a plus de questions disponibles. Commencez une nouvelle conversation pour continuer.",
+      "tooLong": "Votre message est trop long. Raccourcissez-le."
     }
   },
   "Sources": {
@@ -299,6 +338,16 @@
   "NotFound": {
     "title": "Cette page n’existe pas",
     "body": "Le lien est peut-être erroné, ou la page a été déplacée.",
+    "home": "Aller à l’accueil"
+  },
+  "ErrorPage": {
+    "title": "Un problème est survenu",
+    "body": "Cette page a cessé de fonctionner. Votre conversation n’a pas pu être conservée.",
+    "emergency": "En cas d’urgence, appelez maintenant :",
+    "emergencyNoNumber": "En cas d’urgence, appelez maintenant le numéro d’urgence local.",
+    "call": "Appeler : {label}",
+    "emergencyLabel": "Urgences",
+    "retry": "Réessayer",
     "home": "Aller à l’accueil"
   }
 }

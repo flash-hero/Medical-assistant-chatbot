@@ -66,5 +66,7 @@ for (const locale of ["en", "ar"] as const satisfies readonly Locale[]) {
     await tabUntil(page, '[data-testid="stop-button"]');
     await page.keyboard.press("Enter");
     await expect(page.getByTestId("stopped-note")).toHaveText(t.stopped);
+    // T8: Stop is replaced by Send; focus lands on the message box instead of the page.
+    await expect(page.getByTestId("composer-input")).toBeFocused();
   });
 }

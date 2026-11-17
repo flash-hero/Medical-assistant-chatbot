@@ -35,7 +35,7 @@ export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
     useChatController(locale);
   const { state, safety, active, stop } = turns;
   const lastTurn = state.turns.at(-1);
-  const announcement = useAnnouncements(lastTurn, t("answering"));
+  const announcement = useAnnouncements(lastTurn, t("answering"), t("stopped"));
   const sentinel = useRef<HTMLDivElement>(null);
   useStickToBottom(sentinel, lastTurn);
   const ready = session.status === "ready";
@@ -49,7 +49,7 @@ export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
       <div className="flex min-h-dvh flex-col">
         <ChatHeader locale={locale} onHandoff={actions.openHandoff} onNewConversation={actions.newConversation} />
         {demoMode ? <DemoBanner /> : null}
-        <SafetyBanner safety={safety} />
+        <SafetyBanner safety={safety} hospital={hospital} />
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-3xl flex-1 px-4 outline-none sm:px-6">
           <h1 className="sr-only">{t("title")}</h1>
           {state.turns.length === 0 ? (
@@ -77,7 +77,7 @@ export function ChatApp({ locale }: { readonly locale: ChatLocale }) {
         <div aria-live="polite" aria-atomic="true" className="sr-only" data-testid="live-region">
           <span key={announcement.id}>{announcement.text}</span>
         </div>
-        <SourceDrawer source={source} onClose={closeSource} />
+        <SourceDrawer source={source} uiLocale={locale} onClose={closeSource} />
         <HandoffDialog ref={handoffRef} hospital={hospital} onClose={closeHandoff} />
       </div>
     </ChatProvider>

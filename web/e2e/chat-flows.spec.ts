@@ -1,5 +1,5 @@
 import { expectNoSeriousA11yViolations } from "./support/axe";
-import { answerOf, ask, LOCALES, MESSAGES, mockTurn, openChat, PROMPTS } from "./support/chat";
+import { answerOf, ask, FIRST_DEPARTMENT, LOCALES, MESSAGES, mockTurn, openChat, PROMPTS } from "./support/chat";
 import { expect, test } from "./support/fixtures";
 
 for (const locale of LOCALES) {
@@ -19,10 +19,15 @@ for (const locale of LOCALES) {
       await expect(form.getByRole("alert")).toBeVisible();
       await expect(form.locator("[aria-invalid=true]").first()).toBeFocused();
 
+      // T3: the server sends department ids; the patient reads the hospital's names in their language.
+      const department = form.locator('select[name="department_id"]');
+      await expect(department.locator("option").nth(1)).toHaveText(FIRST_DEPARTMENT[locale]);
+      await expect(department).not.toContainText("general_medicine");
+
       await form.locator('input[name="full_name"]').fill("Test Patient");
       await form.locator('input[name="phone"]').fill("+33 4 00 00 00 09");
-      await form.locator('select[name="department_id"]').selectOption({ index: 1 });
-      await form.locator('input[name="preferred_dates"]').fill(locale === "ar" ? "صباح الاثنين" : "Monday morning");
+      await department.selectOption({ index: 1 });
+      await form.locator('textarea[name="preferred_dates"]').fill(locale === "ar" ? "صباح الاثنين" : "Monday morning");
       await form.getByRole("button", { name: t.form.submit }).click();
       await expect(form.getByText(t.form.consentError)).toBeVisible();
 
@@ -30,9 +35,10 @@ for (const locale of LOCALES) {
       const posted = page.waitForRequest((r) => r.url().endsWith("/api/v1/appointments"));
       await form.getByRole("button", { name: t.form.submit }).click();
       const body = (await posted).postDataJSON() as Record<string, unknown>;
-      expect(body).toMatchObject({ full_name: "Test Patient", consent: true });
+      expect(body).toMatchObject({ full_name: "Test Patient", department_id: "cardiology", consent: true });
       const success = page.getByTestId("appointment-success");
       await expect(success).toBeVisible();
+      await expect(success).toBeFocused();
       await expect(success).toContainText(/REQ-[0-9A-F]{6}/);
     });
 
@@ -64,6 +70,9 @@ for (const locale of LOCALES) {
       const message = page.getByTestId("assistant-message").last();
       await expect(message).toHaveAttribute("data-phase", "error");
       await expect(message.getByTestId("turn-error")).toHaveAttribute("data-code", "upstream_error");
+      // T9: the streamed text was never confirmed or checked, and the patient is told so.
+      await expect(message.getByTestId("answer-text")).toBeVisible();
+      await expect(message.getByTestId("incomplete-note")).toHaveText(t.incomplete);
     });
 
     test("Stop closes the stream", async ({ page, request }) => {
@@ -76,6 +85,7 @@ for (const locale of LOCALES) {
       const stoppedAt = Date.now();
       await expect(message).toHaveAttribute("data-phase", "stopped");
       await expect(page.getByTestId("stopped-note")).toHaveText(t.stopped);
+      await expect(message.getByTestId("incomplete-note")).toHaveText(t.incomplete);
       await expect(page.getByTestId("send-button")).toBeVisible();
       await expect.poll(async () => (await mockTurn(request, turnId)).closedByClient, { timeout: 5_000 }).toBe(true);
       const turn = await mockTurn(request, turnId);

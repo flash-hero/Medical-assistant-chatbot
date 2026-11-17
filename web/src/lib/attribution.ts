@@ -3,7 +3,7 @@
  * Validated at render time: an entry without an http(s) homepage and licence evidence is not shown.
  */
 
-import { asArray, asHttpUrl, asInt, asString, isRecord } from "@/lib/validate";
+import { asArray, asHttpUrl, asInt, asString, isIsoDate, isRecord, uniqueBy } from "@/lib/validate";
 
 export interface AttributionLicense {
   readonly id: string;
@@ -29,11 +29,9 @@ export interface Attribution {
   readonly sources: readonly AttributionSource[];
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
+/** A real calendar date only: an impossible one would throw when the page formats it (review T11). */
 function isoDate(value: unknown): string | null {
-  const text = asString(value, 10);
-  return text !== null && ISO_DATE.test(text) ? text : null;
+  return isIsoDate(value) ? value : null;
 }
 
 function strings(value: unknown, max: number): readonly string[] {
@@ -86,5 +84,5 @@ export function featuredSources(sources: readonly AttributionSource[], max: numb
 export function parseAttribution(raw: unknown): Attribution {
   if (!isRecord(raw) || !Array.isArray(raw.sources)) return { generatedOn: null, sources: [] };
   const sources = raw.sources.map(parseSource).filter((s): s is AttributionSource => s !== null);
-  return { generatedOn: isoDate(raw.generated_on), sources };
+  return { generatedOn: isoDate(raw.generated_on), sources: uniqueBy(sources, (s) => s.id) };
 }

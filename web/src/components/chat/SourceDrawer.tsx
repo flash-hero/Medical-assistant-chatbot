@@ -7,23 +7,29 @@ import type { ChatLocale, Citation } from "@/lib/chat/types";
 
 export interface OpenSource {
   readonly citation: Citation;
-  readonly answerLocale: ChatLocale;
+  /** The language the answer citing this source is written in (not necessarily the UI locale). */
+  readonly answerLanguage: ChatLocale;
 }
 
 interface SourceDrawerProps {
   readonly source: OpenSource | null;
+  /** The UI locale: the drawer's own labels and the review date are in it. */
+  readonly uiLocale: ChatLocale;
   readonly onClose: () => void;
 }
 
-function formatReviewed(locale: ChatLocale, iso: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+/** A localised date, or null for a value no calendar knows: a bad date must never crash the chat (review T11). */
+function formatReviewed(locale: ChatLocale, iso: string): string | null {
+  const date = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(date);
 }
 
 /**
  * Native modal <dialog> (focus trap, Escape, inert page). The only external links in the chat live
  * here, built from server-side citations (already validated as http/https), never from model text.
  */
-export function SourceDrawer({ source, onClose }: SourceDrawerProps) {
+export function SourceDrawer({ source, uiLocale, onClose }: SourceDrawerProps) {
   const t = useTranslations("Chat");
   const common = useTranslations("Common");
   const ref = useRef<HTMLDialogElement>(null);
@@ -37,6 +43,7 @@ export function SourceDrawer({ source, onClose }: SourceDrawerProps) {
 
   const citation = source?.citation;
   const dir = citation?.language === "ar" ? "rtl" : "ltr";
+  const reviewed = citation?.reviewed_on ? formatReviewed(uiLocale, citation.reviewed_on) : null;
   return (
     <dialog ref={ref} className="drawer" aria-labelledby="source-drawer-title" onClose={onClose} data-testid="source-drawer">
       {citation && source ? (
@@ -67,9 +74,9 @@ export function SourceDrawer({ source, onClose }: SourceDrawerProps) {
               </div>
             ) : null}
           </dl>
-          {citation.reviewed_on ? <p className="text-sm text-ink-2">{t("drawer.reviewed", { date: formatReviewed(source.answerLocale, citation.reviewed_on) })}</p> : null}
-          {citation.language !== source.answerLocale ? (
-            <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+          {reviewed ? <p className="text-sm text-ink-2">{t("drawer.reviewed", { date: reviewed })}</p> : null}
+          {citation.language !== source.answerLanguage ? (
+            <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm" data-testid="source-language-note">
               {t("drawer.languageNote", { language: t(`languageNames.${citation.language}`) })}
             </p>
           ) : null}

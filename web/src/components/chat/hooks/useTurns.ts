@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { postAppointment, postFeedback, type FeedbackBody } from "@/lib/api/client";
 import { chatReducer, INITIAL_CHAT_STATE, isTurnActive, type Turn } from "@/lib/chat/reducer";
 import { runTurn } from "@/lib/chat/run-turn";
+import { mergeSafetyLists } from "@/lib/chat/safety";
 import type { ChatLocale, SafetyEvent } from "@/lib/chat/types";
 import { MAX_MESSAGE_CHARS } from "@/lib/site";
 
@@ -13,16 +14,19 @@ function newTurnId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const NO_SAFETY: readonly SafetyEvent[] = [];
+
 /**
  * Chat turns: reducer state, one active stream at a time, Stop via AbortController.
- * The emergency/crisis banner outlives "new conversation" for the rest of the page view.
+ * The emergency/crisis banners outlive "new conversation" for the rest of the page view, every kind
+ * kept, highest priority first (review T2). `sessionTurnsLeft` seeds the questions-left counter.
  */
-export function useTurns(token: string | null, locale: ChatLocale) {
+export function useTurns(token: string | null, locale: ChatLocale, sessionTurnsLeft: number | null) {
   const [state, dispatch] = useReducer(chatReducer, INITIAL_CHAT_STATE);
   const controllerRef = useRef<AbortController | null>(null);
-  const [keptSafety, setKeptSafety] = useState<SafetyEvent | null>(null);
+  const [keptSafety, setKeptSafety] = useState<readonly SafetyEvent[]>(NO_SAFETY);
   const active = state.turns.some(isTurnActive);
-  const safety = state.safety ?? keptSafety;
+  const safety = useMemo(() => mergeSafetyLists(keptSafety, state.safety), [keptSafety, state.safety]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -33,13 +37,14 @@ export function useTurns(token: string | null, locale: ChatLocale) {
       const id = newTurnId();
       const controller = new AbortController();
       controllerRef.current = controller;
+      if (sessionTurnsLeft !== null) dispatch({ type: "session/started", turnsLeft: sessionTurnsLeft });
       dispatch({ type: "turn/submit", id, question: message, locale });
       void runTurn({ token, message, locale, clientTurnId: id, signal: controller.signal }, dispatch).finally(() => {
         if (controllerRef.current === controller) controllerRef.current = null;
       });
       return true;
     },
-    [token, locale],
+    [token, locale, sessionTurnsLeft],
   );
 
   const stop = useCallback(() => controllerRef.current?.abort(), []);
@@ -47,7 +52,7 @@ export function useTurns(token: string | null, locale: ChatLocale) {
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
-    setKeptSafety((kept) => state.safety ?? kept);
+    setKeptSafety((kept) => mergeSafetyLists(kept, state.safety));
     dispatch({ type: "conversation/reset" });
   }, [state.safety]);
 
@@ -61,9 +66,9 @@ export function useTurns(token: string | null, locale: ChatLocale) {
   );
 
   const submitForm = useCallback(
-    async (turn: Turn, body: Readonly<Record<string, string | boolean>>) => {
+    async (turn: Turn, body: Readonly<Record<string, string | boolean>>, idempotencyKey: string) => {
       if (!token || !turn.form) throw new Error("no form to submit");
-      const result = await postAppointment(token, turn.form.submit_url, body);
+      const result = await postAppointment(token, turn.form.submit_url, body, idempotencyKey);
       dispatch({ type: "turn/form-sent", id: turn.id, requestId: result.requestId, message: result.message });
     },
     [token],

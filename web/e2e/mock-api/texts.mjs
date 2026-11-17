@@ -18,11 +18,21 @@ export const TEXT = {
       "- يمكن لطبيبك أن يشرح لك ما تعنيه نتيجتك.\n- اسأل قبل الفحص إن كان عليك الصيام.",
     ],
   },
+  // Same wording as the server's notice (config/templates/responses.yaml `source_language`).
   sourceLanguage: {
-    en: "The sources for this answer are in English.",
-    fr: "Les sources de cette réponse sont en anglais.",
-    ar: "مصادر هذه الإجابة باللغة الإنجليزية.",
+    en: "Some sources are in another language; this answer is a translation of them.",
+    fr: "Certaines sources sont dans une autre langue ; cette réponse en est une traduction.",
+    ar: "بعض المصادر بلغة أخرى؛ هذه الإجابة ترجمة لها.",
   },
+  abuse: {
+    title: { en: "You deserve to be safe", fr: "Vous avez le droit d'être en sécurité", ar: "من حقك أن تكون في أمان" },
+    message: {
+      en: "What you describe is not your fault. The front desk can put you in touch with someone who can help you stay safe.",
+      fr: "Ce que vous décrivez n'est pas de votre faute. L'accueil peut vous mettre en relation avec une personne qui peut vous aider à rester en sécurité.",
+      ar: "ما تصفه ليس خطأك. يمكن للاستقبال أن يضعك على اتصال بشخص يساعدك على البقاء في أمان.",
+    },
+  },
+  gatewayPage: "<!doctype html><html><head><title>502 Bad Gateway</title></head><body><h1>502 Bad Gateway</h1></body></html>",
   emergency: {
     title: { en: "This may be an emergency", fr: "Il peut s'agir d'une urgence", ar: "قد تكون هذه حالة طارئة" },
     message: {
@@ -73,6 +83,7 @@ export const TEXT = {
       department_id: { en: "Department", fr: "Service", ar: "القسم" },
       preferred_dates: { en: "Preferred dates", fr: "Dates souhaitées", ar: "التواريخ المفضلة" },
       reason: { en: "Reason (optional)", fr: "Motif (facultatif)", ar: "السبب (اختياري)" },
+      consent: { en: "I agree to be contacted", fr: "J'accepte d'être contacté", ar: "أوافق على التواصل معي" },
     },
     confirmation: {
       en: "Thank you. The front desk will call you within two working days.",
@@ -86,9 +97,9 @@ export const TEXT = {
     ar: "مواعيد الزيارة **كل يوم من 12:00 إلى 20:00**.\n\n- زائران في الوقت نفسه لكل مريض.\n- يرافق شخص بالغ الأطفال دون 12 عامًا.",
   },
   ibuprofen: {
-    en: "Ibuprofen is a nonsteroidal anti-inflammatory medicine used to relieve pain and reduce fever [1].\n\n- Take it with food or milk if it upsets your stomach [1].\n- Do not take more than the label says [1].\n\nA pharmacist can answer questions about your own situation.",
-    fr: "L'ibuprofène est un anti-inflammatoire non stéroïdien utilisé contre la douleur et la fièvre [1].\n\n- Prenez-le avec de la nourriture ou du lait s'il irrite l'estomac [1].\n- Ne dépassez pas ce qu'indique la notice [1].\n\nUn pharmacien peut répondre aux questions sur votre situation.",
-    ar: "الإيبوبروفين دواء مضاد للالتهاب غير ستيرويدي يُستخدم لتخفيف الألم وخفض الحرارة [1].\n\n- تناوله مع الطعام أو الحليب إذا سبب لك اضطرابًا في المعدة [1].\n- لا تتجاوز ما هو مذكور في النشرة [1].\n\nيمكن للصيدلي الإجابة عن أسئلتك حول حالتك.",
+    en: "Ibuprofen is a nonsteroidal anti-inflammatory medicine used to relieve pain and reduce fever [1, 2].\n\n- Take it with food or milk if it upsets your stomach [1].\n- Do not take more than the label says [1].\n\nA pharmacist can answer questions about your own situation.",
+    fr: "L'ibuprofène est un anti-inflammatoire non stéroïdien utilisé contre la douleur et la fièvre [1, 2].\n\n- Prenez-le avec de la nourriture ou du lait s'il irrite l'estomac [1].\n- Ne dépassez pas ce qu'indique la notice [1].\n\nUn pharmacien peut répondre aux questions sur votre situation.",
+    ar: "الإيبوبروفين دواء مضاد للالتهاب غير ستيرويدي يُستخدم لتخفيف الألم وخفض الحرارة [1, 2].\n\n- تناوله مع الطعام أو الحليب إذا سبب لك اضطرابًا في المعدة [1].\n- لا تتجاوز ما هو مذكور في النشرة [1].\n\nيمكن للصيدلي الإجابة عن أسئلتك حول حالتك.",
   },
   replaced: {
     draft: { en: "This first draft will be replaced. ", fr: "Ce premier brouillon sera remplacé. ", ar: "ستُستبدل هذه المسودة الأولى. " },

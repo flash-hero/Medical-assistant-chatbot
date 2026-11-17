@@ -1,5 +1,18 @@
 import type { SseMessage } from "@/lib/sse/parser";
-import { asArray, asBool, asHttpUrl, asInt, asPhone, asString, isRecord, oneOf, type Json } from "@/lib/validate";
+import {
+  asArray,
+  asBool,
+  asHttpUrl,
+  asInt,
+  asPhone,
+  asString,
+  asTruncatedString,
+  isIsoDate,
+  isRecord,
+  oneOf,
+  uniqueBy,
+  type Json,
+} from "@/lib/validate";
 import {
   ANSWER_MODES,
   FIELD_KINDS,
@@ -28,6 +41,11 @@ export type ParseResult =
 
 export const MAX_SNIPPET_CHARS = 600;
 export const MAX_RETRY_AFTER_S = 3600;
+export const MAX_SAFETY_TITLE_CHARS = 500;
+export const MAX_SAFETY_MESSAGE_CHARS = 4000;
+const MAX_SAFETY_CONTACTS = 10;
+const MAX_CITATIONS = 50;
+const MAX_OPTIONS = 100;
 const FIELD_NAME = /^[a-z][a-z0-9_]{0,63}$/;
 const RESERVED_FIELD_NAMES = new Set(["constructor", "prototype"]);
 /** The UI always renders its own consent checkbox; a server-sent field with that name is dropped. */
@@ -57,22 +75,40 @@ function parseContact(raw: unknown): Contact | null {
   if (!isRecord(raw)) return null;
   const label = asString(raw.label, 200);
   const number = asPhone(raw.number);
-  const hours = raw.hours === undefined ? "" : asString(raw.hours, 200);
-  return label !== null && number !== null && hours !== null ? { label, number, hours } : null;
+  const hours = asString(raw.hours, 200) ?? "";
+  return label !== null && number !== null ? { label, number, hours } : null;
 }
 
-function parseSafety(p: Json): SafetyEvent | null {
-  const kind = oneOf(p.kind, SAFETY_KINDS);
-  const template_id = asString(p.template_id, 200);
-  const title = asString(p.title, 500);
-  const message = asString(p.message, 4000);
-  const rawContacts = asArray(p.contacts);
-  const sticky = asBool(p.sticky, true);
-  if (kind === null || template_id === null || title === null || message === null) return null;
-  if (rawContacts === null || sticky === null) return null;
-  const contacts = rawContacts.map(parseContact).filter((c): c is Contact => c !== null);
-  return { type: "safety", kind, template_id, title, message, contacts, sticky };
+/**
+ * The safety banner must survive contract drift (review T4): unknown kinds count as emergencies,
+ * over-long text is cut, invalid contacts are dropped one by one. An empty title or message tells
+ * the UI to use its own localised fallback text; empty contacts make it use the hospital profile.
+ */
+function parseSafety(p: Json): SafetyEvent {
+  const contacts = (asArray(p.contacts) ?? []).map(parseContact).filter((c): c is Contact => c !== null);
+  return {
+    type: "safety",
+    kind: oneOf(p.kind, SAFETY_KINDS) ?? "emergency",
+    template_id: asTruncatedString(p.template_id, 200) ?? "",
+    title: asTruncatedString(p.title, MAX_SAFETY_TITLE_CHARS) ?? "",
+    message: asTruncatedString(p.message, MAX_SAFETY_MESSAGE_CHARS) ?? "",
+    contacts: uniqueBy(contacts, (c) => c.number).slice(0, MAX_SAFETY_CONTACTS),
+    sticky: asBool(p.sticky, true) ?? true,
+    language: oneOf(p.language, LOCALES),
+  };
 }
+
+/** A safety event that could not be read at all still shows the localised emergency banner. */
+export const FALLBACK_SAFETY: SafetyEvent = Object.freeze({
+  type: "safety",
+  kind: "emergency",
+  template_id: "",
+  title: "",
+  message: "",
+  contacts: Object.freeze([]) as readonly Contact[],
+  sticky: true,
+  language: null,
+});
 
 function parseCitation(raw: unknown): Citation | null {
   if (!isRecord(raw)) return null;
@@ -81,12 +117,11 @@ function parseCitation(raw: unknown): Citation | null {
   const publisher = asString(raw.publisher, 500);
   const url = asHttpUrl(raw.url);
   const heading = raw.heading === undefined ? "" : asString(raw.heading, 1000);
-  const reviewedRaw = raw.reviewed_on ?? null;
-  const reviewed_on = reviewedRaw === null ? null : asString(reviewedRaw, 10);
+  // A date that is not a real calendar day ("2025-13-45") is dropped, not the citation (review T11).
+  const reviewed_on = isIsoDate(raw.reviewed_on) ? raw.reviewed_on : null;
   const language = oneOf(raw.language, LANGUAGES);
   const snippet = asString(raw.snippet, 100_000);
   if (n === null || title === null || publisher === null || url === null || heading === null) return null;
-  if (reviewedRaw !== null && (reviewed_on === null || !/^\d{4}-\d{2}-\d{2}$/.test(reviewed_on))) return null;
   if (language === null || snippet === null) return null;
   return { n, title, publisher, url, heading, reviewed_on, language, snippet: snippet.slice(0, MAX_SNIPPET_CHARS) };
 }
@@ -102,8 +137,10 @@ function parseAnswer(p: Json): AnswerEvent | null {
   const show_seek_care = asBool(p.show_seek_care, false);
   if (text === null || rawCitations === null || intent === null || mode === null || verified === null) return null;
   if (replaces_stream === null || source_language_note === null || show_seek_care === null) return null;
-  const citations = rawCitations.map(parseCitation).filter((c): c is Citation => c !== null);
-  return { type: "answer", text, citations, intent, mode, verified, replaces_stream, source_language_note, show_seek_care };
+  const parsed = rawCitations.map(parseCitation).filter((c): c is Citation => c !== null);
+  const citations = uniqueBy(parsed, (c) => c.n).slice(0, MAX_CITATIONS);
+  const language = oneOf(p.language, LOCALES);
+  return { type: "answer", text, citations, intent, mode, verified, replaces_stream, source_language_note, show_seek_care, language };
 }
 
 function parseField(raw: unknown): FormField | null {
@@ -118,7 +155,8 @@ function parseField(raw: unknown): FormField | null {
   if (label === null || kind === null || required === null || rawOptions === null || max_length === null) return null;
   const options = rawOptions.map((o) => asString(o, 300));
   if (options.some((o) => o === null)) return null;
-  return { name, label, kind, required, options: options as string[], max_length };
+  const unique = uniqueBy(options as string[], (o) => o).slice(0, MAX_OPTIONS);
+  return { name, label, kind, required, options: unique, max_length };
 }
 
 /** The form posts personal data: only a same-origin API path is acceptable. */
@@ -138,7 +176,8 @@ function parseForm(p: Json): FormEvent | null {
     .filter((f) => !(isRecord(f) && typeof f.name === "string" && UI_OWNED_FIELDS.has(f.name)))
     .map(parseField);
   if (fields.some((f) => f === null)) return null;
-  return { type: "form", form_id: "appointment_request", title, description, fields: fields as FormField[], submit_url };
+  const unique = uniqueBy(fields as FormField[], (f) => f.name);
+  return { type: "form", form_id: "appointment_request", title, description, fields: unique, submit_url };
 }
 
 function parseError(p: Json): ErrorEvent | null {
@@ -185,9 +224,7 @@ function isKnownType(type: string): type is ChatEvent["type"] {
   return Object.prototype.hasOwnProperty.call(PARSERS, type);
 }
 
-/** Validate one SSE message against the chat event contract. Unknown types are ignored, not errors. */
-export function parseChatEvent(message: SseMessage): ParseResult {
-  if (!isKnownType(message.event)) return { ok: false, reason: "unknown_event" };
+function parsePayload(message: SseMessage & { readonly event: ChatEvent["type"] }): ParseResult {
   let payload: unknown;
   try {
     payload = JSON.parse(message.data);
@@ -199,4 +236,16 @@ export function parseChatEvent(message: SseMessage): ParseResult {
   }
   const event = PARSERS[message.event](payload);
   return event === null ? { ok: false, reason: "invalid_payload" } : { ok: true, event };
+}
+
+/**
+ * Validate one SSE message against the chat event contract. Unknown types are ignored, not errors.
+ * A `safety` message is never dropped: whatever arrives, the patient sees an emergency banner.
+ */
+export function parseChatEvent(message: SseMessage): ParseResult {
+  const event = message.event;
+  if (!isKnownType(event)) return { ok: false, reason: "unknown_event" };
+  const result = parsePayload({ ...message, event });
+  if (result.ok || event !== "safety") return result;
+  return { ok: true, event: FALLBACK_SAFETY };
 }

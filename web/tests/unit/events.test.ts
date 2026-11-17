@@ -167,3 +167,129 @@ describe("parseChatEvent", () => {
     expect(parseChatEvent({ event: "delta", data: "[]", id: null, retry: null }).ok).toBe(false);
   });
 });
+
+const safetyPayload = {
+  type: "safety",
+  kind: "emergency",
+  template_id: "emergency.v1",
+  title: "Call now",
+  message: "Call 112.",
+  contacts: [{ label: "Emergency", number: "112" }],
+};
+
+function safetyOf(payload: unknown) {
+  const result = parseChatEvent(msg("safety", payload));
+  return result.ok && result.event.type === "safety" ? result.event : null;
+}
+
+describe("T1 language of answer and safety text", () => {
+  it("reads the optional language of an answer and of a safety event", () => {
+    const answer = parseChatEvent(
+      msg("answer", { type: "answer", text: "Le test", intent: "medical_info", mode: "streamed", verified: true, language: "fr" }),
+    );
+    expect(answer.ok && answer.event.type === "answer" && answer.event.language).toBe("fr");
+    expect(safetyOf({ ...safetyPayload, language: "ar" })?.language).toBe("ar");
+  });
+
+  it("treats a missing, null or unknown language as unknown instead of rejecting the event", () => {
+    const base = { type: "answer", text: "x", intent: "medical_info", mode: "streamed", verified: true };
+    for (const language of [undefined, null, "de", 3]) {
+      const result = parseChatEvent(msg("answer", { ...base, language }));
+      expect(result.ok && result.event.type === "answer" && result.event.language).toBeNull();
+    }
+  });
+});
+
+describe("T4 lenient safety parsing", () => {
+  it("truncates over-long text instead of dropping the banner", () => {
+    const event = safetyOf({ ...safetyPayload, title: "T".repeat(900), message: "M".repeat(9000), template_id: "x".repeat(400) });
+    expect(event).not.toBeNull();
+    expect(event?.title.length).toBe(500);
+    expect(event?.message.length).toBe(4000);
+    expect(event?.contacts).toEqual([{ label: "Emergency", number: "112", hours: "" }]);
+  });
+
+  it("keeps the valid contacts and survives shape drift in the others", () => {
+    const event = safetyOf({
+      ...safetyPayload,
+      sticky: "yes",
+      contacts: [{ label: "Emergency", number: "112", hours: 24 }, "112", null, { label: "Crisis", number: "3114" }],
+      extra_field: { nested: true },
+    });
+    expect(event?.sticky).toBe(true);
+    expect(event?.contacts.map((c) => c.number)).toEqual(["112", "3114"]);
+    expect(event?.contacts[0]?.hours).toBe("");
+    expect(safetyOf({ ...safetyPayload, contacts: "112" })?.contacts).toEqual([]);
+  });
+
+  it("falls back to an emergency banner with UI text when kind, title or message are missing", () => {
+    const event = safetyOf({ type: "safety", kind: "new_future_kind" });
+    expect(event).toMatchObject({ kind: "emergency", title: "", message: "", contacts: [], sticky: true, language: null });
+  });
+
+  it("still yields a fallback banner when a safety payload is not valid JSON or not an object", () => {
+    for (const data of ["{broken", "[]", '"text"', "null"]) {
+      const result = parseChatEvent({ event: "safety", data, id: null, retry: null });
+      expect(result, data).toMatchObject({ ok: true, event: { type: "safety", kind: "emergency", title: "", message: "", sticky: true } });
+    }
+  });
+});
+
+describe("T11 citation dates", () => {
+  it("keeps a citation whose review date is not a real calendar date, without the date", () => {
+    for (const reviewed_on of ["2025-13-45", "2025-02-30", "2025-1-5", "yesterday"]) {
+      const result = parseChatEvent(
+        msg("answer", { type: "answer", text: "x", citations: [{ ...citation, reviewed_on }], intent: "medical_info", mode: "streamed", verified: true }),
+      );
+      expect(result.ok && result.event.type === "answer" && result.event.citations, reviewed_on).toEqual([
+        expect.objectContaining({ n: 1, reviewed_on: null }),
+      ]);
+    }
+  });
+
+  it("keeps a valid date, including 29 February in a leap year", () => {
+    const result = parseChatEvent(
+      msg("answer", { type: "answer", text: "x", citations: [{ ...citation, reviewed_on: "2024-02-29" }], intent: "medical_info", mode: "streamed", verified: true }),
+    );
+    expect(result.ok && result.event.type === "answer" && result.event.citations[0]?.reviewed_on).toBe("2024-02-29");
+  });
+});
+
+describe("T16 duplicate entries from server lists", () => {
+  it("keeps the first citation for each number", () => {
+    const result = parseChatEvent(
+      msg("answer", {
+        type: "answer",
+        text: "x",
+        citations: [citation, { ...citation, title: "Duplicate" }, { ...citation, n: 2 }],
+        intent: "medical_info",
+        mode: "streamed",
+        verified: true,
+      }),
+    );
+    expect(result.ok && result.event.type === "answer" && result.event.citations.map((c) => [c.n, c.title])).toEqual([
+      [1, "Diabetes"],
+      [2, "Diabetes"],
+    ]);
+  });
+
+  it("drops repeated form fields and repeated select options", () => {
+    const result = parseChatEvent(
+      msg("form", {
+        type: "form",
+        form_id: "appointment_request",
+        title: "t",
+        description: "d",
+        fields: [
+          { name: "full_name", label: "Name", kind: "text" },
+          { name: "full_name", label: "Name again", kind: "text" },
+          { name: "department_id", label: "Department", kind: "select", options: ["cardiology", "cardiology", "dermatology"] },
+        ],
+      }),
+    );
+    expect(result.ok && result.event.type === "form" && result.event.fields.map((f) => [f.name, f.options])).toEqual([
+      ["full_name", []],
+      ["department_id", ["cardiology", "dermatology"]],
+    ]);
+  });
+});

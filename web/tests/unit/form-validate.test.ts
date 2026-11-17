@@ -48,3 +48,19 @@ describe("buildAppointmentBody", () => {
     expect(body).toEqual({ full_name: "Salma", reason: "Check-up", consent: true });
   });
 });
+
+describe("T14 client rules match the server (app/api/schemas.py)", () => {
+  it("needs at least six phone characters, like the server", () => {
+    expect(validateField(field({ kind: "tel" }), "12345")).toEqual({ code: "phone" });
+    expect(validateField(field({ kind: "tel" }), "123456")).toBeNull();
+    expect(validateField(field({ kind: "tel", max_length: 32 }), "+33 (0)4 00 00 00 00")).toBeNull();
+  });
+
+  it("rejects e-mail characters the server refuses", () => {
+    for (const email of ['a"b@example.org', "a<b@example.org", "a`b@example.org", `${"x".repeat(65)}@example.org`]) {
+      expect(validateField(field({ kind: "email", max_length: 254 }), email), email).toEqual({ code: "email" });
+    }
+    expect(validateField(field({ kind: "email", max_length: 254 }), "salma.idrissi@example.org")).toBeNull();
+  });
+});
+

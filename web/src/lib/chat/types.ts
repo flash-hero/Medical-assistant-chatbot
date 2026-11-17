@@ -93,6 +93,8 @@ export interface SafetyEvent {
   readonly message: string;
   readonly contacts: readonly Contact[];
   readonly sticky: boolean;
+  /** Language of title/message; may differ from the UI locale (null: unknown, detect it). */
+  readonly language: ChatLocale | null;
 }
 
 export interface DeltaEvent {
@@ -110,6 +112,8 @@ export interface AnswerEvent {
   readonly replaces_stream: boolean;
   readonly source_language_note: boolean;
   readonly show_seek_care: boolean;
+  /** Language the text is written in; may differ from the UI locale (null: unknown, detect it). */
+  readonly language: ChatLocale | null;
 }
 
 export interface NoticeEvent {
