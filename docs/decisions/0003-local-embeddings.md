@@ -46,3 +46,18 @@ Prompts are unchanged because EmbeddingGemma uses the same format the code alrea
   in the third-party notices.
 - Every existing collection was built with Gemini vectors and must be rebuilt (new corpus version). The
   confidence gate must be recalibrated, because similarity distributions differ between models.
+
+## Online confirmation (2026-11-17, `ausculta_corpus_2026_11_17_seed2`, now live)
+
+Rebuilt the 720-chunk seed with local vectors (4.7 min on CPU), evaluated through the real retriever on Qdrant,
+recalibrated, promoted; `verify_live_corpus` confirms `google/embeddinggemma-300m@fmt1`.
+
+| Mode (all languages, n=288) | recall@20 | nDCG@8 | MRR | retrieval p95 |
+|---|---|---|---|---|
+| dense (local) | 0.997 | 0.978 | 0.972 | 28 ms |
+| hybrid (production, RRF) | 0.986 | 0.965 | 0.957 | 32 ms |
+| sparse only | 0.948 | 0.837 | 0.806 | 23 ms |
+| gemini-embedding-2 dense (previous) | 1.000 | 0.987 | n/a | + 350-912 ms embedding call |
+
+Gates: out-of-corpus abstention 1.000 (n=162), false abstention 0.076 (was 0.090 with Gemini), retrieval p95
+32 ms. Dense-only leads hybrid by 1.3 nDCG points here; per ADR 0002 the mode is re-decided on the full build.
