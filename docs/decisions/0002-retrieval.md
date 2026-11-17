@@ -176,3 +176,24 @@ Open points added: re-measure dense vs hybrid (the decision rule above) and the 
 vectors on the seed first (the gate's false-abstention margin was already thin: 0.090 vs 0.10), then on the
 full build; if Arabic ranking falls short (ADR 0003: nDCG@8 0.936 dense-only), consider
 `Qwen/Qwen3-Embedding-0.6B` in a follow-up spike.
+
+## 2026-11-17: final v1 index and retrieval mode = dense
+
+Embedding stopped by owner decision once the English consumer-health core was embedded ("what we have is
+enough"). The live index is `ausculta_corpus_2026_11_17_en1`: 18,508 chunks from 6,676 documents across 11
+sources (MedlinePlus topics and genetics, CDC VIS, NCI PDQ, NIDDK, NHLBI, NICHD, NCCIH, NIAMS, NEI, NIMH), built
+entirely from cached local EmbeddingGemma vectors (0 new embeddings), signature verified. CDC web pages,
+Wikipedia AR/FR/EN, HAS, BDPM and openFDA labels are normalised and licence-checked but not indexed yet.
+
+Pre-registered rule above: switch to dense if it leads hybrid by >= 1 nDCG@8 point on the full build.
+Measured on this index (gold set n=288, single-relevant, LLM-generated, unreviewed; provisional):
+
+| Mode | R@8 | R@20 | MRR | nDCG@8 | p95 | OOC abstention | false abstention |
+|---|---|---|---|---|---|---|---|
+| hybrid (RRF) | 0.951 | 0.993 | 0.764 | 0.808 | 55 ms | 0.981 | 0.083 |
+| **dense (adopted)** | **0.990** | **1.000** | **0.820** | **0.862** | **45 ms** | 0.969 | **0.080** |
+| sparse | 0.788 | 0.851 | 0.583 | 0.629 | 43 ms | n/a | n/a |
+
+Dense leads by 5.4 nDCG points, so `mode: dense` is set in the collection's retrieval config and the confidence
+gate was recalibrated on dense signals (report 20261117T205025Z). BM25 vectors stay in the index, so switching back
+is a one-line config change plus recalibration. Per language (dense): nDCG@8 EN 0.893, FR 0.870, AR 0.822.
