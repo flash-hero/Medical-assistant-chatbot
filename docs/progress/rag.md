@@ -11,15 +11,15 @@ Owner dirs: `rag/`, `tests/rag/`, `evals/retrieval/`, `docs/decisions/0002-retri
 | 2 | Seed index live behind alias `ausculta_corpus` | done | `ausculta_corpus_2026_11_16_seed1` promoted 06:23 UTC with `--override-gates "<reason>"` (signed-manifest check still enforced; reason in `manifests/active.json`). Live check through `build_retriever(settings, llm)` passed (EN asthma -> MedlinePlus Asthma top 1). |
 | 3 | Retrieval evaluation (gold EN/FR/AR + OOC, ablations, calibration, report, metrics, ADR 0002) | done | Run 4 (16:40 UTC) found the r5 full online eval had COMPLETED before the restart: exit 0 at 12:19 UTC after 20 min (log `reports/retrieval/run-online-20261116-r5.log`), report `20261116T115912Z.json`, calibrated config `manifests/ausculta_corpus_2026_11_16_seed1.retrieval.json`, `reports/rag.metrics.json` (7 records, free_tier). `evals.run --only rag.`: PASS 4, PROVISIONAL 3 (recall@20 0.990 EN/FR/AR), FAIL 0. Rerank OFF (-0.39 nDCG@8 points on 61 paired queries). `docs/decisions/0002-retrieval.md` written with all numbers. Earlier history: Gold: `gen_20261116T062632Z_{en,fr,ar}.jsonl` generated 06:25 UTC by gemini-3.5-flash-lite (60 passages x 3 langs + 30 OOC x 3, FR/AR English rewrites by the model without the passage; ~11 generation calls, estimated from the file contents since that run's stdout was lost) + `agent_seed1_*` (36 answerable + 24 OOC per lang). Total 450 rows, 599 distinct query texts. 10:50 UTC: per-run gate records renamed `<stamp>.gates.json` (evals.run reads every `*.metrics.json`, newest wins, so an offline or validation-collection eval would have replaced the live numbers); `reports/rag.metrics.json` is now written only by an ONLINE eval of the alias target. Online eval started 10:52 UTC (log `reports/retrieval/run-online-20261116.log`). |
 | 4 | Full-build preparation (chunk counts per ACTIVE source, ETA at 90 chunks/min, `--limit 50` validation on 2 non-MedlinePlus sources, exact command for the lead) | done | Run 4: plan re-run 16:45 UTC right after `wikipedia_medicine` got its ready marker (16:45:00): `reports/rag-plan-20261116T1650.txt` (no API calls). 15 ready sources excl. openfda_labels, 26,766 docs, 189,169 chunks, 187,909 new embeddings (1,011 cached), 50.5M tokens, 2,088 min = 34.8 h at 90/min; ~$10.10 at paid list price. Per-source table, daily-quota caveat and the exact command: section "Full build (for the lead)" below. Collections: only `ausculta_corpus_2026_11_16_seed1` (alias target) remains; nothing else to delete. Earlier history: `--limit 50` validation done (val50, 291 chunks). Plan run 11:52 UTC (`reports/rag-plan-20261116.txt`, 23 s, no API): 14 ready sources excl. openfda_labels, 22,844 docs, 111,373 chunks, 110,113 new embeddings (1,011 cached), 25.1M tokens, 1,223 min = 20.4 h at 90/min; wikipedia_medicine not ready (being fetched). Daily cap now treated as UNKNOWN in `rag plan` (no default cap). 11:57 UTC: deleted Qdrant collections `ausculta_corpus_2026_11_16_val50` and `ausculta_corpus_2026_11_15_1` (their vectors stay in the embedding cache; manifest/build-state files kept as history); only seed1 (alias target) remains. Left: record the command. |
+| 5 | Local embeddings (ADR 0003) + review fixes S8/P6, P19, P3 (readiness), P12 (warmup), P20 | done (code), rebuild pending | Run 5: code + tests; no collection or alias changed. `tests/rag` (2026-11-17 12:50 UTC): 169 passed, 1 skipped (opt-in full seed eval) without `services`, plus 2/2 `services` tests against the real server; coverage 97% for `rag/` + `evals/retrieval/` (lowest `rag/fileio.py` 87%, `rag/cli_eval.py` 93%); ruff + format clean; mypy strict clean on `rag/` + `evals/retrieval/`. Real-model dense check PASS (10/10 top-1). The lead runs the rebuild/eval/promote commands in Run 5. |
 
 ## Run 5 (22:00-23:30 UTC): local embeddings + review fixes (code only, Qdrant untouched)
 
 Why: ADR 0003. The free tier embeds 1,000 texts/day and billing cannot be enabled, so documents AND queries
 are now embedded by `google/embeddinggemma-300m` (ONNX, CPU) through `app.llm.factory.build_embedding_provider`.
-Qdrant was reported stopped (memory pressure) and was NOT used or restarted by this run; every test uses
-qdrant-client local mode. Note for the lead: at 22:2x UTC a `qdrant.exe` (PID 21244, started 16:37 local)
-was still listening on 127.0.0.1:6333, and the baseline test run's `services` test created and deleted its
-throwaway collection `ausculta_corpus_pytest_svc` there; every later run used `-m "not services"`.
+Qdrant was first reported stopped, so tests use qdrant-client local mode; the lead later confirmed it had
+kept running (PID 21244) and approved the `services` tests. Only throwaway test collections were created
+and deleted there; no real collection or the alias was touched.
 
 Changes (all uncommitted; tests for each):
 - `rag/embedding.py`: `DocumentEmbedder` / `QueryEmbedder` take a `core.ports.EmbeddingProvider`;
@@ -55,6 +55,90 @@ Changes (all uncommitted; tests for each):
   the one real-model check below.
 - Tests: conftest guard makes any attempt to LOAD the real embedding model fail the test (pytest.fail).
 
+Evidence:
+- Offline seed re-evaluation (fake provider, local-mode Qdrant, real seed chunks + gold,
+  `tests/rag/test_rag_dense_check.py`): the 720 seed chunks re-indexed with production payloads/BM25 give
+  sparse-only R@8 0.927 / 0.948 / 0.927 and R@20 0.958 / 0.948 / 0.938 (EN / FR / AR), identical to ADR 0002's
+  server row; MRR / nDCG@8 within 0.006. The new manifest signature verifies on those real payloads. The full
+  offline `run_eval` of the seed (all 4 ablations, calibration, gates) passed once (154 s) and is opt-in
+  (`AUSCULTA_SEED_EVAL=1`).
+- Real-model check, 2026-11-17 12:52 UTC, one process, 6.7 GB RAM free:
+  `python -m evals.retrieval.dense_check --chunks .../chunks/2026-11-16.seed1/medlineplus_topics.jsonl
+  --questions 10 --total-chunks 20 --backend local`: 20 seed chunks + 10 gold questions (4 EN, 3 FR, 3 AR,
+  question text only, cross-lingual for FR/AR) embedded in 7.8 s incl. model load; all vectors 768-d,
+  finite, max |norm - 1| 6.9e-08; the relevant chunk ranked FIRST for 10 of 10 questions. Exit 0 (PASS).
+- Real server (read-only, 2026-11-17 12:54 UTC, after the lead confirmed Qdrant up): `verify_live_corpus`
+  on the alias -> `corpus_unverified`: "ausculta_corpus_2026_11_16_seed1 holds gemini-embedding-2 vectors
+  but this deployment embeds queries with google/embeddinggemma-300m@fmt1" (correct: rebuild needed);
+  seed1 with the model check skipped -> "stored chunks do not match the signed manifest" (old scheme, as
+  expected); `build_retriever(...).health()` on the alias -> True (real BM25 encode + sparse search).
+  `test_signature_survives_the_real_servers_json_round_trip` (throwaway collection, deleted) passes: the
+  signature holds through the server's JSON payload round trip and an edited url is caught.
+
+### Commands for the lead after restarting Qdrant (local embeddings)
+
+Git Bash, from the repo (`.env` supplies `AUSCULTA_SESSION_SECRET`; `AUSCULTA_EMBED_BACKEND` defaults to
+`local`). Memory: only ONE process may hold the embedding model (build, eval and the API each load it), so
+run these one at a time and stop the API meanwhile; Qdrant must be running. `rag status`, `rag promote`
+and the verify one-liner never load the model. The old collections (`..._2026_11_16_seed1`, alias target,
+and `..._2026_11_16_1`, a stopped Gemini build with 720 points) hold Gemini vectors and old-scheme manifests:
+they no longer verify and must not serve local query vectors.
+
+(a) Seed rebuild with local embeddings, eval + calibration, promote (~5 min build, ~5 min eval):
+
+```
+cd /c/dev/ausculta && .venv/Scripts/python.exe -m rag status
+.venv/Scripts/python.exe -m rag build --corpus-version 2026-11-17.seed2 --sources medlineplus_topics --limit 327 >> /c/dev/ausculta-data/logs/rag_build_2026-11-17.seed2.log 2>&1; echo "exit=$?" >> /c/dev/ausculta-data/logs/rag_build_2026-11-17.seed2.log
+# the gold set references seed1 chunk ids: expect "720 720 True"
+.venv/Scripts/python.exe -c "import json,pathlib as p; ids=lambda v: {json.loads(l)['chunk_id'] for l in p.Path(f'C:/dev/ausculta-data/chunks/{v}/medlineplus_topics.jsonl').read_text(encoding='utf-8').splitlines()}; a,b=ids('2026-11-16.seed1'),ids('2026-11-17.seed2'); print(len(a),len(b),a==b)"
+# online eval = ablations + confidence-gate calibration (writes manifests/ausculta_corpus_2026_11_17_seed2.retrieval.json);
+# --rerank-sample 0 keeps rerank OFF (ADR 0002) and makes ZERO Gemini calls
+.venv/Scripts/python.exe -m rag eval --collection ausculta_corpus_2026_11_17_seed2 --rerank-sample 0 > /c/dev/ausculta-data/reports/retrieval/run-online-2026-11-17.seed2.log 2>&1; echo "exit=$?"
+.venv/Scripts/python.exe -m rag promote ausculta_corpus_2026_11_17_seed2
+# the API startup check (signature, payloads, embedding model of the alias target):
+.venv/Scripts/python.exe -c "import asyncio; from core.config import get_settings; from rag.verify import verify_live_corpus; print(asyncio.run(verify_live_corpus(get_settings())))"
+.venv/Scripts/python.exe -m pytest tests/rag -m services -q -p no:cacheprovider
+```
+
+- eval exit 0 = gates pass, 4 = a gate FAILED (read the log), 1 = error. The report includes
+  `embed_model` (`google/embeddinggemma-300m@fmt1`); compare dense vs hybrid and the abstention rates with
+  ADR 0002 (false abstention was 0.090 with Gemini, gate 0.10).
+- promote refuses (exit 4) unless that collection's newest ONLINE report passes the rag gates; for a
+  development seed only: `--override-gates "<reason, >= 10 chars>"`. The signed-manifest and
+  embedding-model checks are never overridable.
+- Optional cleanup once seed2 is live (rollback to them is impossible anyway):
+  `curl -X DELETE http://127.0.0.1:6333/collections/ausculta_corpus_2026_11_16_1` and the same for
+  `ausculta_corpus_2026_11_16_seed1`.
+
+(b) Full build of all 15 ready sources (openfda_labels excluded), about 19.4 h on this CPU
+(~188,9xx unique chunks to embed at 2.7 chunks/s = 162/min; the 720 seed2 chunks are cache hits; no API
+cost, no quota). Plan first (dry run, no model load, no Qdrant), then build:
+
+```
+cd /c/dev/ausculta && .venv/Scripts/python.exe -m rag plan --exclude openfda_labels --corpus-version 2026-11-17.1 > /c/dev/ausculta-data/reports/rag-plan-20261117.txt 2>&1
+.venv/Scripts/python.exe -m rag build --corpus-version 2026-11-17.1 --sources bdpm,cdc,cdc_vis,has_publications,medlineplus_genetics,medlineplus_topics,nccih,nci_pdq,nei,nhlbi,niams,nichd,niddk,nimh,wikipedia_medicine >> /c/dev/ausculta-data/logs/rag_build_2026-11-17.1.log 2>&1; echo "exit=$?" >> /c/dev/ausculta-data/logs/rag_build_2026-11-17.1.log
+```
+
+- Resumable: after a kill, reboot, Windows memory kill or exit 1 ("Embedding failed ... Re-run"), run the
+  SAME command again: it re-chunks (~1-2 min) and every committed 90-chunk batch is a cache hit (zero
+  repeat embeddings). Progress: `manifests/build-state/ausculta_corpus_2026_11_17_1.json`
+  (`indexed_chunks` / `total_chunks`). Exit 3 cannot happen on the local backend.
+- Do not change `--corpus-version` or the source list between resumes. Keep the API stopped (memory: all
+  ~189k chunks + the model + BM25 in one process). `AUSCULTA_EMBED_THREADS=N` leaves cores free if needed.
+- Exit 0 prints `Indexed ... into ausculta_corpus_2026_11_17_1` and writes the signed manifest.
+
+(c) Eval, calibration and promotion of the full build (after (b) exits 0):
+
+```
+cd /c/dev/ausculta && .venv/Scripts/python.exe -m rag eval --collection ausculta_corpus_2026_11_17_1 --rerank-sample 0 > /c/dev/ausculta-data/reports/retrieval/run-online-2026-11-17.1.log 2>&1; echo "exit=$?"
+.venv/Scripts/python.exe -m rag promote ausculta_corpus_2026_11_17_1
+.venv/Scripts/python.exe -c "import asyncio; from core.config import get_settings; from rag.verify import verify_live_corpus; print(asyncio.run(verify_live_corpus(get_settings())))"
+```
+
+- Read ADR 0002 "Open points" before promoting (dense-only vs hybrid rule, recalibration, single-relevant
+  seed gold on a 189k-chunk index). `python -m rag rollback` returns to the previous verified collection
+  (seed2). Restart the API afterwards so its startup verification runs on the new alias target.
+
 ## Run 4 (started 16:39 UTC, after the PC restart)
 
 - Qdrant up; only `ausculta_corpus_2026_11_16_seed1` exists, alias -> seed1. The r5 full eval had finished
@@ -66,6 +150,9 @@ Changes (all uncommitted; tests for each):
   `evals/retrieval/report.py::latest_report(mode=)`), 2 tests. No other code change.
 
 ## Full build (for the lead) — prepared 2026-11-16 16:50 UTC, NOT started
+
+SUPERSEDED by Run 5 (local embeddings, ADR 0003): use "Commands for the lead after restarting Qdrant" above.
+The Gemini command below would now build with the local model anyway (AUSCULTA_EMBED_BACKEND=local).
 
 Plan `reports/rag-plan-20261116T1650.txt` (`python -m rag plan --exclude openfda_labels --corpus-version
 2026-11-16.1 --daily-cap 1000`). ETA = new embeddings / 90 per minute (the provider's free-tier throttle).

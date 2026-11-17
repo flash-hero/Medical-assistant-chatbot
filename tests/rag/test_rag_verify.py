@@ -8,7 +8,7 @@ import shutil
 
 import pytest
 from qdrant_client import AsyncQdrantClient, models
-from rag_fixtures import QDRANT_LOCAL_WARNINGS, TEST_SECRET, build_index, corpus_docs
+from rag_fixtures import QDRANT_LOCAL_WARNINGS, TEST_SECRET, build_index, corpus_docs, qdrant_server_up
 
 from core.config import Settings
 from core.errors import InvalidInput
@@ -233,3 +233,28 @@ async def test_unreachable_qdrant_is_reported_as_unverified(tmp_path):
     )
     with pytest.raises(CorpusUnverified, match="vector store unavailable"):
         await verify_live_corpus(settings)
+
+
+@pytest.mark.services
+@pytest.mark.skipif(not qdrant_server_up(), reason="Qdrant server not running")
+async def test_signature_survives_the_real_servers_json_round_trip(tmp_path, registry_path):
+    """Payloads come back from the server as JSON: the canonical hashes must match what the build signed.
+    Uses a throwaway collection only (never the alias or a real collection)."""
+    client = AsyncQdrantClient(url="http://127.0.0.1:6333", timeout=30)
+    collection = None
+    try:
+        collection = await build_index(
+            tmp_path, registry_path, client, corpus_docs(), version="pytest-verify"
+        )
+        verified = await verify_collection(
+            client, DataPaths(tmp_path / "data"), collection, TEST_SECRET, embed_model=FAKE_MODEL
+        )
+        assert (verified.collection, verified.chunks) == (collection, 4)
+        point = await _first_point(client, collection)
+        await client.set_payload(collection, payload={"url": "https://evil.example.com/"}, points=[point.id])
+        with pytest.raises(CorpusUnverified, match="do not match the signed manifest"):
+            await verify_collection(client, DataPaths(tmp_path / "data"), collection, TEST_SECRET)
+    finally:
+        if collection:
+            await client.delete_collection(collection)
+        await client.close()
