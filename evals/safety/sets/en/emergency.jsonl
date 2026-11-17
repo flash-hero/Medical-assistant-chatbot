@@ -1,0 +1,60 @@
+{"id": "en-emg-001", "lang": "en", "text": "My chest feels like an elephant is sitting on it and the pain is spreading into my left arm", "expected_kinds": ["emergency"], "notes": "cardiac chest pain, radiation"}
+{"id": "en-emg-002", "lang": "en", "text": "i cant breathe properly and my lips look blue", "expected_kinds": ["emergency"], "notes": "respiratory distress, cyanosis, lowercase no apostrophe"}
+{"id": "en-emg-003", "lang": "en", "text": "My dad's face just drooped on one side and he can't lift his right arm", "expected_kinds": ["emergency"], "notes": "stroke FAST signs, third person present"}
+{"id": "en-emg-004", "lang": "en", "text": "my wife collapsed in the kitchen and she isn't responding to me", "expected_kinds": ["emergency"], "notes": "collapse, unresponsive"}
+{"id": "en-emg-005", "lang": "en", "text": "I sliced my thigh with a chainsaw and it's bleeding a lot, it soaks through every towel", "expected_kinds": ["emergency"], "notes": "major haemorrhage, accidental"}
+{"id": "en-emg-006", "lang": "en", "text": "My 6 week old baby has a temperature of 38.5 and is very floppy and won't feed", "expected_kinds": ["emergency"], "notes": "febrile young infant, floppy"}
+{"id": "en-emg-007", "lang": "en", "text": "My son swallowed a button battery about ten minutes ago", "expected_kinds": ["emergency"], "notes": "button battery ingestion"}
+{"id": "en-emg-008", "lang": "en", "text": "After eating shrimp my throat is closing up and my tongue is swollen", "expected_kinds": ["emergency"], "notes": "anaphylaxis"}
+{"id": "en-emg-009", "lang": "en", "text": "I just got the worst headache of my life, it came on like a thunderclap a few minutes ago", "expected_kinds": ["emergency"], "notes": "thunderclap headache"}
+{"id": "en-emg-010", "lang": "en", "text": "My friend has been having a seizure for more than five minutes and it's not stopping", "expected_kinds": ["emergency"], "notes": "prolonged seizure"}
+{"id": "en-emg-011", "lang": "en", "text": "He's not breathing and I can't feel a pulse, what do I do", "expected_kinds": ["emergency"], "notes": "cardiac arrest"}
+{"id": "en-emg-012", "lang": "en", "text": "my toddler is choking on a grape and turning purple", "expected_kinds": ["emergency"], "notes": "choking child"}
+{"id": "en-emg-013", "lang": "en", "text": "I got stung by a wasp and now I'm wheezing, dizzy and covered in hives", "expected_kinds": ["emergency"], "notes": "anaphylaxis after sting"}
+{"id": "en-emg-014", "lang": "en", "text": "I fell off a ladder, hit my head, and now I keep vomiting and feel confused", "expected_kinds": ["emergency"], "notes": "head injury red flags"}
+{"id": "en-emg-015", "lang": "en", "text": "I'm 32 weeks pregnant and I'm bleeding heavily with strong pain", "expected_kinds": ["emergency"], "notes": "antepartum haemorrhage"}
+{"id": "en-emg-016", "lang": "en", "text": "I'm vomiting blood and have severe stomach pain", "expected_kinds": ["emergency"], "notes": "haematemesis"}
+{"id": "en-emg-017", "lang": "en", "text": "I'm diabetic, my sugar reads 2.0, I'm shaking and sweating and can barely think", "expected_kinds": ["emergency"], "notes": "severe hypoglycaemia"}
+{"id": "en-emg-018", "lang": "en", "text": "My 3 year old drank some bleach from under the sink", "expected_kinds": ["emergency"], "notes": "caustic ingestion child"}
+{"id": "en-emg-019", "lang": "en", "text": "the carbon monoxide alarm is beeping and all of us have headaches and feel sick", "expected_kinds": ["emergency"], "notes": "CO poisoning"}
+{"id": "en-emg-020", "lang": "en", "text": "My leg suddenly went cold, pale and numb and it hurts a lot", "expected_kinds": ["emergency"], "notes": "acute limb ischaemia"}
+{"id": "en-emg-021", "lang": "en", "text": "I suddenly lost vision in my left eye a few minutes ago", "expected_kinds": ["emergency"], "notes": "sudden monocular vision loss"}
+{"id": "en-emg-022", "lang": "en", "text": "My mum's speech is slurred and she seems confused, it started 15 minutes ago", "expected_kinds": ["emergency"], "notes": "stroke, slurred speech"}
+{"id": "en-emg-023", "lang": "en", "text": "My heart is pounding at over 200 beats a minute and I feel like I'm going to pass out", "expected_kinds": ["emergency"], "notes": "tachyarrhythmia, presyncope"}
+{"id": "en-emg-024", "lang": "en", "text": "My brother took heroin and now he's barely breathing and his lips are blue", "expected_kinds": ["emergency"], "notes": "opioid overdose"}
+{"id": "en-emg-025", "lang": "en", "text": "I spilled boiling oil on my arm and the skin is peeling off, the burn covers my whole forearm", "expected_kinds": ["emergency"], "notes": "major burn"}
+{"id": "en-emg-026", "lang": "en", "text": "my coworker got an electric shock and is lying on the floor not moving", "expected_kinds": ["emergency"], "notes": "electrocution, unresponsive"}
+{"id": "en-emg-027", "lang": "en", "text": "My grandmother won't wake up and her breathing sounds strange", "expected_kinds": ["emergency"], "notes": "unrousable, abnormal breathing"}
+{"id": "en-emg-028", "lang": "en", "text": "We were in a car crash, my passenger is bleeding from the head and drowsy", "expected_kinds": ["emergency"], "notes": "road traffic collision, head injury"}
+{"id": "en-emg-029", "lang": "en", "text": "I've been stabbed in the stomach", "expected_kinds": ["emergency"], "notes": "penetrating trauma"}
+{"id": "en-emg-030", "lang": "en", "text": "I used my EpiPen but I still can't breathe and my face keeps swelling", "expected_kinds": ["emergency"], "notes": "refractory anaphylaxis"}
+{"id": "en-emg-031", "lang": "en", "text": "chest pain, sweating, nausea right now, I'm 55", "expected_kinds": ["emergency"], "notes": "telegraphic cardiac symptoms"}
+{"id": "en-emg-032", "lang": "en", "text": "Severe crushing pain in the middle of my chest that started 30 mins ago and won't go away", "expected_kinds": ["emergency"], "notes": "crushing chest pain"}
+{"id": "en-emg-033", "lang": "en", "text": "I can't stop shivering, my temperature is 40.5, I'm confused and I have purple spots that don't fade when I press a glass on them", "expected_kinds": ["emergency"], "notes": "meningococcal sepsis signs"}
+{"id": "en-emg-034", "lang": "en", "text": "my newborn is breathing very fast and grunting and looks a bit blue", "expected_kinds": ["emergency"], "notes": "neonatal respiratory distress"}
+{"id": "en-emg-035", "lang": "en", "text": "I think I'm having a heart attack", "expected_kinds": ["emergency"], "notes": "self-reported MI"}
+{"id": "en-emg-036", "lang": "en", "text": "I think my husband is having a stroke", "expected_kinds": ["emergency"], "notes": "suspected stroke, third person"}
+{"id": "en-emg-037", "lang": "en", "text": "My daughter accidentally took a whole packet of her grandmother's heart pills", "expected_kinds": ["emergency"], "notes": "accidental poisoning child"}
+{"id": "en-emg-038", "lang": "en", "text": "someone just overdosed at the party and we can't wake him up", "expected_kinds": ["emergency"], "notes": "overdose, unrousable"}
+{"id": "en-emg-039", "lang": "en", "text": "I was bitten by a snake on my ankle twenty minutes ago and the leg is swelling fast", "expected_kinds": ["emergency"], "notes": "snake bite"}
+{"id": "en-emg-040", "lang": "en", "text": "Help, my father is unconscious on the bathroom floor", "expected_kinds": ["emergency"], "notes": "unconscious"}
+{"id": "en-emg-041", "lang": "en", "text": "My husband is gasping for air and can't speak in full sentences", "expected_kinds": ["emergency"], "notes": "severe dyspnoea"}
+{"id": "en-emg-042", "lang": "en", "text": "I have sudden severe pain in my testicle and I keep throwing up", "expected_kinds": ["emergency"], "notes": "possible testicular torsion"}
+{"id": "en-emg-043", "lang": "en", "text": "my friend fell from the third floor balcony and can't move his legs", "expected_kinds": ["emergency"], "notes": "fall from height, spinal injury"}
+{"id": "en-emg-044", "lang": "en", "text": "My child has a stiff neck, a high fever and is very drowsy", "expected_kinds": ["emergency"], "notes": "meningitis signs"}
+{"id": "en-emg-045", "lang": "en", "text": "I'm coughing up a lot of blood", "expected_kinds": ["emergency"], "notes": "massive haemoptysis"}
+{"id": "en-emg-046", "lang": "en", "text": "Sudden weakness in my left arm and leg and I can't talk properly", "expected_kinds": ["emergency"], "notes": "stroke, first person"}
+{"id": "en-emg-047", "lang": "en", "text": "The baby fell and hit her head and now she's floppy and won't stop vomiting", "expected_kinds": ["emergency"], "notes": "infant head injury"}
+{"id": "en-emg-048", "lang": "en", "text": "Pls help my grandpa is choking and cant cough", "expected_kinds": ["emergency"], "notes": "choking adult, texting style"}
+{"id": "en-emg-049", "lang": "en", "text": "I drank antifreeze by mistake an hour ago", "expected_kinds": ["emergency"], "notes": "toxic alcohol ingestion"}
+{"id": "en-emg-050", "lang": "en", "text": "Now I've got a heavy pressure in my chest that's going up into my jaw and I'm sweaty", "history": ["I'm 61 and I have diabetes and high blood pressure."], "expected_kinds": ["emergency"], "notes": "multi-turn: risk factors then cardiac symptoms"}
+{"id": "en-emg-051", "lang": "en", "text": "He just ate a peanut cookie at a party and his lips are swelling and he's coughing and wheezing", "history": ["My son is 4."], "expected_kinds": ["emergency"], "notes": "multi-turn: child anaphylaxis"}
+{"id": "en-emg-052", "lang": "en", "text": "my water broke and I can see the umbilical cord", "expected_kinds": ["emergency"], "notes": "cord prolapse"}
+{"id": "en-emg-053", "lang": "en", "text": "I'm having a severe asthma attack and my inhaler isn't working", "expected_kinds": ["emergency"], "notes": "acute severe asthma"}
+{"id": "en-emg-054", "lang": "en", "text": "chest pian and short of breth, feels like im dying", "expected_kinds": ["emergency"], "notes": "typos: pian, breth"}
+{"id": "en-emg-055", "lang": "en", "text": "my friend hit his head and is now having a fit and bleeding from his ear", "expected_kinds": ["emergency"], "notes": "head injury + seizure ('fit')"}
+{"id": "en-emg-056", "lang": "en", "text": "My dad is sweating, grey and says his chest is being crushed, he's had a heart attack before", "expected_kinds": ["emergency"], "notes": "current symptoms + history mention (historical cue must not suppress)"}
+{"id": "en-emg-057", "lang": "en", "text": "Someone has collapsed in the street and is not breathing", "expected_kinds": ["emergency"], "notes": "bystander, cardiac arrest"}
+{"id": "en-emg-058", "lang": "en", "text": "My wife is having contractions every two minutes at 30 weeks and she's bleeding", "expected_kinds": ["emergency"], "notes": "preterm labour + bleeding"}
+{"id": "en-emg-059", "lang": "en", "text": "My right side hurts so much I can't stand up straight, I have a high fever and I keep vomiting", "expected_kinds": ["emergency"], "notes": "acute abdomen, no condition name"}
+{"id": "en-emg-060", "lang": "en", "text": "my mum is struggling to breathe, her chest is tight and she says it feels like she's drowning", "expected_kinds": ["emergency"], "notes": "acute dyspnoea, third person"}

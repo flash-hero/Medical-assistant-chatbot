@@ -1,0 +1,44 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 44905,
+    "ns": 0,
+    "title": "Asthma",
+    "extract": "Asthma is a common long-term inflammatory disease of the airways. It is characterized by variable and recurring symptoms and reduced lung function. Symptoms include episodes of wheezing, coughing, chest tightness, and shortness of breath. A sudden worsening of asthma symptoms sometimes called an asthma attack or an asthma exacerbation can occur when allergens, pollen, dust, or other particles are inhaled into the lungs, causing the bronchioles to constrict and produce mucus, which then restricts oxygen flow to the alveoli. These may occur a few times a day or a few times per week. Depending on the person, asthma symptoms may become worse at night or with exercise.\nAsthma is thought to be caused by a combination of genetic and environmental factors. Environmental factors include exposure to air pollution and allergens. Other potential triggers include medications such as aspirin and beta blockers. Diagnosis is usually based on the pattern of symptoms, response to therapy over time, and spirometry lung function testing. Asthma is classified according to the amount of medication required to control symptoms or mechanisms underlying the condition.\nThere is no known cure for asthma, but\n== Signs and symptoms ==\n\nAsthma causes recurrent episodes of wheezing, shortness of breath, chest tightness, and coughing. Symptoms are usually worse at night and in the early morning or in response to exercise or cold air. Some people with asthma rarely experience symptoms, usually in response to triggers, whereas others may react frequently and experience persistent symptoms.\n\n\n=== Associated conditions ===\nAsthma is often associated with other conditions both within and outside of the respiratory system. Comorbid medical conditions are more common in severe asthma and can affect the disease severity, symptoms and treatment. Common comorbid conditions include allergic diseases (allergic conjunctivitis and rhinitis), chronic obstructive pulmonary disease (COPD), exercise-induced bronchoconstriction, bronchiectasis, obstructive sleep apnea, obesity, gastroesophageal reflux disease, diabetes, heart disorders, and mental health conditions such as anxiety and depression.\n\n\n== Causes ==\nAsthma is caused by a mixture of genetic and external factors. The disease manifests when those with a genetic susceptibility to asthma are exposed to specific environmental factors. Environmental factors can also trigger asthma symptoms.\n\n\n=== Risk factors ===\n\nFactors during pregnancy that have been linked to the development of asthma include weight gain or obesity in the mother, stressful pregnancy, smoking while pregnant, the use of certain medications while pregnant and caesarean section. Early childhood exposure to secondhand smoke, high levels of stress in parents, respiratory infections, and indoor mold or fungi have also been associated with asthma development. Prenatal or childhood exposure to cigarette smoke increases the likelihood of a child developing asthma. Children whose maternal grandmother smoked during pregnancy are also more likely to develop asthma, regardless of if their mothers developed asthma or smoked. Nicotine is believed to be the cause of these effects and nicotine is linked to changes in DNA.\nRespiratory tract infections, especially during early childhood or if they are severe and recurring can lead to decreased lung function and subsequent asthma. Conversely, there has been research suggesting that certain infections during childhood may lessen the risk of developing asthma. This theory is known as the \"hygiene hypothesis\".\nChronic exposure to air pollution increases the risk of developing asthma. Outdoor air pollution includes nit\n== Prevention ==\nThe only methods of preventing asthma that have been endorsed by clinical guidelines are avoiding the use of broad-spectrum antibiotics in the first year of a child's life, eliminating exposure to tobacco smoke both in utero and following birth, appropriate assessment and treatment of vitamin D deficiency during pregnancy, and vaginal birthing when possible. Other proposed preventative measures such as dietary changes, breastfeeding, supplements, and early exposure to pets or other common allergens do not have enough evidence to support their effectiveness.\n\n\n== References ==\n\n\n== External links ==\n\nWHO fact sheet on asthma\nNIAID Data Ecosystem - Asthma",
+    "contentmodel": "wikitext",
+    "pagelanguage": "en",
+    "pagelanguagehtmlcode": "en",
+    "pagelanguagedir": "ltr",
+    "touched": "2026-11-15T05:08:16Z",
+    "lastrevid": 1385495544,
+    "length": 96023,
+    "fullurl": "https://en.wikipedia.org/wiki/Asthma",
+    "editurl": "https://en.wikipedia.org/w/index.php?title=Asthma&action=edit",
+    "canonicalurl": "https://en.wikipedia.org/wiki/Asthma",
+    "langlinks": [
+     {
+      "lang": "ar",
+      "title": "ربو"
+     },
+     {
+      "lang": "de",
+      "title": "Asthma bronchiale"
+     },
+     {
+      "lang": "fr",
+      "title": "Asthme"
+     }
+    ],
+    "revisions": [
+     {
+      "revid": 1385495544,
+      "parentid": 1385495444,
+      "timestamp": "2026-11-13T15:39:04Z"
+     }
+    ]
+   }
+  ]
+ }
+}

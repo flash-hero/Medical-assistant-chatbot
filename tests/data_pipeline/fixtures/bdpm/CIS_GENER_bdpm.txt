@@ -1,0 +1,3 @@
+659	ANASTROZOLE 1 mg - ARIMIDEX 1 mg, comprimé pelliculé.	60002283	1	2
+861	ACARBOSE 100 mg, - GLUCOR 100 mg, comprimé sécable.	68371745	1	2
+1247	ARIPIPRAZOLE 10 mg - ABILIFY 10 mg, comprimé	65198099	0	1

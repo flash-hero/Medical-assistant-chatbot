@@ -1,0 +1,354 @@
+# INN <-> USAN <-> brand mapping with French DCI and Arabic names, for cross-lingual query expansion in RAG.
+# Every entry is review_status: unverified. A pharmacist MUST review before any entry is trusted for more than
+# retrieval-side query expansion. Names were written by the data agent from general knowledge, not copied from
+# a licensed formulary. Brand names are trademarks of their owners and are used only as search aliases.
+#   inn    : international nonproprietary name (English, lower case)
+#   usan   : United States adopted name when it differs from the INN
+#   fr     : French DCI spelling
+#   ar     : Arabic name(s) as commonly written (transliteration of the INN unless a native name exists)
+#   brands : widely sold brand names (US, UK, FR, MENA)
+version: 1
+review_status_default: unverified
+entries:
+  # ---- analgesics, antipyretics, NSAIDs, opioids ----
+  - {inn: paracetamol, usan: acetaminophen, fr: paracétamol, ar: [باراسيتامول], brands: [Tylenol, Panadol, Doliprane, Efferalgan, Dafalgan], review_status: unverified}
+  - {inn: ibuprofen, fr: ibuprofène, ar: [إيبوبروفين], brands: [Advil, Motrin, Nurofen, Brufen, Spedifen], review_status: unverified}
+  - {inn: naproxen, fr: naproxène, ar: [نابروكسين], brands: [Aleve, Naprosyn, Apranax], review_status: unverified}
+  - {inn: diclofenac, fr: diclofénac, ar: [ديكلوفيناك], brands: [Voltaren, Voltarene, Cataflam, Flector], review_status: unverified}
+  - {inn: acetylsalicylic acid, usan: aspirin, fr: acide acétylsalicylique, ar: [أسبرين, حمض الأسيتيل ساليسيليك], brands: [Aspirin, Aspegic, Kardegic, Bayer], review_status: unverified}
+  - {inn: ketoprofen, fr: kétoprofène, ar: [كيتوبروفين], brands: [Profenid, Bi-Profenid, Fastum], review_status: unverified}
+  - {inn: celecoxib, fr: célécoxib, ar: [سيليكوكسيب], brands: [Celebrex, Celebra], review_status: unverified}
+  - {inn: etoricoxib, fr: étoricoxib, ar: [إيتوريكوكسيب], brands: [Arcoxia], review_status: unverified}
+  - {inn: meloxicam, fr: méloxicam, ar: [ميلوكسيكام], brands: [Mobic, Movalis], review_status: unverified}
+  - {inn: indometacin, usan: indomethacin, fr: indométacine, ar: [إندوميثاسين], brands: [Indocin, Indocid], review_status: unverified}
+  - {inn: piroxicam, fr: piroxicam, ar: [بيروكسيكام], brands: [Feldene, Brexin], review_status: unverified}
+  - {inn: ketorolac, fr: kétorolac, ar: [كيتورولاك], brands: [Toradol, Ketorolac], review_status: unverified}
+  - {inn: mefenamic acid, fr: acide méfénamique, ar: [حمض الميفيناميك], brands: [Ponstel, Ponstan], review_status: unverified}
+  - {inn: metamizole, usan: dipyrone, fr: métamizole, ar: [ميتاميزول, ديبيرون], brands: [Novalgin, Algocalmin, Analgin], review_status: unverified}
+  - {inn: nefopam, fr: néfopam, ar: [نيفوبام], brands: [Acupan], review_status: unverified}
+  - {inn: tramadol, fr: tramadol, ar: [ترامادول], brands: [Ultram, Topalgic, Contramal], review_status: unverified}
+  - {inn: codeine, fr: codéine, ar: [كودايين], brands: [Codoliprane, Tylenol with Codeine], review_status: unverified}
+  - {inn: morphine, fr: morphine, ar: [مورفين], brands: [MS Contin, Skenan, Actiskenan], review_status: unverified}
+  - {inn: oxycodone, fr: oxycodone, ar: [أوكسيكودون], brands: [OxyContin, Oxynorm, Percocet], review_status: unverified}
+  - {inn: fentanyl, fr: fentanyl, ar: [فنتانيل], brands: [Duragesic, Durogesic, Actiq], review_status: unverified}
+  - {inn: hydromorphone, fr: hydromorphone, ar: [هيدرومورفون], brands: [Dilaudid, Sophidone], review_status: unverified}
+  - {inn: tapentadol, fr: tapentadol, ar: [تابنتادول], brands: [Nucynta, Palexia], review_status: unverified}
+  - {inn: buprenorphine, fr: buprénorphine, ar: [بوبرينورفين], brands: [Subutex, Suboxone, Temgesic], review_status: unverified}
+  - {inn: methadone, fr: méthadone, ar: [ميثادون], brands: [Dolophine, Methadose], review_status: unverified}
+  - {inn: naloxone, fr: naloxone, ar: [نالوكسون], brands: [Narcan, Prenoxad], review_status: unverified}
+  - {inn: naltrexone, fr: naltrexone, ar: [نالتريكسون], brands: [Revia, Vivitrol, Nalorex], review_status: unverified}
+  # ---- antibacterials ----
+  - {inn: amoxicillin, fr: amoxicilline, ar: [أموكسيسيلين], brands: [Amoxil, Clamoxyl, Augmentin component], review_status: unverified}
+  - {inn: amoxicillin and clavulanic acid, usan: amoxicillin and clavulanate potassium, fr: amoxicilline et acide clavulanique, ar: [أموكسيسيلين وحمض الكلافولانيك], brands: [Augmentin, Co-amoxiclav, Amoxiclav], review_status: unverified}
+  - {inn: ampicillin, fr: ampicilline, ar: [أمبيسيلين], brands: [Penbritin, Totapen], review_status: unverified}
+  - {inn: phenoxymethylpenicillin, usan: penicillin V potassium, fr: phénoxyméthylpénicilline, ar: [فينوكسي ميثيل بنسلين], brands: [Penicillin VK, Oracilline], review_status: unverified}
+  - {inn: benzylpenicillin, usan: penicillin G, fr: benzylpénicilline, ar: [بنزيل بنسلين], brands: [Bicillin, Extencilline, Penicillin G], review_status: unverified}
+  - {inn: flucloxacillin, usan: floxacillin, fr: flucloxacilline, ar: [فلوكلوكساسيلين], brands: [Floxapen, Flucloxacillin], review_status: unverified}
+  - {inn: cefalexin, usan: cephalexin, fr: céfalexine, ar: [سيفالكسين], brands: [Keflex, Ceporex], review_status: unverified}
+  - {inn: cefuroxime, fr: céfuroxime, ar: [سيفوروكسيم], brands: [Zinnat, Ceftin], review_status: unverified}
+  - {inn: cefixime, fr: céfixime, ar: [سيفكسيم], brands: [Suprax, Oroken], review_status: unverified}
+  - {inn: ceftriaxone, fr: ceftriaxone, ar: [سيفترياكسون], brands: [Rocephin, Rocéphine], review_status: unverified}
+  - {inn: cefazolin, fr: céfazoline, ar: [سيفازولين], brands: [Ancef, Kefzol], review_status: unverified}
+  - {inn: cefotaxime, fr: céfotaxime, ar: [سيفوتاكسيم], brands: [Claforan], review_status: unverified}
+  - {inn: cefpodoxime, fr: cefpodoxime, ar: [سيفبودوكسيم], brands: [Orelox, Vantin], review_status: unverified}
+  - {inn: azithromycin, fr: azithromycine, ar: [أزيثروميسين], brands: [Zithromax, Zmax, Azadose], review_status: unverified}
+  - {inn: clarithromycin, fr: clarithromycine, ar: [كلاريثروميسين], brands: [Biaxin, Klacid, Zeclar], review_status: unverified}
+  - {inn: erythromycin, fr: érythromycine, ar: [إريثروميسين], brands: [Erythrocin, Ery, Erythrocine], review_status: unverified}
+  - {inn: doxycycline, fr: doxycycline, ar: [دوكسيسيكلين], brands: [Vibramycin, Doryx, Vibramycine], review_status: unverified}
+  - {inn: tetracycline, fr: tétracycline, ar: [تتراسيكلين], brands: [Sumycin, Tetralysal], review_status: unverified}
+  - {inn: minocycline, fr: minocycline, ar: [مينوسيكلين], brands: [Minocin, Mynocine], review_status: unverified}
+  - {inn: ciprofloxacin, fr: ciprofloxacine, ar: [سيبروفلوكساسين], brands: [Cipro, Ciflox, Ciprobay], review_status: unverified}
+  - {inn: levofloxacin, fr: lévofloxacine, ar: [ليفوفلوكساسين], brands: [Levaquin, Tavanic], review_status: unverified}
+  - {inn: moxifloxacin, fr: moxifloxacine, ar: [موكسيفلوكساسين], brands: [Avelox, Izilox], review_status: unverified}
+  - {inn: ofloxacin, fr: ofloxacine, ar: [أوفلوكساسين], brands: [Floxin, Oflocet], review_status: unverified}
+  - {inn: norfloxacin, fr: norfloxacine, ar: [نورفلوكساسين], brands: [Noroxin, Noroxine], review_status: unverified}
+  - {inn: gentamicin, fr: gentamicine, ar: [جنتاميسين], brands: [Garamycin, Gentalline], review_status: unverified}
+  - {inn: amikacin, fr: amikacine, ar: [أميكاسين], brands: [Amikin, Amiklin], review_status: unverified}
+  - {inn: tobramycin, fr: tobramycine, ar: [توبراميسين], brands: [Tobrex, Nebcin, Tobi], review_status: unverified}
+  - {inn: vancomycin, fr: vancomycine, ar: [فانكومايسين], brands: [Vancocin, Vancomycine], review_status: unverified}
+  - {inn: clindamycin, fr: clindamycine, ar: [كليندامايسين], brands: [Cleocin, Dalacin], review_status: unverified}
+  - {inn: metronidazole, fr: métronidazole, ar: [ميترونيدازول], brands: [Flagyl, Rozex, Metrogel], review_status: unverified}
+  - {inn: tinidazole, fr: tinidazole, ar: [تينيدازول], brands: [Tindamax, Fasigyne], review_status: unverified}
+  - {inn: sulfamethoxazole and trimethoprim, usan: sulfamethoxazole and trimethoprim, fr: sulfaméthoxazole et triméthoprime, ar: [سلفاميثوكسازول وتريميثوبريم, كو-تريموكسازول], brands: [Bactrim, Septra, Co-trimoxazole, Septrin], review_status: unverified}
+  - {inn: nitrofurantoin, fr: nitrofurantoïne, ar: [نيتروفورانتوين], brands: [Macrobid, Macrodantin, Furadantine], review_status: unverified}
+  - {inn: fosfomycin, fr: fosfomycine, ar: [فوسفوميسين], brands: [Monurol, Monuril], review_status: unverified}
+  - {inn: linezolid, fr: linézolide, ar: [لينزوليد], brands: [Zyvox, Zyvoxid], review_status: unverified}
+  - {inn: rifampicin, usan: rifampin, fr: rifampicine, ar: [ريفامبيسين, ريفامبين], brands: [Rifadin, Rimactane], review_status: unverified}
+  - {inn: isoniazid, fr: isoniazide, ar: [أيزونيازيد], brands: [Nydrazid, Rimifon], review_status: unverified}
+  - {inn: ethambutol, fr: éthambutol, ar: [إيثامبوتول], brands: [Myambutol, Dexambutol], review_status: unverified}
+  - {inn: pyrazinamide, fr: pyrazinamide, ar: [بيرازيناميد], brands: [Pirilene], review_status: unverified}
+  - {inn: meropenem, fr: méropénème, ar: [ميروبينيم], brands: [Merrem, Meronem], review_status: unverified}
+  - {inn: imipenem and cilastatin, fr: imipénème et cilastatine, ar: [إيميبينيم وسيلاستاتين], brands: [Primaxin, Tienam], review_status: unverified}
+  - {inn: piperacillin and tazobactam, fr: pipéracilline et tazobactam, ar: [بيبيراسيلين وتازوباكتام], brands: [Zosyn, Tazocilline, Tazocin], review_status: unverified}
+  - {inn: colistin, usan: colistimethate, fr: colistine, ar: [كوليستين], brands: [Coly-Mycin, Colimycine], review_status: unverified}
+  - {inn: chloramphenicol, fr: chloramphénicol, ar: [كلورامفينيكول], brands: [Chloromycetin, Cebemycine], review_status: unverified}
+  - {inn: fusidic acid, fr: acide fusidique, ar: [حمض الفيوسيديك], brands: [Fucidin, Fucithalmic], review_status: unverified}
+  - {inn: mupirocin, fr: mupirocine, ar: [موبيروسين], brands: [Bactroban, Mupiderm], review_status: unverified}
+  # ---- antivirals, antifungals, antiparasitics ----
+  - {inn: aciclovir, usan: acyclovir, fr: aciclovir, ar: [أسيكلوفير], brands: [Zovirax, Zoviratax], review_status: unverified}
+  - {inn: valaciclovir, usan: valacyclovir, fr: valaciclovir, ar: [فالاسيكلوفير], brands: [Valtrex, Zelitrex], review_status: unverified}
+  - {inn: oseltamivir, fr: oseltamivir, ar: [أوسيلتاميفير], brands: [Tamiflu], review_status: unverified}
+  - {inn: tenofovir, fr: ténofovir, ar: [تينوفوفير], brands: [Viread, Vemlidy], review_status: unverified}
+  - {inn: lamivudine, fr: lamivudine, ar: [لاميفودين], brands: [Epivir, Zeffix], review_status: unverified}
+  - {inn: zidovudine, fr: zidovudine, ar: [زيدوفودين], brands: [Retrovir, AZT], review_status: unverified}
+  - {inn: efavirenz, fr: éfavirenz, ar: [إيفافيرينز], brands: [Sustiva, Stocrin], review_status: unverified}
+  - {inn: dolutegravir, fr: dolutégravir, ar: [دولوتيجرافير], brands: [Tivicay], review_status: unverified}
+  - {inn: sofosbuvir, fr: sofosbuvir, ar: [سوفوسبوفير], brands: [Sovaldi, Harvoni, Epclusa], review_status: unverified}
+  - {inn: fluconazole, fr: fluconazole, ar: [فلوكونازول], brands: [Diflucan, Triflucan], review_status: unverified}
+  - {inn: itraconazole, fr: itraconazole, ar: [إيتراكونازول], brands: [Sporanox, Sporanox oral], review_status: unverified}
+  - {inn: terbinafine, fr: terbinafine, ar: [تيربينافين], brands: [Lamisil], review_status: unverified}
+  - {inn: nystatin, fr: nystatine, ar: [نيستاتين], brands: [Mycostatin, Mycostatine], review_status: unverified}
+  - {inn: clotrimazole, fr: clotrimazole, ar: [كلوتريمازول], brands: [Canesten, Lotrimin, Mycelex], review_status: unverified}
+  - {inn: ketoconazole, fr: kétoconazole, ar: [كيتوكونازول], brands: [Nizoral, Ketoderm], review_status: unverified}
+  - {inn: amphotericin B, fr: amphotéricine B, ar: [أمفوتريسين ب], brands: [Fungizone, AmBisome], review_status: unverified}
+  - {inn: ivermectin, fr: ivermectine, ar: [إيفرمكتين], brands: [Stromectol, Soolantra, Stromectol], review_status: unverified}
+  - {inn: albendazole, fr: albendazole, ar: [ألبيندازول], brands: [Albenza, Zentel], review_status: unverified}
+  - {inn: mebendazole, fr: mébendazole, ar: [ميبيندازول], brands: [Vermox, Vermox], review_status: unverified}
+  - {inn: praziquantel, fr: praziquantel, ar: [برازيكوانتيل], brands: [Biltricide, Biltricide], review_status: unverified}
+  - {inn: hydroxychloroquine, fr: hydroxychloroquine, ar: [هيدروكسي كلوروكين], brands: [Plaquenil], review_status: unverified}
+  - {inn: chloroquine, fr: chloroquine, ar: [كلوروكين], brands: [Aralen, Nivaquine], review_status: unverified}
+  - {inn: artemether and lumefantrine, fr: artéméther et luméfantrine, ar: [أرتيميثير ولوميفانترين], brands: [Coartem, Riamet], review_status: unverified}
+  - {inn: permethrin, fr: perméthrine, ar: [بيرميثرين], brands: [Nix, Elimite, Perme], review_status: unverified}
+  # ---- cardiovascular ----
+  - {inn: amlodipine, fr: amlodipine, ar: [أملوديبين], brands: [Norvasc, Amlor, Istin], review_status: unverified}
+  - {inn: nifedipine, fr: nifédipine, ar: [نيفيديبين], brands: [Adalat, Procardia], review_status: unverified}
+  - {inn: diltiazem, fr: diltiazem, ar: [ديلتيازيم], brands: [Cardizem, Tildiem], review_status: unverified}
+  - {inn: verapamil, fr: vérapamil, ar: [فيراباميل], brands: [Isoptin, Calan], review_status: unverified}
+  - {inn: atenolol, fr: aténolol, ar: [أتينولول], brands: [Tenormin, Ténormine], review_status: unverified}
+  - {inn: bisoprolol, fr: bisoprolol, ar: [بيسوبرولول], brands: [Concor, Cardensiel, Zebeta], review_status: unverified}
+  - {inn: metoprolol, fr: métoprolol, ar: [ميتوبرولول], brands: [Lopressor, Seloken, Toprol], review_status: unverified}
+  - {inn: propranolol, fr: propranolol, ar: [بروبرانولول], brands: [Inderal, Avlocardyl], review_status: unverified}
+  - {inn: carvedilol, fr: carvédilol, ar: [كارفيديلول], brands: [Coreg, Kredex], review_status: unverified}
+  - {inn: nebivolol, fr: nébivolol, ar: [نيبيفولول], brands: [Bystolic, Temerit, Nebilet], review_status: unverified}
+  - {inn: lisinopril, fr: lisinopril, ar: [ليزينوبريل], brands: [Prinivil, Zestril, Zestoretic], review_status: unverified}
+  - {inn: enalapril, fr: énalapril, ar: [إينالابريل], brands: [Vasotec, Renitec], review_status: unverified}
+  - {inn: ramipril, fr: ramipril, ar: [راميبريل], brands: [Altace, Triatec, Tritace], review_status: unverified}
+  - {inn: perindopril, fr: périndopril, ar: [بيريندوبريل], brands: [Coversyl, Aceon], review_status: unverified}
+  - {inn: captopril, fr: captopril, ar: [كابتوبريل], brands: [Capoten, Lopril], review_status: unverified}
+  - {inn: losartan, fr: losartan, ar: [لوسارتان], brands: [Cozaar, Hyzaar], review_status: unverified}
+  - {inn: valsartan, fr: valsartan, ar: [فالسارتان], brands: [Diovan, Tareg], review_status: unverified}
+  - {inn: candesartan, fr: candésartan, ar: [كانديسارتان], brands: [Atacand, Kenzen], review_status: unverified}
+  - {inn: irbesartan, fr: irbésartan, ar: [إربيسارتان], brands: [Avapro, Aprovel], review_status: unverified}
+  - {inn: olmesartan, fr: olmésartan, ar: [أولميسارتان], brands: [Benicar, Alteis, Olmetec], review_status: unverified}
+  - {inn: telmisartan, fr: telmisartan, ar: [تيلميسارتان], brands: [Micardis, Pritor], review_status: unverified}
+  - {inn: sacubitril and valsartan, fr: sacubitril et valsartan, ar: [ساكوبيتريل وفالسارتان], brands: [Entresto], review_status: unverified}
+  - {inn: hydrochlorothiazide, fr: hydrochlorothiazide, ar: [هيدروكلوروثيازيد], brands: [Esidrix, Microzide, Esidrex], review_status: unverified}
+  - {inn: furosemide, usan: furosemide, fr: furosémide, ar: [فوروسيميد], brands: [Lasix, Lasilix], review_status: unverified}
+  - {inn: bumetanide, fr: bumétanide, ar: [بوميتانيد], brands: [Bumex, Burinex], review_status: unverified}
+  - {inn: spironolactone, fr: spironolactone, ar: [سبيرونولاكتون], brands: [Aldactone], review_status: unverified}
+  - {inn: indapamide, fr: indapamide, ar: [إنداباميد], brands: [Natrilix, Lozol], review_status: unverified}
+  - {inn: digoxin, fr: digoxine, ar: [ديجوكسين], brands: [Lanoxin, Digoxine Nativelle], review_status: unverified}
+  - {inn: amiodarone, fr: amiodarone, ar: [أميودارون], brands: [Cordarone, Pacerone], review_status: unverified}
+  - {inn: glyceryl trinitrate, usan: nitroglycerin, fr: trinitrine, ar: [جليسيريل ترينيترات, نيتروجليسرين], brands: [Nitrostat, Natispray, Trinitrine], review_status: unverified}
+  - {inn: isosorbide mononitrate, fr: isosorbide mononitrate, ar: [أيزوسوربيد مونونيترات], brands: [Imdur, Monocinque, Monoket], review_status: unverified}
+  - {inn: clopidogrel, fr: clopidogrel, ar: [كلوبيدوجريل], brands: [Plavix], review_status: unverified}
+  - {inn: warfarin, fr: warfarine, ar: [وارفارين], brands: [Coumadin, Jantoven, Coumadine], review_status: unverified}
+  - {inn: apixaban, fr: apixaban, ar: [أبيكسابان], brands: [Eliquis], review_status: unverified}
+  - {inn: rivaroxaban, fr: rivaroxaban, ar: [ريفاروكسابان], brands: [Xarelto], review_status: unverified}
+  - {inn: dabigatran, fr: dabigatran, ar: [دابيجاتران], brands: [Pradaxa], review_status: unverified}
+  - {inn: heparin, fr: héparine, ar: [هيبارين], brands: [Heparin, Calciparine], review_status: unverified}
+  - {inn: enoxaparin, fr: énoxaparine, ar: [إينوكسابارين], brands: [Lovenox, Clexane], review_status: unverified}
+  - {inn: atorvastatin, fr: atorvastatine, ar: [أتورفاستاتين], brands: [Lipitor, Tahor], review_status: unverified}
+  - {inn: simvastatin, fr: simvastatine, ar: [سيمفاستاتين], brands: [Zocor, Zocor], review_status: unverified}
+  - {inn: rosuvastatin, fr: rosuvastatine, ar: [روسوفاستاتين], brands: [Crestor], review_status: unverified}
+  - {inn: pravastatin, fr: pravastatine, ar: [برافاستاتين], brands: [Pravachol, Elisor, Vasten], review_status: unverified}
+  - {inn: ezetimibe, fr: ézétimibe, ar: [إيزيتيميب], brands: [Zetia, Ezetrol], review_status: unverified}
+  - {inn: fenofibrate, fr: fénofibrate, ar: [فينوفايبريت], brands: [Tricor, Lipanthyl], review_status: unverified}
+  - {inn: ranolazine, fr: ranolazine, ar: [رانولازين], brands: [Ranexa, Ranexa], review_status: unverified}
+  - {inn: ivabradine, fr: ivabradine, ar: [إيفابرادين], brands: [Procoralan, Corlanor], review_status: unverified}
+  - {inn: hydralazine, fr: hydralazine, ar: [هيدرالازين], brands: [Apresoline, Nepresol], review_status: unverified}
+  - {inn: methyldopa, fr: méthyldopa, ar: [ميثيل دوبا], brands: [Aldomet, Aldomet], review_status: unverified}
+  - {inn: clonidine, fr: clonidine, ar: [كلونيدين], brands: [Catapres, Catapressan], review_status: unverified}
+  - {inn: doxazosin, fr: doxazosine, ar: [دوكسازوسين], brands: [Cardura, Zoxan], review_status: unverified}
+  # ---- diabetes ----
+  - {inn: metformin, fr: metformine, ar: [ميتفورمين], brands: [Glucophage, Glucophage XR, Stagid], review_status: unverified}
+  - {inn: gliclazide, fr: gliclazide, ar: [جليكلازيد], brands: [Diamicron, Diamicron MR], review_status: unverified}
+  - {inn: glibenclamide, usan: glyburide, fr: glibenclamide, ar: [جليبينكلاميد], brands: [Daonil, Diabeta, Micronase], review_status: unverified}
+  - {inn: glimepiride, fr: glimépiride, ar: [جليمبيريد], brands: [Amaryl, Amarel], review_status: unverified}
+  - {inn: pioglitazone, fr: pioglitazone, ar: [بيوجليتازون], brands: [Actos, Actos], review_status: unverified}
+  - {inn: sitagliptin, fr: sitagliptine, ar: [سيتاجليبتين], brands: [Januvia, Xelevia], review_status: unverified}
+  - {inn: vildagliptin, fr: vildagliptine, ar: [فيلداجليبتين], brands: [Galvus, Galvus], review_status: unverified}
+  - {inn: linagliptin, fr: linagliptine, ar: [ليناجليبتين], brands: [Tradjenta, Trajenta], review_status: unverified}
+  - {inn: empagliflozin, fr: empagliflozine, ar: [إمباجليفلوزين], brands: [Jardiance], review_status: unverified}
+  - {inn: dapagliflozin, fr: dapagliflozine, ar: [داباجليفلوزين], brands: [Farxiga, Forxiga], review_status: unverified}
+  - {inn: liraglutide, fr: liraglutide, ar: [ليراجلوتيد], brands: [Victoza, Saxenda], review_status: unverified}
+  - {inn: semaglutide, fr: sémaglutide, ar: [سيماجلوتايد], brands: [Ozempic, Wegovy, Rybelsus], review_status: unverified}
+  - {inn: insulin glargine, fr: insuline glargine, ar: [إنسولين جلارجين], brands: [Lantus, Toujeo, Basaglar], review_status: unverified}
+  - {inn: insulin aspart, fr: insuline asparte, ar: [إنسولين أسبارت], brands: [NovoLog, NovoRapid], review_status: unverified}
+  - {inn: insulin lispro, fr: insuline lispro, ar: [إنسولين ليسبرو], brands: [Humalog, Admelog], review_status: unverified}
+  - {inn: insulin human, fr: insuline humaine, ar: [إنسولين بشري], brands: [Humulin, Actrapid, Insulatard], review_status: unverified}
+  # ---- respiratory and allergy ----
+  - {inn: salbutamol, usan: albuterol, fr: salbutamol, ar: [سالبوتامول, ألبوتيرول], brands: [Ventolin, ProAir, Proventil, Airomir], review_status: unverified}
+  - {inn: terbutaline, fr: terbutaline, ar: [تيربوتالين], brands: [Bricanyl, Brethine], review_status: unverified}
+  - {inn: ipratropium, fr: ipratropium, ar: [إيبراتروبيوم], brands: [Atrovent], review_status: unverified}
+  - {inn: tiotropium, fr: tiotropium, ar: [تيوتروبيوم], brands: [Spiriva], review_status: unverified}
+  - {inn: budesonide, fr: budésonide, ar: [بوديزونيد], brands: [Pulmicort, Rhinocort, Symbicort], review_status: unverified}
+  - {inn: fluticasone, fr: fluticasone, ar: [فلوتيكازون], brands: [Flovent, Flonase, Flixotide, Seretide], review_status: unverified}
+  - {inn: beclometasone, usan: beclomethasone, fr: béclométasone, ar: [بيكلوميثازون], brands: [Qvar, Becotide, Clenil], review_status: unverified}
+  - {inn: formoterol, fr: formotérol, ar: [فورموتيرول], brands: [Foradil, Oxis, Symbicort], review_status: unverified}
+  - {inn: salmeterol, fr: salmétérol, ar: [سالميتيرول], brands: [Serevent, Seretide, Advair], review_status: unverified}
+  - {inn: montelukast, fr: montélukast, ar: [مونتيلوكاست], brands: [Singulair], review_status: unverified}
+  - {inn: theophylline, fr: théophylline, ar: [ثيوفيلين], brands: [Theo-24, Xanthium, Euphylline], review_status: unverified}
+  - {inn: cetirizine, fr: cétirizine, ar: [سيتيريزين], brands: [Zyrtec, Virlix, Reactine], review_status: unverified}
+  - {inn: loratadine, fr: loratadine, ar: [لوراتادين], brands: [Claritin, Clarityne], review_status: unverified}
+  - {inn: desloratadine, fr: desloratadine, ar: [ديسلوراتادين], brands: [Clarinex, Aerius], review_status: unverified}
+  - {inn: fexofenadine, fr: fexofénadine, ar: [فيكسوفينادين], brands: [Allegra, Telfast], review_status: unverified}
+  - {inn: chlorphenamine, usan: chlorpheniramine, fr: chlorphénamine, ar: [كلورفينيرامين], brands: [Piriton, Chlor-Trimeton, Allergex], review_status: unverified}
+  - {inn: diphenhydramine, fr: diphénhydramine, ar: [ديفينهيدرامين], brands: [Benadryl, Nytol], review_status: unverified}
+  - {inn: promethazine, fr: prométhazine, ar: [بروميثازين], brands: [Phenergan, Phénergan], review_status: unverified}
+  - {inn: hydroxyzine, fr: hydroxyzine, ar: [هيدروكسيزين], brands: [Atarax, Vistaril], review_status: unverified}
+  - {inn: dextromethorphan, fr: dextrométhorphane, ar: [ديكستروميثورفان], brands: [Robitussin DM, Delsym, Tussidane], review_status: unverified}
+  - {inn: guaifenesin, usan: guaifenesin, fr: guaïfénésine, ar: [جوايفينيسين], brands: [Mucinex, Robitussin], review_status: unverified}
+  - {inn: pseudoephedrine, fr: pseudoéphédrine, ar: [سودوإيفدرين], brands: [Sudafed, Actifed], review_status: unverified}
+  - {inn: acetylcysteine, fr: acétylcystéine, ar: [أسيتيل سيستين], brands: [Mucomyst, Fluimucil, NAC], review_status: unverified}
+  - {inn: carbocisteine, fr: carbocistéine, ar: [كاربوسيستين], brands: [Mucodyne, Bronchathiol], review_status: unverified}
+  - {inn: ambroxol, fr: ambroxol, ar: [أمبروكسول], brands: [Mucosolvan, Surbronc], review_status: unverified}
+  - {inn: bromhexine, fr: bromhexine, ar: [بروميهكسين], brands: [Bisolvon, Bisolvon], review_status: unverified}
+  # ---- gastrointestinal ----
+  - {inn: omeprazole, fr: oméprazole, ar: [أوميبرازول], brands: [Prilosec, Losec, Mopral], review_status: unverified}
+  - {inn: esomeprazole, fr: ésoméprazole, ar: [إيزوميبرازول], brands: [Nexium, Inexium], review_status: unverified}
+  - {inn: pantoprazole, fr: pantoprazole, ar: [بانتوبرازول], brands: [Protonix, Pantoloc, Inipomp], review_status: unverified}
+  - {inn: lansoprazole, fr: lansoprazole, ar: [لانسوبرازول], brands: [Prevacid, Ogast, Zoton], review_status: unverified}
+  - {inn: rabeprazole, fr: rabéprazole, ar: [رابيبرازول], brands: [Aciphex, Pariet], review_status: unverified}
+  - {inn: ranitidine, fr: ranitidine, ar: [رانيتيدين], brands: [Zantac, Azantac], review_status: unverified}
+  - {inn: famotidine, fr: famotidine, ar: [فاموتيدين], brands: [Pepcid, Pepdine], review_status: unverified}
+  - {inn: domperidone, fr: dompéridone, ar: [دومبيريدون], brands: [Motilium, Peridys], review_status: unverified}
+  - {inn: metoclopramide, fr: métoclopramide, ar: [ميتوكلوبراميد], brands: [Reglan, Primperan, Maxolon], review_status: unverified}
+  - {inn: ondansetron, fr: ondansétron, ar: [أوندانسيترون], brands: [Zofran, Zophren], review_status: unverified}
+  - {inn: loperamide, fr: lopéramide, ar: [لوبيراميد], brands: [Imodium, Imossel], review_status: unverified}
+  - {inn: lactulose, fr: lactulose, ar: [لاكتيولوز], brands: [Duphalac, Lactulose], review_status: unverified}
+  - {inn: bisacodyl, fr: bisacodyl, ar: [بيساكوديل], brands: [Dulcolax, Dulcolax], review_status: unverified}
+  - {inn: macrogol, usan: polyethylene glycol, fr: macrogol, ar: [ماكروغول, بولي إيثيلين جليكول], brands: [Movicol, Miralax, Forlax], review_status: unverified}
+  - {inn: mesalazine, usan: mesalamine, fr: mésalazine, ar: [ميسالازين], brands: [Asacol, Pentasa, Lialda], review_status: unverified}
+  - {inn: simeticone, usan: simethicone, fr: siméticone, ar: [سيميثيكون], brands: [Gas-X, Mylicon, Polysilane], review_status: unverified}
+  - {inn: hyoscine butylbromide, usan: scopolamine butylbromide, fr: butylbromure de hyoscine, ar: [هيوسين بيوتيل بروميد], brands: [Buscopan, Spasfon component], review_status: unverified}
+  - {inn: sucralfate, fr: sucralfate, ar: [سوكرالفات], brands: [Carafate, Ulcar], review_status: unverified}
+  - {inn: ursodeoxycholic acid, usan: ursodiol, fr: acide ursodésoxycholique, ar: [حمض أورسوديوكسيكوليك], brands: [Actigall, Ursofalk, Delursan], review_status: unverified}
+  # ---- psychiatry and neurology ----
+  - {inn: sertraline, fr: sertraline, ar: [سيرترالين], brands: [Zoloft, Lustral], review_status: unverified}
+  - {inn: fluoxetine, fr: fluoxétine, ar: [فلوكسيتين], brands: [Prozac, Fontex], review_status: unverified}
+  - {inn: escitalopram, fr: escitalopram, ar: [إسيتالوبرام], brands: [Lexapro, Seroplex, Cipralex], review_status: unverified}
+  - {inn: citalopram, fr: citalopram, ar: [سيتالوبرام], brands: [Celexa, Seropram], review_status: unverified}
+  - {inn: paroxetine, fr: paroxétine, ar: [باروكسيتين], brands: [Paxil, Deroxat, Seroxat], review_status: unverified}
+  - {inn: venlafaxine, fr: venlafaxine, ar: [فينلافاكسين], brands: [Effexor, Effexor XR], review_status: unverified}
+  - {inn: duloxetine, fr: duloxétine, ar: [دولوكسيتين], brands: [Cymbalta, Cymbalta], review_status: unverified}
+  - {inn: amitriptyline, fr: amitriptyline, ar: [أميتريبتيلين], brands: [Elavil, Laroxyl], review_status: unverified}
+  - {inn: mirtazapine, fr: mirtazapine, ar: [ميرتازابين], brands: [Remeron, Norset], review_status: unverified}
+  - {inn: bupropion, fr: bupropion, ar: [بوبروبيون], brands: [Wellbutrin, Zyban], review_status: unverified}
+  - {inn: trazodone, fr: trazodone, ar: [ترازودون], brands: [Desyrel, Trazodone], review_status: unverified}
+  - {inn: diazepam, fr: diazépam, ar: [ديازيبام], brands: [Valium, Valium], review_status: unverified}
+  - {inn: lorazepam, fr: lorazépam, ar: [لورازيبام], brands: [Ativan, Temesta], review_status: unverified}
+  - {inn: alprazolam, fr: alprazolam, ar: [ألبرازولام], brands: [Xanax, Xanax], review_status: unverified}
+  - {inn: bromazepam, fr: bromazépam, ar: [بروموازيبام], brands: [Lexomil, Lexotan], review_status: unverified}
+  - {inn: clonazepam, fr: clonazépam, ar: [كلونازيبام], brands: [Klonopin, Rivotril], review_status: unverified}
+  - {inn: midazolam, fr: midazolam, ar: [ميدازولام], brands: [Versed, Hypnovel], review_status: unverified}
+  - {inn: zolpidem, fr: zolpidem, ar: [زولبيديم], brands: [Ambien, Stilnox], review_status: unverified}
+  - {inn: zopiclone, fr: zopiclone, ar: [زوبيكلون], brands: [Imovane, Zimovane], review_status: unverified}
+  - {inn: melatonin, fr: mélatonine, ar: [ميلاتونين], brands: [Circadin, Melatonin], review_status: unverified}
+  - {inn: haloperidol, fr: halopéridol, ar: [هالوبيريدول], brands: [Haldol, Haldol], review_status: unverified}
+  - {inn: risperidone, fr: rispéridone, ar: [ريسبيريدون], brands: [Risperdal], review_status: unverified}
+  - {inn: olanzapine, fr: olanzapine, ar: [أولانزابين], brands: [Zyprexa], review_status: unverified}
+  - {inn: quetiapine, fr: quétiapine, ar: [كويتيابين], brands: [Seroquel, Xeroquel], review_status: unverified}
+  - {inn: aripiprazole, fr: aripiprazole, ar: [أريبيبرازول], brands: [Abilify], review_status: unverified}
+  - {inn: clozapine, fr: clozapine, ar: [كلوزابين], brands: [Clozaril, Leponex], review_status: unverified}
+  - {inn: lithium carbonate, usan: lithium carbonate, fr: carbonate de lithium, ar: [كربونات الليثيوم], brands: [Priadel, Teralithe, Lithobid], review_status: unverified}
+  - {inn: valproic acid, usan: valproate, fr: acide valproïque, ar: [حمض الفالبرويك, فالبروات], brands: [Depakote, Depakine, Epilim], review_status: unverified}
+  - {inn: carbamazepine, fr: carbamazépine, ar: [كاربامازيبين], brands: [Tegretol, Tegretol], review_status: unverified}
+  - {inn: lamotrigine, fr: lamotrigine, ar: [لاموتريجين], brands: [Lamictal], review_status: unverified}
+  - {inn: levetiracetam, fr: lévétiracétam, ar: [ليفيتيراسيتام], brands: [Keppra], review_status: unverified}
+  - {inn: phenytoin, fr: phénytoïne, ar: [فينيتوين], brands: [Dilantin, Di-Hydan], review_status: unverified}
+  - {inn: phenobarbital, usan: phenobarbital, fr: phénobarbital, ar: [فينوباربيتال], brands: [Gardenal, Luminal], review_status: unverified}
+  - {inn: topiramate, fr: topiramate, ar: [توبيراميت], brands: [Topamax, Epitomax], review_status: unverified}
+  - {inn: gabapentin, fr: gabapentine, ar: [جابابنتين], brands: [Neurontin], review_status: unverified}
+  - {inn: pregabalin, fr: prégabaline, ar: [بريجابالين], brands: [Lyrica], review_status: unverified}
+  - {inn: methylphenidate, fr: méthylphénidate, ar: [ميثيلفينيديت], brands: [Ritalin, Concerta, Ritaline], review_status: unverified}
+  - {inn: atomoxetine, fr: atomoxétine, ar: [أتوموكسيتين], brands: [Strattera], review_status: unverified}
+  - {inn: donepezil, fr: donépézil, ar: [دونيبيزيل], brands: [Aricept], review_status: unverified}
+  - {inn: memantine, fr: mémantine, ar: [ميمانتين], brands: [Namenda, Ebixa], review_status: unverified}
+  - {inn: levodopa and carbidopa, fr: lévodopa et carbidopa, ar: [ليفودوبا وكاربيدوبا], brands: [Sinemet, Modopar component, Madopar], review_status: unverified}
+  - {inn: pramipexole, fr: pramipexole, ar: [براميبيكسول], brands: [Mirapex, Sifrol], review_status: unverified}
+  - {inn: sumatriptan, fr: sumatriptan, ar: [سوماتريبتان], brands: [Imitrex, Imigrane], review_status: unverified}
+  - {inn: baclofen, fr: baclofène, ar: [باكلوفين], brands: [Lioresal, Lioresal], review_status: unverified}
+  - {inn: tizanidine, fr: tizanidine, ar: [تيزانيدين], brands: [Zanaflex, Sirdalud], review_status: unverified}
+  # ---- endocrine, steroids, hormones, bone, vitamins ----
+  - {inn: levothyroxine, usan: levothyroxine sodium, fr: lévothyroxine, ar: [ليفوثيروكسين], brands: [Synthroid, Levothyrox, Euthyrox], review_status: unverified}
+  - {inn: carbimazole, usan: methimazole, fr: carbimazole, ar: [كاربيمازول, ميثيمازول], brands: [Neo-Mercazole, Tapazole], review_status: unverified}
+  - {inn: prednisone, fr: prednisone, ar: [بريدنيزون], brands: [Deltasone, Cortancyl], review_status: unverified}
+  - {inn: prednisolone, fr: prednisolone, ar: [بريدنيزولون], brands: [Orapred, Solupred, Millipred], review_status: unverified}
+  - {inn: methylprednisolone, fr: méthylprednisolone, ar: [ميثيل بريدنيزولون], brands: [Medrol, Solu-Medrol, Solumedrol], review_status: unverified}
+  - {inn: dexamethasone, fr: dexaméthasone, ar: [ديكساميثازون], brands: [Decadron, Dectancyl], review_status: unverified}
+  - {inn: hydrocortisone, fr: hydrocortisone, ar: [هيدروكورتيزون], brands: [Cortef, Solu-Cortef, Efficort], review_status: unverified}
+  - {inn: fludrocortisone, fr: fludrocortisone, ar: [فلودروكورتيزون], brands: [Florinef, Flucortac], review_status: unverified}
+  - {inn: betamethasone, fr: bétaméthasone, ar: [بيتاميثازون], brands: [Celestone, Diprosone, Betneval], review_status: unverified}
+  - {inn: clobetasol, fr: clobétasol, ar: [كلوبيتازول], brands: [Temovate, Dermoval, Clobex], review_status: unverified}
+  - {inn: estradiol, fr: estradiol, ar: [إستراديول], brands: [Estrace, Oestrodose, Progynova], review_status: unverified}
+  - {inn: ethinylestradiol and levonorgestrel, fr: éthinylestradiol et lévonorgestrel, ar: [إيثينيل إستراديول وليفونورجستريل], brands: [Microgynon, Alesse, Minidril], review_status: unverified}
+  - {inn: levonorgestrel, fr: lévonorgestrel, ar: [ليفونورجستريل], brands: [Plan B, NorLevo, Mirena], review_status: unverified}
+  - {inn: medroxyprogesterone, fr: médroxyprogestérone, ar: [ميدروكسي بروجسترون], brands: [Depo-Provera, Provera, Farlutal], review_status: unverified}
+  - {inn: progesterone, fr: progestérone, ar: [بروجسترون], brands: [Prometrium, Utrogestan, Crinone], review_status: unverified}
+  - {inn: norethisterone, usan: norethindrone, fr: noréthistérone, ar: [نورإيثيستيرون], brands: [Primolut-N, Aygestin, Norlutate], review_status: unverified}
+  - {inn: testosterone, fr: testostérone, ar: [تستوستيرون], brands: [AndroGel, Nebido, Androtardyl], review_status: unverified}
+  - {inn: tamoxifen, fr: tamoxifène, ar: [تاموكسيفين], brands: [Nolvadex, Tamoxifene], review_status: unverified}
+  - {inn: anastrozole, fr: anastrozole, ar: [أناستروزول], brands: [Arimidex], review_status: unverified}
+  - {inn: letrozole, fr: létrozole, ar: [ليتروزول], brands: [Femara], review_status: unverified}
+  - {inn: alendronic acid, usan: alendronate, fr: acide alendronique, ar: [حمض الأليندرونيك, أليندرونات], brands: [Fosamax, Fosavance], review_status: unverified}
+  - {inn: cholecalciferol, usan: vitamin D3, fr: cholécalciférol, ar: [كوليكالسيفيرول, فيتامين د3], brands: [Uvedose, Vigantol, D-Cure], review_status: unverified}
+  - {inn: calcium carbonate, fr: carbonate de calcium, ar: [كربونات الكالسيوم], brands: [Tums, Caltrate, Calcidose], review_status: unverified}
+  - {inn: ferrous sulfate, usan: iron sulfate, fr: sulfate ferreux, ar: [كبريتات الحديدوز, حديد], brands: [Feosol, Tardyferon, Fer-In-Sol], review_status: unverified}
+  - {inn: folic acid, fr: acide folique, ar: [حمض الفوليك], brands: [Folvite, Speciafoldine], review_status: unverified}
+  - {inn: cyanocobalamin, usan: vitamin B12, fr: cyanocobalamine, ar: [سيانوكوبالامين, فيتامين ب12], brands: [Cobalamin, Vit B12 Delagrange], review_status: unverified}
+  - {inn: phytomenadione, usan: vitamin K1, fr: phytoménadione, ar: [فيتومينادايون, فيتامين ك], brands: [Konakion, Mephyton, Vitamine K1], review_status: unverified}
+  - {inn: ascorbic acid, usan: vitamin C, fr: acide ascorbique, ar: [حمض الأسكوربيك, فيتامين ج], brands: [Upsa C, Cebion, Redoxon], review_status: unverified}
+  - {inn: zinc sulfate, fr: sulfate de zinc, ar: [كبريتات الزنك], brands: [Zincate, Solvazinc], review_status: unverified}
+  - {inn: potassium chloride, fr: chlorure de potassium, ar: [كلوريد البوتاسيوم], brands: [Klor-Con, Diffu-K, Kaleorid], review_status: unverified}
+  - {inn: sodium bicarbonate, fr: bicarbonate de sodium, ar: [بيكربونات الصوديوم], brands: [Baking soda, Bicarbonate Cooper], review_status: unverified}
+  - {inn: oral rehydration salts, fr: sels de réhydratation orale, ar: [أملاح الإماهة الفموية], brands: [Pedialyte, Adiaril, Ors], review_status: unverified}
+  - {inn: allopurinol, fr: allopurinol, ar: [ألوبيورينول], brands: [Zyloprim, Zyloric], review_status: unverified}
+  - {inn: colchicine, fr: colchicine, ar: [كولشيسين], brands: [Colcrys, Colchimax, Colchicine Opocalcium], review_status: unverified}
+  - {inn: febuxostat, fr: fébuxostat, ar: [فيبوكسوستات], brands: [Uloric, Adenuric], review_status: unverified}
+  - {inn: finasteride, fr: finastéride, ar: [فيناسترايد], brands: [Proscar, Propecia, Chibro-Proscar], review_status: unverified}
+  - {inn: tamsulosin, fr: tamsulosine, ar: [تامسولوسين], brands: [Flomax, Omix, Josir], review_status: unverified}
+  - {inn: sildenafil, fr: sildénafil, ar: [سيلدينافيل], brands: [Viagra, Revatio], review_status: unverified}
+  - {inn: tadalafil, fr: tadalafil, ar: [تادالافيل], brands: [Cialis, Adcirca], review_status: unverified}
+  - {inn: oxybutynin, fr: oxybutynine, ar: [أوكسيبيوتينين], brands: [Ditropan, Driptane], review_status: unverified}
+  - {inn: solifenacin, fr: solifénacine, ar: [سوليفيناسين], brands: [Vesicare, Vesicare], review_status: unverified}
+  - {inn: desmopressin, fr: desmopressine, ar: [ديسموبريسين], brands: [DDAVP, Minirin], review_status: unverified}
+  - {inn: cabergoline, fr: cabergoline, ar: [كابيرجولين], brands: [Dostinex], review_status: unverified}
+  - {inn: bromocriptine, fr: bromocriptine, ar: [بروموكريبتين], brands: [Parlodel, Bromocriptine], review_status: unverified}
+  - {inn: clomifene, usan: clomiphene, fr: clomifène, ar: [كلوميفين], brands: [Clomid, Clomid], review_status: unverified}
+  - {inn: misoprostol, fr: misoprostol, ar: [ميزوبروستول], brands: [Cytotec, Gymiso], review_status: unverified}
+  - {inn: oxytocin, fr: ocytocine, ar: [أوكسيتوسين], brands: [Pitocin, Syntocinon], review_status: unverified}
+  - {inn: tranexamic acid, fr: acide tranexamique, ar: [حمض الترانيكساميك], brands: [Cyklokapron, Exacyl], review_status: unverified}
+  # ---- immunology, oncology, transplant ----
+  - {inn: methotrexate, fr: méthotrexate, ar: [ميثوتريكسات], brands: [Trexall, Novatrex, Metoject], review_status: unverified}
+  - {inn: azathioprine, fr: azathioprine, ar: [أزاثيوبرين], brands: [Imuran, Imurel], review_status: unverified}
+  - {inn: ciclosporin, usan: cyclosporine, fr: ciclosporine, ar: [سيكلوسبورين], brands: [Neoral, Sandimmun, Restasis], review_status: unverified}
+  - {inn: tacrolimus, fr: tacrolimus, ar: [تاكروليموس], brands: [Prograf, Advagraf, Protopic], review_status: unverified}
+  - {inn: mycophenolate mofetil, fr: mycophénolate mofétil, ar: [ميكوفينولات موفيتيل], brands: [CellCept, Cellcept], review_status: unverified}
+  - {inn: hydroxycarbamide, usan: hydroxyurea, fr: hydroxycarbamide, ar: [هيدروكسي يوريا], brands: [Hydrea, Droxia, Siklos], review_status: unverified}
+  - {inn: imatinib, fr: imatinib, ar: [إيماتينيب], brands: [Gleevec, Glivec], review_status: unverified}
+  - {inn: capecitabine, fr: capécitabine, ar: [كابيسيتابين], brands: [Xeloda], review_status: unverified}
+  - {inn: cyclophosphamide, fr: cyclophosphamide, ar: [سيكلوفوسفاميد], brands: [Endoxan, Cytoxan], review_status: unverified}
+  - {inn: adalimumab, fr: adalimumab, ar: [أداليموماب], brands: [Humira, Amgevita], review_status: unverified}
+  - {inn: etanercept, fr: étanercept, ar: [إيتانرسبت], brands: [Enbrel], review_status: unverified}
+  - {inn: infliximab, fr: infliximab, ar: [إنفليكسيماب], brands: [Remicade, Inflectra], review_status: unverified}
+  # ---- dermatology and topical ----
+  - {inn: isotretinoin, fr: isotrétinoïne, ar: [إيزوتريتينوين], brands: [Accutane, Roaccutane], review_status: unverified}
+  - {inn: tretinoin, fr: trétinoïne, ar: [تريتينوين], brands: [Retin-A, Locacid], review_status: unverified}
+  - {inn: benzoyl peroxide, fr: peroxyde de benzoyle, ar: [بيروكسيد البنزويل], brands: [Benzac, Pannogel, Panoxyl], review_status: unverified}
+  - {inn: silver sulfadiazine, fr: sulfadiazine argentique, ar: [سلفاديازين الفضة], brands: [Silvadene, Flammazine], review_status: unverified}
+  - {inn: chlorhexidine, fr: chlorhexidine, ar: [كلورهيكسيدين], brands: [Hibiclens, Hibitane, Chlorhexidine], review_status: unverified}
+  - {inn: povidone-iodine, usan: povidone iodine, fr: povidone iodée, ar: [بوفيدون يود], brands: [Betadine, Betadine], review_status: unverified}
+  # ---- emergency, anaesthesia, fluids ----
+  - {inn: adrenaline, usan: epinephrine, fr: adrénaline, ar: [أدرينالين, إيبينيفرين], brands: [EpiPen, Adrenalin, Anapen], review_status: unverified}
+  - {inn: noradrenaline, usan: norepinephrine, fr: noradrénaline, ar: [نورأدرينالين, نورإيبينيفرين], brands: [Levophed, Norepinephrine], review_status: unverified}
+  - {inn: atropine, fr: atropine, ar: [أتروبين], brands: [AtroPen, Atropine Aguettant], review_status: unverified}
+  - {inn: dopamine, fr: dopamine, ar: [دوبامين], brands: [Intropin, Dopamine], review_status: unverified}
+  - {inn: ephedrine, fr: éphédrine, ar: [إيفيدرين], brands: [Akovaz, Ephedrine Aguettant], review_status: unverified}
+  - {inn: glucagon, fr: glucagon, ar: [جلوكاجون], brands: [GlucaGen, Gvoke, Glucagen Hypokit], review_status: unverified}
+  - {inn: lidocaine, usan: lidocaine, fr: lidocaïne, ar: [ليدوكايين, ليغنوكايين], brands: [Xylocaine, Lignocaine, Xylocaïne], review_status: unverified}
+  - {inn: bupivacaine, fr: bupivacaïne, ar: [بوبيفاكايين], brands: [Marcaine, Sensorcaine, Marcaïne], review_status: unverified}
+  - {inn: propofol, fr: propofol, ar: [بروبوفول], brands: [Diprivan, Diprivan], review_status: unverified}
+  - {inn: ketamine, fr: kétamine, ar: [كيتامين], brands: [Ketalar, Kétalar], review_status: unverified}
+  - {inn: glucose, usan: dextrose, fr: glucose, ar: [جلوكوز, ديكستروز], brands: [Dextrose 5%, Glucose 5%, Glucosalin], review_status: unverified}
+  - {inn: sodium chloride, fr: chlorure de sodium, ar: [كلوريد الصوديوم, محلول ملحي], brands: [Normal saline, Serum physiologique, NaCl 0.9%], review_status: unverified}

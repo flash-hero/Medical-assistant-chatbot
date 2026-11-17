@@ -1,0 +1,304 @@
+{
+  "Meta": {
+    "title": "Ausculta: health information that listens",
+    "description": "Ask about a condition, a test or a medicine. Plain-language answers from public health sources, each one cited.",
+    "chatTitle": "Ask Ausculta",
+    "sourcesTitle": "Sources and attribution",
+    "aboutTitle": "About Ausculta",
+    "notFoundTitle": "Page not found"
+  },
+  "Common": {
+    "brand": "Ausculta",
+    "tagline": "Health information that listens, and shows its sources.",
+    "skipToContent": "Skip to main content",
+    "aiAssistant": "AI assistant",
+    "askCta": "Ask a question",
+    "home": "Ausculta home",
+    "menu": "Menu",
+    "close": "Close",
+    "newTab": "(opens in a new tab)",
+    "languageLabel": "Language",
+    "languages": { "en": "English", "fr": "Français", "ar": "العربية" },
+    "nav": {
+      "how": "How it works",
+      "sources": "Sources",
+      "about": "About",
+      "chat": "Chat"
+    },
+    "theme": {
+      "label": "Colour theme",
+      "system": "Theme: automatic. Switch to light",
+      "light": "Theme: light. Switch to dark",
+      "dark": "Theme: dark. Switch to automatic"
+    }
+  },
+  "Landing": {
+    "heroTitle": "Health information that listens, and shows its sources.",
+    "heroSubtitle": "Ask about a condition, a test or a medicine. Plain-language answers from public health sources, each one cited.",
+    "heroSecondary": "How it works",
+    "previewLabel": "Example of an answer",
+    "previewQuestion": "What does an HbA1c test measure?",
+    "previewAnswer": "An HbA1c test measures your average blood sugar level over the past three months [1]. It is used to check for diabetes and to see how well diabetes is managed over time [1].",
+    "previewSeekCare": "Your doctor can explain what your own result means.",
+    "previewSourceTitle": "Hemoglobin A1C (HbA1c) Test",
+    "previewSourcePublisher": "MedlinePlus, U.S. National Library of Medicine",
+    "previewSourceSnippet": "A hemoglobin A1c (HbA1c) test is a blood test that shows what your average blood sugar (glucose) level was over the past three months.",
+    "previewCaption": "Example answer. Every source opens on the publisher’s own site.",
+    "howTitle": "How Ausculta answers",
+    "howIntro": "Four things happen between your question and the answer, in this order.",
+    "steps": {
+      "listen": {
+        "title": "Listens",
+        "body": "Write in English, French or Arabic. Names, phone numbers and other personal details are removed before anything else happens."
+      },
+      "check": {
+        "title": "Checks for urgency first",
+        "body": "Every message is checked for signs of an emergency or a crisis. If there is one, you see emergency contacts straight away, before any other answer."
+      },
+      "search": {
+        "title": "Searches trusted sources",
+        "body": "Ausculta looks only in a licence-checked library of public health sources. If it finds nothing reliable, it tells you instead of guessing."
+      },
+      "answer": {
+        "title": "Answers with citations",
+        "body": "Each statement points to its source and the date the source was reviewed. Answers about medicines are checked against their sources before you see them."
+      }
+    },
+    "safetyTitle": "Clear about what it will not do",
+    "safetyIntro": "Ausculta explains general health information. Decisions about your health belong with you and your care team.",
+    "neverTitle": "Ausculta will never",
+    "never": {
+      "diagnose": "Tell you what condition you have",
+      "triage": "Decide how urgent your situation is",
+      "dose": "Give you a personal dose or change your treatment",
+      "replace": "Replace a doctor, nurse or pharmacist",
+      "emergency": "Act as an emergency service"
+    },
+    "alwaysTitle": "Ausculta will always",
+    "always": {
+      "cite": "Show where each answer comes from",
+      "seekCare": "Tell you when to seek care",
+      "human": "Keep a person at the hospital one tap away",
+      "unknown": "Say so when it does not know",
+      "label": "Make clear you are talking to an AI assistant"
+    },
+    "sourcesTitle": "Sources you can check yourself",
+    "sourcesBody": "Answers come only from public health publishers whose licences allow reuse. Each source is listed with its licence, so you can read the original.",
+    "sourcesLink": "See all sources and licences",
+    "sourcesLicence": "Licence: {licence}",
+    "sourcesMore": "{count, plural, one {# more public source, with its licence, on the Sources page.} other {# more public sources, each with its licence, on the Sources page.}}",
+    "deskTitle": "Also at the front desk",
+    "deskBody": "Practical questions about the hospital are answered from information the hospital has verified, never from the AI’s imagination.",
+    "desk": {
+      "hours": { "title": "Opening hours and directions", "body": "When departments are open and how to find them." },
+      "departments": { "title": "Departments and contacts", "body": "Who to call, and where each service is." },
+      "visiting": { "title": "Visiting rules", "body": "Visiting times and what to bring for a stay." },
+      "appointment": {
+        "title": "Appointment requests",
+        "body": "A simple form sends your request to hospital staff. What you enter in it is never shared with the AI."
+      }
+    },
+    "formPreview": {
+      "label": "Appointment request form (preview)",
+      "name": "Full name",
+      "department": "Department",
+      "dates": "Preferred dates",
+      "departmentValue": "Cardiology",
+      "datesValue": "Weekday mornings",
+      "submit": "Send request"
+    },
+    "faqTitle": "Questions people ask",
+    "faq": {
+      "doctor": {
+        "q": "Is Ausculta a doctor?",
+        "a": "No. It is an AI assistant that explains general health information from public sources. It cannot examine you, diagnose you or decide what you should do. For that, talk to a doctor, nurse or pharmacist."
+      },
+      "sources": {
+        "q": "Where do the answers come from?",
+        "a": "From a library of public health sources whose licences allow reuse, such as MedlinePlus. Each answer cites its sources, and you can open them to read the original."
+      },
+      "privacy": {
+        "q": "What happens to what I type?",
+        "a": "Names, phone numbers and other identifiers are removed before your message is processed. Conversations are not stored by default. Appointment requests go only to hospital staff."
+      },
+      "emergency": {
+        "q": "What if it is an emergency?",
+        "a": "Ausculta is not an emergency service. If you think someone’s life is in danger, call your local emergency number now. If you mention an emergency, Ausculta shows emergency contacts first."
+      },
+      "languages": {
+        "q": "Which languages can I use?",
+        "a": "English, French and Arabic. Many sources are written in English; when an answer relies on them, Ausculta tells you."
+      },
+      "unknown": {
+        "q": "Why does it sometimes say it does not know?",
+        "a": "When its sources do not cover a question well enough, Ausculta says so rather than guess. You can then ask a clinician or the front desk."
+      }
+    }
+  },
+  "Footer": {
+    "disclaimerTitle": "Intended purpose",
+    "disclaimer": "Ausculta gives general health information and helps you find your way around the hospital. It does not diagnose, assess urgency or prescribe, and it is not an emergency service. In an emergency, call your local emergency number.",
+    "demo": "Demo version. Not for use with real patients.",
+    "attribution": "Health content is credited to its publishers on the Sources page.",
+    "linksTitle": "Ausculta",
+    "sourcesLink": "Sources and attribution",
+    "aboutLink": "Intended purpose",
+    "chatLink": "Ask a question"
+  },
+  "Chat": {
+    "title": "Ask Ausculta",
+    "demoBanner": "Demo: hospital details here are fictional. Do not use this for real medical decisions.",
+    "handoff": "Talk to a person",
+    "handoffTitle": "Talk to a person",
+    "handoffBody": "Hospital staff can help with anything Ausculta cannot.",
+    "emergencyLabel": "Emergency",
+    "mainPhone": "Switchboard",
+    "address": "Address",
+    "visitingHours": "Visiting hours",
+    "call": "Call {label}",
+    "newConversation": "New conversation",
+    "connecting": "Connecting…",
+    "sessionError": "Ausculta could not start a conversation. Check your connection and try again.",
+    "emptyTitle": "What would you like to know?",
+    "emptyBody": "General health information with sources, and help finding your way around the hospital. Not a diagnosis.",
+    "examplesLabel": "Example questions",
+    "examples": {
+      "one": "What does an HbA1c test measure?",
+      "two": "What are the visiting hours?",
+      "three": "How should I prepare for a blood test?",
+      "four": "I would like to request an appointment"
+    },
+    "you": "You",
+    "assistant": "Ausculta",
+    "inputLabel": "Your message",
+    "placeholder": "Ask about a condition, a test, a medicine or the hospital",
+    "hint": "Enter to send. Shift + Enter for a new line.",
+    "counter": "{count} of {max} characters",
+    "send": "Send",
+    "stop": "Stop",
+    "stopped": "Stopped. This answer is incomplete.",
+    "status": {
+      "checking": "Checking your message",
+      "searching": "Searching trusted sources",
+      "writing": "Writing the answer",
+      "verifying": "Checking the answer against its sources"
+    },
+    "statusLabel": "Progress",
+    "answering": "Ausculta is answering.",
+    "answerReady": "Answer from Ausculta:",
+    "verified": "Checked against its sources",
+    "sourceLanguage": "The sources for this answer are in English.",
+    "sourcesHeading": "Sources",
+    "citation": "Source {n}: {title}",
+    "sourceNumber": "Source {n}:",
+    "seekCareTitle": "When to seek care",
+    "seekCareUrgent": "If symptoms are severe, sudden or getting worse, call {number} now.",
+    "seekCareUrgentNoNumber": "If symptoms are severe, sudden or getting worse, call your local emergency number now.",
+    "seekCareRoutine": "If you are worried or symptoms last, contact your doctor or the hospital.",
+    "seekCareNote": "This is general information, not a diagnosis.",
+    "turnsLeft": "{count, plural, one {# question left in this conversation} other {# questions left in this conversation}}",
+    "safetyContacts": "Contacts",
+    "feedback": {
+      "question": "Was this answer helpful?",
+      "up": "Helpful",
+      "down": "Not helpful",
+      "reasonLabel": "What was wrong?",
+      "reasons": {
+        "incorrect": "Incorrect",
+        "unsafe": "Unsafe",
+        "unhelpful": "Not helpful",
+        "other": "Something else"
+      },
+      "commentLabel": "Tell us more (optional, do not include personal details)",
+      "submit": "Send feedback",
+      "thanks": "Thank you for your feedback.",
+      "error": "Your feedback could not be sent."
+    },
+    "drawer": {
+      "title": "Source {n}",
+      "publisher": "Publisher",
+      "reviewed": "Reviewed {date}",
+      "section": "Section",
+      "excerpt": "Excerpt",
+      "open": "Read on the publisher’s site",
+      "languageNote": "This source is in {language}.",
+      "close": "Close source"
+    },
+    "errors": {
+      "rate_limited": "You are sending messages quickly. Please wait a moment.",
+      "overloaded": "Ausculta is very busy right now.",
+      "service_paused": "Ausculta is paused for the moment.",
+      "session_exhausted": "This conversation has reached its question limit. Start a new conversation to continue.",
+      "unauthorized": "Your conversation expired. Start a new conversation to continue.",
+      "invalid_input": "That message could not be sent. Please check it and try again.",
+      "network": "The connection was lost. Check your connection and try again.",
+      "unknown": "Something went wrong on our side.",
+      "retryIn": "{seconds, plural, one {You can try again in # second.} other {You can try again in # seconds.}}",
+      "retry": "Try again"
+    },
+    "languageNames": { "en": "English", "fr": "French", "ar": "Arabic", "es": "Spanish" },
+    "form": {
+      "required": "Required",
+      "requiredError": "Please fill in this field.",
+      "emailError": "Please enter a valid email address.",
+      "phoneError": "Please enter a valid phone number.",
+      "tooLong": "Please use at most {max} characters.",
+      "chooseOption": "Choose an option",
+      "consent": "I agree that the hospital may contact me about this request.",
+      "consentError": "Please confirm so the hospital can contact you.",
+      "privacyNote": "This form goes to hospital staff only. It is never shared with the AI.",
+      "submit": "Send request",
+      "sending": "Sending…",
+      "successTitle": "Request sent",
+      "reference": "Reference: {id}",
+      "error": "Your request could not be sent. Please try again or call the hospital.",
+      "fixErrors": "{count, plural, one {Please correct # field.} other {Please correct # fields.}}"
+    }
+  },
+  "Sources": {
+    "title": "Sources and attribution",
+    "intro": "Ausculta answers only from sources whose licences allow it. This list is generated from the source registry, and each entry links to the terms we checked.",
+    "publisher": "Publisher",
+    "licence": "Licence",
+    "attribution": "Credit",
+    "terms": "Licence terms",
+    "languages": "Languages",
+    "verified": "Licence checked on {date}",
+    "conditions": "Conditions",
+    "homepage": "Visit {name}",
+    "generated": "List generated on {date}.",
+    "empty": "No sources are listed yet.",
+    "noEndorsement": "Listing a publisher does not mean it endorses Ausculta."
+  },
+  "About": {
+    "title": "About Ausculta",
+    "lead": "Ausculta is an AI assistant for general health information and hospital navigation. Here is exactly what it is for, and what it is not for.",
+    "isTitle": "What Ausculta does",
+    "is": {
+      "explain": "Explains general health information in plain language, in English, French and Arabic, using only passages from a licence-checked library of public health sources, with dated citations.",
+      "navigate": "Helps you find your way around the hospital: departments, opening hours, contacts, directions, visiting rules and an appointment request form whose contents go to staff, never to the AI.",
+      "care": "Points you to the right level of care. Every medical answer includes general guidance on when to seek care, and emergency or crisis messages bring up the hospital’s verified emergency contacts first."
+    },
+    "isNotTitle": "What Ausculta is not",
+    "isNot": {
+      "diagnosis": "Not a diagnostic tool. It does not name what you have, rank possible conditions or estimate likelihoods.",
+      "triage": "Not a triage service. It does not decide how urgent your situation is.",
+      "prescriber": "Not a prescriber. It does not give personal doses or advise starting, stopping or changing a treatment.",
+      "clinician": "Not a substitute for a clinician, and not for use in clinical practice.",
+      "emergency": "Not an emergency service."
+    },
+    "whyTitle": "Why these limits",
+    "why": "Software that gives individual medical advice is regulated as a medical device, and the AI model behind Ausculta may not be used to provide medical advice. Keeping Ausculta to general information and navigation keeps it safe and honest about what it is. You are always told that you are talking to an AI.",
+    "privacyTitle": "Your privacy",
+    "privacy": "Names, phone numbers and other identifiers are removed before your message is processed or logged. Conversation text is not stored by default. Appointment requests are kept for hospital staff for 30 days.",
+    "demoTitle": "Demo status",
+    "demo": "This is a demonstration. Hospital details are fictional, and Ausculta must not be used with real patients until a legal, clinical and privacy review is signed.",
+    "contactTitle": "Need a person?",
+    "contact": "For anything about your own health, talk to a doctor, nurse or pharmacist. In an emergency, call your local emergency number."
+  },
+  "NotFound": {
+    "title": "This page does not exist",
+    "body": "The link may be broken or the page may have moved.",
+    "home": "Go to the home page"
+  }
+}

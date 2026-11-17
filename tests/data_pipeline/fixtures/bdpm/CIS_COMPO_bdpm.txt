@@ -1,0 +1,3 @@
+60002283	comprimé	42215	ANASTROZOLE	1,00 mg	un comprimé	SA	1
+65198099	comprimé	96835	ARIPIPRAZOLE	10 mg	un comprimé	SA	1
+68371745	comprimé	20540	ACARBOSE	100 mg	un comprimé	SA	1

@@ -1,0 +1,17 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "categorymembers": [
+   {
+    "pageid": 301186,
+    "ns": 1,
+    "title": "Talk:Asthma"
+   },
+   {
+    "pageid": 7,
+    "ns": 1,
+    "title": "Talk:Gout"
+   }
+  ]
+ }
+}

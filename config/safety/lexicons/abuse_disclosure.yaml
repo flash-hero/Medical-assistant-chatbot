@@ -1,0 +1,137 @@
+# Abuse-disclosure lexicon (domestic, sexual or child abuse disclosed by the user).
+# STATUS: draft-unreviewed. A clinician must review this list before any pilot use.
+version: draft-unreviewed
+kind: abuse_disclosure
+review:
+  status: draft-unreviewed
+  reviewed_by: null
+  reviewed_on: null
+  note: "Draft written by the engineering track. Requires clinician and native-speaker review."
+# Abuse disclosed about the past ("I was raped last week") must still show the support template.
+suppress_historical: false
+terms:
+  en:
+    - my dad beats me
+    - my mom beats me
+    - my mother beats me
+    - my brother beats me
+    - he hits me
+    - he beats me
+    - she hits me
+    - my husband hits me
+    - my husband beats me
+    - my partner hits me
+    - my boyfriend hits me
+    - my wife hits me
+    - my dad hits me
+    - my father beats me
+    - my parents hit me
+    - my mom hits me
+    - being abused
+    - he abuses me
+    - abused me
+    - abusing me
+    - he raped me
+    - i was raped
+    - i've been raped
+    - raped me
+    - sexually assaulted
+    - molested me
+    - touched me inappropriately
+    - forced me to have sex
+    - he threatens to kill me
+    - threatened to kill me
+    - he chokes me
+    - strangled me
+    - locks me in
+    - won't let me leave
+    - afraid of my husband
+    - afraid of my partner
+    - scared of my husband
+    - scared to go home
+    - he hurts me
+  fr:
+    - il me frappe
+    - il me bat
+    - elle me frappe
+    - mon mari me frappe
+    - mon mari me bat
+    - mon conjoint me frappe
+    - mon copain me frappe
+    - mon père me frappe
+    - mes parents me frappent
+    - il m'a violée
+    - il m'a violé
+    - j'ai été violée
+    - j'ai été violé
+    - agressée sexuellement
+    - agressé sexuellement
+    - attouchements
+    - il me menace de me tuer
+    - il m'étrangle
+    - il m'a étranglée
+    - il m'enferme
+    - j'ai peur de mon mari
+    - j'ai peur de mon conjoint
+    - peur de rentrer chez moi
+    - il me fait du mal
+  ar:
+    - زوجي يضربني
+    - يضربني
+    - يعنفني
+    - اغتصبني
+    - تعرضت للاغتصاب
+    - تحرش بي
+    - يهددني بالقتل
+    - يخنقني
+    - خنقني
+    - أخاف من زوجي
+    # Darija / Maghreb
+    - كيضربني
+    - راجلي كيضربني
+    - بابا كيضربني
+    - كيعنفني
+    - كيهددني بالقتل
+    - خايفة من راجلي
+    - حبسني فالدار
+    - كيعذبني
+    - راجلي يضرب فيا
+    - يضرب فيا
+    - راجلي يضربني
+  arabizi:
+    - kaydrebni
+    - kaydarbni
+    - kayderbni
+    - rajli kaydrebni
+    - baba kaydrebni
+    - yedrebni
+    - yadrab fiya
+    - yodrob fiya
+    - ghtasbni
+    - t7arach biya
+    - kayhededni b lmout
+    - khayfa men rajli
+    - ykhn9ni
+    - 7bsni f dar
+condition_terms:
+  en:
+    - domestic violence
+    - domestic abuse
+    - sexual assault
+    - rape
+    - child abuse
+  fr:
+    - violence conjugale
+    - violences conjugales
+    - agression sexuelle
+    - maltraitance
+    - viol
+  ar:
+    - عنف أسري
+    - عنف زوجي
+    - اغتصاب
+    - تحرش جنسي
+    - اعتداء جنسي
+  arabizi:
+    - ightisab
+    - violence conjugale

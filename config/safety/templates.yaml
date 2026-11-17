@@ -1,0 +1,79 @@
+# Safety templates shown BEFORE anything else when a risk is detected. Rendered without any model call.
+# CLINICIAN APPROVAL STATUS: draft. Wording must be approved by a clinician (and native speakers) before pilot use.
+#
+# Placeholders (filled ONLY from the verified hospital profile; never from model output):
+#   {emergency_number}  profile.emergency.number          (fallback: the localised "no_profile" phrase)
+#   {crisis_number}     first profile.crisis_lines number (fallback: {emergency_number})
+#   {handoff_number}    profile.handoff.number            (fallback: the localised "no_profile" phrase)
+# Contact selectors: emergency | crisis_lines | crisis_line:<digits> | handoff | poison_control
+version: 1
+approval:
+  status: draft
+  approved_by: null
+  approved_on: null
+  note: "Draft wording by the engineering track. Requires clinician approval (P7 pilot gate)."
+fallback_number:
+  en: "your local emergency number"
+  fr: "le numéro d'urgence local"
+  ar: "رقم الطوارئ المحلي"
+safety:
+  emergency:
+    template_id: emergency.v1
+    contacts: [emergency, "crisis_line:112"]
+    title:
+      en: "This may be an emergency"
+      fr: "Il peut s'agir d'une urgence"
+      ar: "قد تكون هذه حالة طارئة"
+    message:
+      en: "If you or someone near you may be having a medical emergency, call {emergency_number} now or go to the nearest emergency department. Do not wait for an answer here: I am an automated assistant and cannot assess emergencies or send help."
+      fr: "Si vous ou une personne près de vous faites peut-être face à une urgence médicale, appelez le {emergency_number} maintenant ou rendez-vous aux urgences les plus proches. N'attendez pas de réponse ici : je suis un assistant automatique et je ne peux ni évaluer une urgence ni envoyer de l'aide."
+      ar: "إذا كنت أنت أو شخص بقربك تمر بحالة طبية طارئة محتملة، اتصل الآن بالرقم {emergency_number} أو توجه إلى أقرب قسم للطوارئ. لا تنتظر الرد هنا: أنا مساعد آلي ولا أستطيع تقييم حالات الطوارئ أو إرسال المساعدة."
+    followup:
+      en: "The emergency contacts are shown above. Please call now. When you are safe, I can share general health information."
+      fr: "Les numéros d'urgence sont affichés ci-dessus. Appelez maintenant. Quand vous serez en sécurité, je pourrai vous donner des informations générales de santé."
+      ar: "أرقام الطوارئ معروضة أعلاه. يرجى الاتصال الآن. عندما تكون في أمان، يمكنني مشاركة معلومات صحية عامة."
+  self_harm:
+    template_id: self_harm.v1
+    contacts: [crisis_lines, emergency]
+    title:
+      en: "You don't have to go through this alone"
+      fr: "Vous n'êtes pas seul·e"
+      ar: "لست وحدك"
+    message:
+      en: "I'm really sorry you're feeling this way. You deserve support right now. You can talk to someone at {crisis_number}, free and confidential, at any time. If you are in immediate danger or have already hurt yourself, call {emergency_number} now."
+      fr: "Je suis vraiment désolé que vous traversiez cela. Vous méritez d'être soutenu·e dès maintenant. Vous pouvez parler à quelqu'un au {crisis_number}, gratuitement et en toute confidentialité, à tout moment. Si vous êtes en danger immédiat ou si vous vous êtes déjà fait du mal, appelez le {emergency_number} maintenant."
+      ar: "أنا آسف حقًا لأنك تشعر بهذا. أنت تستحق الدعم الآن. يمكنك التحدث إلى شخص ما على الرقم {crisis_number}، مجانًا وبسرية تامة، في أي وقت. إذا كنت في خطر مباشر أو آذيت نفسك بالفعل، اتصل الآن بالرقم {emergency_number}."
+    followup:
+      en: "I'm an automated assistant and can't offer counselling, but the people on these lines can listen and help. If you can, reach out to someone you trust and stay with them."
+      fr: "Je suis un assistant automatique et je ne peux pas vous accompagner comme un professionnel, mais les personnes de ces lignes peuvent vous écouter et vous aider. Si vous le pouvez, contactez une personne de confiance et restez avec elle."
+      ar: "أنا مساعد آلي ولا أستطيع تقديم الاستشارة، لكن الأشخاص على هذه الخطوط يمكنهم الاستماع إليك ومساعدتك. إن استطعت، تواصل مع شخص تثق به وابقَ معه."
+  harm_to_others:
+    template_id: harm_to_others.v1
+    contacts: [emergency, "crisis_line:112", handoff]
+    title:
+      en: "Get help now"
+      fr: "Demandez de l'aide maintenant"
+      ar: "اطلب المساعدة الآن"
+    message:
+      en: "If anyone is in immediate danger, call {emergency_number} now. If you are afraid you might hurt someone, put distance between you and them if you can, and ask for help right away: emergency services and health professionals can help."
+      fr: "Si quelqu'un est en danger immédiat, appelez le {emergency_number} maintenant. Si vous avez peur de faire du mal à quelqu'un, éloignez-vous de la personne si vous le pouvez et demandez de l'aide tout de suite : les secours et les professionnels de santé peuvent vous aider."
+      ar: "إذا كان أي شخص في خطر مباشر، اتصل الآن بالرقم {emergency_number}. إذا كنت تخشى أن تؤذي أحدًا، ابتعد عنه إن استطعت واطلب المساعدة فورًا: خدمات الطوارئ والمهنيون الصحيون يمكنهم المساعدة."
+    followup:
+      en: "The contacts are shown above. I'm an automated assistant and can't help with this situation, but people at these numbers can."
+      fr: "Les numéros sont affichés ci-dessus. Je suis un assistant automatique et je ne peux pas vous aider dans cette situation, mais les personnes jointes à ces numéros le peuvent."
+      ar: "الأرقام معروضة أعلاه. أنا مساعد آلي ولا أستطيع المساعدة في هذا الموقف، لكن الأشخاص على هذه الأرقام يستطيعون."
+  abuse_disclosure:
+    template_id: abuse_disclosure.v1
+    contacts: [emergency, "crisis_line:112", handoff]
+    title:
+      en: "You deserve to be safe"
+      fr: "Vous avez le droit d'être en sécurité"
+      ar: "من حقك أن تكون في أمان"
+    message:
+      en: "Thank you for telling me. What is happening is not your fault. If you are in immediate danger, call {emergency_number} now. Hospital staff can also help you confidentially at {handoff_number}."
+      fr: "Merci de me l'avoir dit. Ce qui vous arrive n'est pas de votre faute. Si vous êtes en danger immédiat, appelez le {emergency_number} maintenant. Le personnel de l'hôpital peut aussi vous aider en toute confidentialité au {handoff_number}."
+      ar: "شكرًا لأنك أخبرتني. ما يحدث لك ليس ذنبك. إذا كنت في خطر مباشر، اتصل الآن بالرقم {emergency_number}. يمكن لطاقم المستشفى أيضًا مساعدتك بسرية على الرقم {handoff_number}."
+    followup:
+      en: "The contacts are shown above. If it is safe for you, you can talk to a doctor or nurse during your next visit; they can help confidentially."
+      fr: "Les numéros sont affichés ci-dessus. Si c'est sans danger pour vous, vous pouvez en parler à un médecin ou une infirmière lors de votre prochaine visite ; ils peuvent vous aider en toute confidentialité."
+      ar: "الأرقام معروضة أعلاه. إذا كان ذلك آمنًا لك، يمكنك التحدث إلى طبيب أو ممرض في زيارتك القادمة؛ يمكنهم مساعدتك بسرية."

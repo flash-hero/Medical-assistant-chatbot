@@ -26,5 +26,5 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2).status == 200 else 1)"
-# Workers share limits/spend state through Redis (REDIS_URL is required in prod).
-CMD ["sh", "-c", "uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2} --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 20"]
+# One worker per container by default (each holds the embedding model); state is shared through Redis.
+CMD ["sh", "-c", "uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-1} --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 20"]

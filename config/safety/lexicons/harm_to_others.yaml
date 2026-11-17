@@ -1,0 +1,125 @@
+# Harm-to-others lexicon (intent to hurt another person).
+# STATUS: draft-unreviewed. A clinician must review this list before any pilot use.
+# Bare "kill him/them" is NOT listed: medical text says "antibiotics kill them". Entries need an intent verb.
+version: draft-unreviewed
+kind: harm_to_others
+review:
+  status: draft-unreviewed
+  reviewed_by: null
+  reviewed_on: null
+  note: "Draft written by the engineering track. Requires clinician and native-speaker review."
+suppress_historical: false
+terms:
+  en:
+    - want to kill him
+    - want to kill her
+    - want to kill them
+    - want to kill someone
+    - going to kill him
+    - going to kill her
+    - going to kill them
+    - gonna kill him
+    - gonna kill her
+    - i will kill him
+    - i'll kill him
+    - i'll kill her
+    - kill my husband
+    - kill my wife
+    - kill my boss
+    - kill my baby
+    - kill my child
+    - kill my father
+    - kill my mother
+    - kill my neighbour
+    - kill my neighbor
+    - hurt my baby
+    - hurt my child
+    - hurt my kids
+    - want to hurt someone
+    - want to hurt him
+    - want to hurt her
+    - shake the baby
+    - shaking the baby
+    - poison him
+    - poison her
+    - stab him
+    - stab her
+    - want to shoot
+    - going to shoot
+    - beat him to death
+    - make him suffer
+    - how to kill someone
+    - how to poison someone
+  fr:
+    - je vais le tuer
+    - je vais la tuer
+    - je vais les tuer
+    - envie de le tuer
+    - envie de la tuer
+    - envie de tuer
+    - tuer quelqu'un
+    - tuer mon mari
+    - tuer ma femme
+    - tuer mon bébé
+    - tuer mon enfant
+    - faire du mal à mon bébé
+    - faire du mal à mon enfant
+    - faire du mal à quelqu'un
+    - lui faire du mal
+    - secouer le bébé
+    - l'empoisonner
+    - empoisonner quelqu'un
+    - le poignarder
+    - la poignarder
+    - comment tuer quelqu'un
+  ar:
+    - بغيت نقتلو
+    - بغيت نقتلها
+    - بغيت نقتلهم
+    - غادي نقتلو
+    - غادي نقتلها
+    - نقتلو
+    - نقتلها
+    - أريد أن أقتله
+    - أريد أن أقتلها
+    - سأقتله
+    - سأقتلها
+    - سأقتلهم
+    - اقتل زوجي
+    - اقتل زوجتي
+    - نقتل راجلي
+    - نقتل مراتي
+    - نأذي ولدي
+    - نأذي شي حد
+    - أؤذي طفلي
+    - نسممو
+    - أسممه
+    - نضربو حتى يموت
+    - حاب نقتلو
+    - نحب نقتلو
+    - كيفاش نقتل شي واحد
+  arabizi:
+    - bghit n9tlo
+    - bghit n9tolo
+    - bghit nqtlo
+    - bghit n9telha
+    - ghadi n9tlo
+    - ghadi n9telha
+    - n9tlo
+    - n9telha
+    - n9tlhom
+    - n7eb n9tlo
+    - 7ab n9tlo
+    - nsemmo
+    - ndrbo 7ta imout
+    - n9tel rajli
+    - n9tel mrati
+condition_terms:
+  en:
+    - homicidal
+    - homicidal thoughts
+  fr:
+    - pensées homicides
+  ar:
+    - أفكار القتل
+  arabizi: []

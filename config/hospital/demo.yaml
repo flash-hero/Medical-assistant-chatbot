@@ -1,0 +1,329 @@
+# FICTIONAL demo hospital profile. Validates against core.schemas.hospital.HospitalProfile.
+# Every hospital fact here is invented EXCEPT the national emergency and crisis numbers for France:
+#   15   SAMU (medical emergencies)
+#   112  European emergency number (works from any phone in the EU)
+#   3114 Numero national de prevention du suicide (24/7)
+# The hospital's own lines use the obviously fictional range +33 1 00 00 00 xx.
+id: hopital_demo_ausculta
+name:
+  en: "Hôpital Démo Ausculta (demo hospital)"
+  fr: "Hôpital Démo Ausculta (hôpital de démonstration)"
+  ar: "مستشفى أوسكولتا التجريبي (مستشفى للعرض)"
+is_demo: true
+country: FR
+timezone: Europe/Paris
+address:
+  en: "1 rue de l'Exemple, 75000 Paris, France (fictional address)"
+  fr: "1 rue de l'Exemple, 75000 Paris, France (adresse fictive)"
+  ar: "1 شارع المثال، 75000 باريس، فرنسا (عنوان وهمي)"
+website: "https://hopital-demo.example/"
+main_phone:
+  label:
+    en: "Switchboard"
+    fr: "Standard"
+    ar: "المقسم الهاتفي"
+  number: "+33 1 00 00 00 00"
+  hours:
+    en: "24 hours a day, 7 days a week"
+    fr: "24 h/24, 7 j/7"
+    ar: "24 ساعة في اليوم، 7 أيام في الأسبوع"
+emergency:
+  label:
+    en: "SAMU - medical emergencies"
+    fr: "SAMU - urgences médicales"
+    ar: "الإسعاف الطبي (SAMU) - الحالات الطارئة"
+  number: "15"
+  hours:
+    en: "24/7, free call"
+    fr: "24 h/24, appel gratuit"
+    ar: "على مدار الساعة، مكالمة مجانية"
+crisis_lines:
+  - label:
+      en: "National suicide prevention line (3114)"
+      fr: "Numéro national de prévention du suicide (3114)"
+      ar: "الخط الوطني للوقاية من الانتحار (3114)"
+    number: "3114"
+    hours:
+      en: "24/7, free and confidential"
+      fr: "24 h/24, gratuit et confidentiel"
+      ar: "على مدار الساعة، مجاني وسري"
+  - label:
+      en: "European emergency number (112)"
+      fr: "Numéro d'urgence européen (112)"
+      ar: "رقم الطوارئ الأوروبي (112)"
+    number: "112"
+    hours:
+      en: "24/7, from any phone"
+      fr: "24 h/24, depuis n'importe quel téléphone"
+      ar: "على مدار الساعة، من أي هاتف"
+handoff:
+  label:
+    en: "Reception desk (a member of staff)"
+    fr: "Accueil (un membre du personnel)"
+    ar: "مكتب الاستقبال (موظف من المستشفى)"
+  number: "+33 1 00 00 00 01"
+  hours:
+    en: "Monday to Friday 8:00-19:00, Saturday 9:00-13:00"
+    fr: "Du lundi au vendredi 8 h-19 h, le samedi 9 h-13 h"
+    ar: "من الاثنين إلى الجمعة 8:00-19:00، السبت 9:00-13:00"
+visiting_hours:
+  en: "Visits are possible every day from 13:00 to 20:00. Intensive care: 2 visitors at a time. Maternity: partners at any time."
+  fr: "Les visites sont possibles tous les jours de 13 h à 20 h. Réanimation : 2 visiteurs à la fois. Maternité : le partenaire à toute heure."
+  ar: "الزيارات ممكنة كل يوم من 13:00 إلى 20:00. العناية المركزة: زائران في نفس الوقت. قسم الولادة: يمكن للشريك الزيارة في أي وقت."
+documents_to_bring:
+  en: "Bring an identity document, your Carte Vitale (health insurance card), your complementary insurance (mutuelle) card, your referral letter if you have one, your current prescriptions and recent test results."
+  fr: "Apportez une pièce d'identité, votre carte Vitale, votre carte de mutuelle, votre lettre d'orientation si vous en avez une, vos ordonnances en cours et vos résultats d'examens récents."
+  ar: "أحضر وثيقة هوية، وبطاقة التأمين الصحي (Carte Vitale)، وبطاقة التأمين التكميلي (mutuelle)، ورسالة الإحالة إن وجدت، ووصفاتك الطبية الحالية ونتائج فحوصاتك الأخيرة."
+insurance:
+  en: "The demo hospital works with the French national health insurance (Assurance Maladie) and most complementary insurers. Ask the admissions desk about costs that are not covered."
+  fr: "L'hôpital de démonstration travaille avec l'Assurance Maladie et la plupart des mutuelles. Renseignez-vous au bureau des admissions pour les frais non couverts."
+  ar: "يتعامل المستشفى التجريبي مع التأمين الصحي الوطني الفرنسي (Assurance Maladie) ومعظم شركات التأمين التكميلي. اسأل مكتب القبول عن التكاليف غير المغطاة."
+directions:
+  en: "Fictional directions: Démo metro station (line 0), exit 2, then 3 minutes on foot. Bus 000 stops at the main entrance. Visitor car park on level -1."
+  fr: "Accès fictif : station de métro Démo (ligne 0), sortie 2, puis 3 minutes à pied. Le bus 000 s'arrête devant l'entrée principale. Parking visiteurs au niveau -1."
+  ar: "اتجاهات وهمية: محطة مترو ديمو (الخط 0)، المخرج 2، ثم 3 دقائق سيرًا على الأقدام. تتوقف الحافلة 000 أمام المدخل الرئيسي. موقف سيارات الزوار في الطابق -1."
+departments:
+  - id: emergency_department
+    name:
+      en: "Emergency department"
+      fr: "Service des urgences"
+      ar: "قسم المستعجلات"
+    description:
+      en: "Open 24/7 for urgent care. For a life-threatening emergency, call 15 first."
+      fr: "Ouvert 24 h/24 pour les soins urgents. En cas d'urgence vitale, appelez d'abord le 15."
+      ar: "مفتوح على مدار الساعة للرعاية العاجلة. في حالة طوارئ تهدد الحياة، اتصل أولاً بالرقم 15."
+    location:
+      en: "Building A, ground floor, entrance on the side street"
+      fr: "Bâtiment A, rez-de-chaussée, entrée par la rue latérale"
+      ar: "المبنى A، الطابق الأرضي، المدخل من الشارع الجانبي"
+    phone: "+33 1 00 00 00 10"
+    hours:
+      en: "24 hours a day, 7 days a week"
+      fr: "24 h/24, 7 j/7"
+      ar: "24 ساعة في اليوم، 7 أيام في الأسبوع"
+    accepts_appointments: false
+    keywords: [emergency, emergencies, "A&E", "ER", urgences, urgence, "طوارئ", "مستعجلات", "الطوارئ", "lmosta3jalat", "urgence"]
+  - id: cardiology
+    name:
+      en: "Cardiology"
+      fr: "Cardiologie"
+      ar: "أمراض القلب"
+    description:
+      en: "Consultations and tests for heart conditions (ECG, echocardiography, stress tests)."
+      fr: "Consultations et examens pour les maladies du cœur (ECG, échographie cardiaque, épreuves d'effort)."
+      ar: "استشارات وفحوصات لأمراض القلب (تخطيط القلب، تصوير القلب بالصدى، اختبارات الجهد)."
+    location:
+      en: "Building B, 2nd floor"
+      fr: "Bâtiment B, 2e étage"
+      ar: "المبنى B، الطابق الثاني"
+    phone: "+33 1 00 00 00 11"
+    hours:
+      en: "Monday to Friday 8:30-17:30"
+      fr: "Du lundi au vendredi 8 h 30-17 h 30"
+      ar: "من الاثنين إلى الجمعة 8:30-17:30"
+    accepts_appointments: true
+    keywords: [cardiology, cardiologist, heart, cardiologie, cardiologue, "cœur", coeur, "قلب", "القلب", "طبيب القلب", "tbib l9alb", "9alb"]
+  - id: pediatrics
+    name:
+      en: "Paediatrics"
+      fr: "Pédiatrie"
+      ar: "طب الأطفال"
+    description:
+      en: "Care for babies, children and teenagers up to 18 years."
+      fr: "Soins pour les bébés, les enfants et les adolescents jusqu'à 18 ans."
+      ar: "رعاية الرضع والأطفال والمراهقين حتى سن 18 عامًا."
+    location:
+      en: "Building C, 1st floor"
+      fr: "Bâtiment C, 1er étage"
+      ar: "المبنى C، الطابق الأول"
+    phone: "+33 1 00 00 00 12"
+    hours:
+      en: "Consultations Monday to Saturday 8:30-18:00"
+      fr: "Consultations du lundi au samedi 8 h 30-18 h"
+      ar: "الاستشارات من الاثنين إلى السبت 8:30-18:00"
+    accepts_appointments: true
+    keywords: [pediatrics, paediatrics, pediatrician, children, child, kids, "pédiatrie", pediatre, "pédiatre", enfants, "أطفال", "طب الأطفال", "طبيب الأطفال", "tbib drari", "drari"]
+  - id: maternity
+    name:
+      en: "Maternity and obstetrics"
+      fr: "Maternité et obstétrique"
+      ar: "الولادة والتوليد"
+    description:
+      en: "Pregnancy follow-up, childbirth and post-natal care."
+      fr: "Suivi de grossesse, accouchement et suites de couches."
+      ar: "متابعة الحمل والولادة والرعاية بعد الولادة."
+    location:
+      en: "Building C, 3rd floor"
+      fr: "Bâtiment C, 3e étage"
+      ar: "المبنى C، الطابق الثالث"
+    phone: "+33 1 00 00 00 13"
+    hours:
+      en: "Pregnancy consultations Monday to Friday 9:00-17:00; delivery ward open 24/7"
+      fr: "Consultations de grossesse du lundi au vendredi 9 h-17 h ; salle de naissance ouverte 24 h/24"
+      ar: "استشارات الحمل من الاثنين إلى الجمعة 9:00-17:00؛ قاعة الولادة مفتوحة على مدار الساعة"
+    accepts_appointments: true
+    keywords: [maternity, obstetrics, pregnancy, midwife, "maternité", obstetrique, grossesse, "sage-femme", accouchement, "ولادة", "الولادة", "حمل", "الحمل", "قابلة", "tawlid", "wilada"]
+  - id: radiology
+    name:
+      en: "Medical imaging (radiology)"
+      fr: "Imagerie médicale (radiologie)"
+      ar: "التصوير الطبي (الأشعة)"
+    description:
+      en: "X-rays, ultrasound, CT and MRI scans on prescription."
+      fr: "Radiographies, échographies, scanners et IRM sur prescription."
+      ar: "الأشعة السينية والموجات فوق الصوتية والتصوير المقطعي والرنين المغناطيسي بوصفة طبية."
+    location:
+      en: "Building A, basement level -1"
+      fr: "Bâtiment A, sous-sol niveau -1"
+      ar: "المبنى A، الطابق السفلي -1"
+    phone: "+33 1 00 00 00 14"
+    hours:
+      en: "Monday to Friday 8:00-19:00, Saturday 8:00-12:00"
+      fr: "Du lundi au vendredi 8 h-19 h, le samedi 8 h-12 h"
+      ar: "من الاثنين إلى الجمعة 8:00-19:00، السبت 8:00-12:00"
+    accepts_appointments: true
+    keywords: [radiology, imaging, "x-ray", xray, scan, mri, ultrasound, radiologie, imagerie, radio, scanner, irm, "échographie", echographie, "أشعة", "الأشعة", "سكانير", "راديو", "الرنين", "radio", "scanner"]
+  - id: general_medicine
+    name:
+      en: "General medicine consultations"
+      fr: "Consultations de médecine générale"
+      ar: "استشارات الطب العام"
+    description:
+      en: "Non-urgent consultations with a general practitioner."
+      fr: "Consultations non urgentes avec un médecin généraliste."
+      ar: "استشارات غير عاجلة مع طبيب عام."
+    location:
+      en: "Building B, ground floor"
+      fr: "Bâtiment B, rez-de-chaussée"
+      ar: "المبنى B، الطابق الأرضي"
+    phone: "+33 1 00 00 00 15"
+    hours:
+      en: "Monday to Friday 8:00-18:00"
+      fr: "Du lundi au vendredi 8 h-18 h"
+      ar: "من الاثنين إلى الجمعة 8:00-18:00"
+    accepts_appointments: true
+    keywords: [general practitioner, gp, doctor, family doctor, "médecin généraliste", generaliste, "médecin", medecin, "طبيب عام", "الطب العام", "طبيب", "tbib", "doctor"]
+  - id: dermatology
+    name:
+      en: "Dermatology"
+      fr: "Dermatologie"
+      ar: "الأمراض الجلدية"
+    description:
+      en: "Consultations for skin, hair and nail conditions."
+      fr: "Consultations pour les maladies de la peau, des cheveux et des ongles."
+      ar: "استشارات لأمراض الجلد والشعر والأظافر."
+    location:
+      en: "Building B, 1st floor"
+      fr: "Bâtiment B, 1er étage"
+      ar: "المبنى B، الطابق الأول"
+    phone: "+33 1 00 00 00 16"
+    hours:
+      en: "Tuesday and Thursday 9:00-17:00"
+      fr: "Mardi et jeudi 9 h-17 h"
+      ar: "الثلاثاء والخميس 9:00-17:00"
+    accepts_appointments: true
+    keywords: [dermatology, dermatologist, skin, dermatologie, dermatologue, peau, "جلد", "الجلد", "طبيب الجلد", "jild"]
+  - id: laboratory
+    name:
+      en: "Laboratory (blood tests)"
+      fr: "Laboratoire (prises de sang)"
+      ar: "المختبر (تحاليل الدم)"
+    description:
+      en: "Blood and urine samples on prescription, without an appointment."
+      fr: "Prises de sang et analyses d'urine sur ordonnance, sans rendez-vous."
+      ar: "سحب عينات الدم والبول بوصفة طبية، بدون موعد."
+    location:
+      en: "Building A, 1st floor"
+      fr: "Bâtiment A, 1er étage"
+      ar: "المبنى A، الطابق الأول"
+    phone: "+33 1 00 00 00 17"
+    hours:
+      en: "Monday to Saturday 7:30-12:30, no appointment needed"
+      fr: "Du lundi au samedi 7 h 30-12 h 30, sans rendez-vous"
+      ar: "من الاثنين إلى السبت 7:30-12:30، بدون موعد"
+    accepts_appointments: false
+    keywords: [laboratory, lab, blood test, "blood tests", urine test, laboratoire, "prise de sang", analyses, "تحاليل", "تحليل الدم", "المختبر", "مختبر", "laboratoire", "ta7lil"]
+faqs:
+  - id: parking
+    question:
+      en: "Is there parking at the hospital?"
+      fr: "Y a-t-il un parking à l'hôpital ?"
+      ar: "هل يوجد موقف سيارات في المستشفى؟"
+    answer:
+      en: "Yes. The visitor car park is on level -1 under Building A and is open 24/7. Spaces for people with reduced mobility are next to the lifts."
+      fr: "Oui. Le parking visiteurs se trouve au niveau -1 sous le bâtiment A et est ouvert 24 h/24. Des places pour les personnes à mobilité réduite sont situées près des ascenseurs."
+      ar: "نعم. يقع موقف سيارات الزوار في الطابق -1 تحت المبنى A وهو مفتوح على مدار الساعة. توجد أماكن مخصصة للأشخاص ذوي الحركة المحدودة بالقرب من المصاعد."
+    keywords: [parking, car park, park, car, garer, voiture, stationnement, "موقف", "باركينغ", "سيارة", "parking", "tomobil"]
+  - id: wifi
+    question:
+      en: "Is there free Wi-Fi?"
+      fr: "Y a-t-il un Wi-Fi gratuit ?"
+      ar: "هل يوجد واي فاي مجاني؟"
+    answer:
+      en: "Yes. Connect to the network named DEMO-GUEST; no password is needed."
+      fr: "Oui. Connectez-vous au réseau DEMO-GUEST ; aucun mot de passe n'est nécessaire."
+      ar: "نعم. اتصل بالشبكة المسماة DEMO-GUEST؛ لا حاجة إلى كلمة مرور."
+    keywords: [wifi, "wi-fi", internet, "واي فاي", "الويفي", "انترنت"]
+  - id: cafeteria
+    question:
+      en: "Where can I eat or buy a drink?"
+      fr: "Où puis-je manger ou acheter une boisson ?"
+      ar: "أين يمكنني الأكل أو شراء مشروب؟"
+    answer:
+      en: "The cafeteria is in the main hall of Building A, open every day from 7:30 to 19:00. Vending machines are available 24/7 next to the emergency department."
+      fr: "La cafétéria se trouve dans le hall principal du bâtiment A, ouverte tous les jours de 7 h 30 à 19 h. Des distributeurs sont disponibles 24 h/24 à côté des urgences."
+      ar: "تقع الكافتيريا في البهو الرئيسي للمبنى A، وهي مفتوحة كل يوم من 7:30 إلى 19:00. تتوفر آلات البيع على مدار الساعة بجوار قسم المستعجلات."
+    keywords: [cafeteria, food, eat, drink, coffee, "cafétéria", manger, boire, "café", restaurant, "كافتيريا", "أكل", "مقهى", "قهوة", "makla"]
+  - id: medical_records
+    question:
+      en: "How do I get a copy of my medical records?"
+      fr: "Comment obtenir une copie de mon dossier médical ?"
+      ar: "كيف أحصل على نسخة من ملفي الطبي؟"
+    answer:
+      en: "Send a written request with a copy of your identity document to the medical records office (Building A, 2nd floor) or ask at the reception desk. Records are sent within the legal time limits."
+      fr: "Envoyez une demande écrite avec une copie de votre pièce d'identité au service des dossiers médicaux (bâtiment A, 2e étage) ou adressez-vous à l'accueil. Le dossier est transmis dans les délais légaux."
+      ar: "أرسل طلبًا كتابيًا مع نسخة من وثيقة هويتك إلى مكتب الملفات الطبية (المبنى A، الطابق الثاني) أو اسأل في مكتب الاستقبال. يتم إرسال الملف ضمن الآجال القانونية."
+    keywords: [medical records, records, file, copy, "dossier médical", dossier, copie, "ملف طبي", "الملف الطبي", "نسخة", "dossier"]
+  - id: interpreter
+    question:
+      en: "Can I have an interpreter?"
+      fr: "Puis-je avoir un interprète ?"
+      ar: "هل يمكنني الحصول على مترجم؟"
+    answer:
+      en: "Yes. Ask the reception desk when you arrive or when you book; interpreting is available for many languages, including Arabic and French sign language."
+      fr: "Oui. Demandez à l'accueil à votre arrivée ou lors de la prise de rendez-vous ; l'interprétariat est disponible dans de nombreuses langues, dont l'arabe et la langue des signes française."
+      ar: "نعم. اطلب ذلك من مكتب الاستقبال عند وصولك أو عند الحجز؛ تتوفر الترجمة بلغات عديدة، منها العربية ولغة الإشارة الفرنسية."
+    keywords: [interpreter, translator, translation, "interprète", interprete, traducteur, "مترجم", "ترجمة", "terjman"]
+  - id: accessibility
+    question:
+      en: "Is the hospital accessible for wheelchairs?"
+      fr: "L'hôpital est-il accessible en fauteuil roulant ?"
+      ar: "هل المستشفى مجهز لاستقبال الكراسي المتحركة؟"
+    answer:
+      en: "Yes. All buildings have step-free access and lifts. Wheelchairs can be borrowed at the main entrance."
+      fr: "Oui. Tous les bâtiments sont accessibles de plain-pied et équipés d'ascenseurs. Des fauteuils roulants peuvent être empruntés à l'entrée principale."
+      ar: "نعم. جميع المباني مجهزة بمداخل بدون درج وبمصاعد. يمكن استعارة كراسي متحركة عند المدخل الرئيسي."
+    keywords: [wheelchair, accessible, accessibility, disabled, "fauteuil roulant", "accessibilité", handicap, "كرسي متحرك", "إعاقة", "ولوجيات"]
+  - id: payment
+    question:
+      en: "How do I pay for a consultation?"
+      fr: "Comment payer une consultation ?"
+      ar: "كيف أدفع ثمن الاستشارة؟"
+    answer:
+      en: "Payment is made at the admissions desk (Building A, ground floor) by card or cash. With your Carte Vitale, the part covered by health insurance is handled directly."
+      fr: "Le paiement se fait au bureau des admissions (bâtiment A, rez-de-chaussée) par carte ou en espèces. Avec votre carte Vitale, la part prise en charge par l'Assurance Maladie est réglée directement."
+      ar: "يتم الدفع في مكتب القبول (المبنى A، الطابق الأرضي) بالبطاقة أو نقدًا. مع بطاقة Carte Vitale، يتم التكفل مباشرة بالجزء الذي يغطيه التأمين الصحي."
+    keywords: [pay, payment, price, cost, bill, payer, paiement, prix, "coût", tarif, facture, "دفع", "ثمن", "تكلفة", "فاتورة", "flous", "chhal"]
+  - id: lost_property
+    question:
+      en: "I lost something at the hospital. What should I do?"
+      fr: "J'ai perdu un objet à l'hôpital. Que faire ?"
+      ar: "فقدت شيئًا في المستشفى. ماذا أفعل؟"
+    answer:
+      en: "Contact the reception desk; lost property is kept at the main entrance for 3 months."
+      fr: "Contactez l'accueil ; les objets trouvés sont conservés à l'entrée principale pendant 3 mois."
+      ar: "اتصل بمكتب الاستقبال؛ تُحفظ المفقودات عند المدخل الرئيسي لمدة 3 أشهر."
+    keywords: [lost, lost property, forgot, "objet perdu", "objets trouvés", perdu, "مفقودات", "ضاع", "نسيت"]
+verified_by: "demo data - not verified by a hospital"
+verified_on: 2026-11-15
+expires_on: 2027-11-15

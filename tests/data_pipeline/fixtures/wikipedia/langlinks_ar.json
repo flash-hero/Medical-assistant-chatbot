@@ -1,0 +1,47 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "normalized": [
+   {
+    "fromencoded": false,
+    "from": "asthma",
+    "to": "Asthma"
+   }
+  ],
+  "redirects": [
+   {
+    "from": "Gout (disease)",
+    "to": "Gout"
+   }
+  ],
+  "pages": [
+   {
+    "pageid": 44905,
+    "ns": 0,
+    "title": "Asthma",
+    "langlinks": [
+     {
+      "lang": "ar",
+      "title": "ربو"
+     }
+    ]
+   },
+   {
+    "pageid": 8,
+    "ns": 0,
+    "title": "Gout",
+    "langlinks": [
+     {
+      "lang": "ar",
+      "title": "نقرس"
+     }
+    ]
+   },
+   {
+    "pageid": 9,
+    "ns": 0,
+    "title": "Cancer"
+   }
+  ]
+ }
+}

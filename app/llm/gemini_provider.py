@@ -11,10 +11,11 @@ Guarantees:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import math
 import time
-from collections.abc import AsyncIterator, Mapping, Sequence
-from typing import Any
+from collections.abc import AsyncIterator, Awaitable, Mapping, Sequence
+from typing import Any, TypeVar, cast
 
 from google import genai
 from google.genai import types
@@ -35,6 +36,7 @@ from core.ports import (
     SpendMeter,
 )
 
+T = TypeVar("T")
 STREAM_IDLE_TIMEOUT_S = 15.0
 FREE_TIER_EMBED_TEXTS_PER_MIN = 90.0  # measured quota: 100 texts/min on the free tier
 _HC = types.HarmCategory
@@ -150,7 +152,9 @@ class GeminiProvider:
             "store": False,
         }
         if spec.thinking_level:
-            kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=spec.thinking_level)
+            kwargs["thinking_config"] = types.ThinkingConfig(
+                thinking_level=types.ThinkingLevel(spec.thinking_level.upper())
+            )
         if request.json_schema is not None:
             kwargs["response_mime_type"] = "application/json"
             kwargs["response_json_schema"] = dict(request.json_schema)
@@ -174,11 +178,11 @@ class GeminiProvider:
         timeout = request.timeout_s or spec.timeout_s
         rid, est_in = await self._reserve(spec, request)
         t0 = time.perf_counter()
-        tokens_out = 0
+        tokens_in, tokens_out = 0, 0  # a failed request is not billed; set from usage on success
         try:
 
             async def call() -> types.GenerateContentResponse:
-                return await asyncio.wait_for(
+                return await _bounded(
                     self._client.aio.models.generate_content(
                         model=spec.model_id, contents=request.prompt, config=cfg
                     ),
@@ -200,17 +204,18 @@ class GeminiProvider:
                 latency_ms=(time.perf_counter() - t0) * 1000,
             )
         finally:
-            await self._settle(rid, spec, est_in, tokens_out)
+            await asyncio.shield(self._settle(rid, spec, tokens_in, tokens_out))
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[GenerationChunk]:
         spec = self._spec(request.role)
         cfg = self._config(spec, request)
         first_timeout = request.timeout_s or spec.timeout_s
         rid, est_in = await self._reserve(spec, request)
-        tokens_out = 0
+        usage = [0, 0]  # [tokens_in, tokens_out]: nothing is billed until the stream opens
+        agen: Any = None
 
         async def open_and_first() -> tuple[Any, types.GenerateContentResponse | None]:
-            it = await asyncio.wait_for(
+            it = await _bounded(
                 self._client.aio.models.generate_content_stream(
                     model=spec.model_id, contents=request.prompt, config=cfg
                 ),
@@ -218,26 +223,30 @@ class GeminiProvider:
             )
             agen = it.__aiter__()
             try:
-                return agen, await asyncio.wait_for(agen.__anext__(), first_timeout)
+                return agen, await _bounded(agen.__anext__(), first_timeout)
             except StopAsyncIteration:
                 return agen, None
             except BaseException:
                 await _aclose(agen)
                 raise
 
-        agen, chunk = await with_retry(open_and_first, self._policy)
+        # The try starts right after the reservation: a failed or cancelled open must still settle
+        # (review P1/S2); cleanup is shielded so a repeated cancel cannot skip settle or close (review P4).
         try:
+            agen, chunk = await with_retry(open_and_first, self._policy)
+            usage[0] = est_in
             while chunk is not None:
                 _raise_if_blocked(chunk)
                 if chunk.usage_metadata:
                     um = chunk.usage_metadata
-                    tokens_out = (um.candidates_token_count or 0) + (um.thoughts_token_count or 0)
+                    usage[0] = um.prompt_token_count or usage[0]
+                    usage[1] = (um.candidates_token_count or 0) + (um.thoughts_token_count or 0)
                 text = _visible_text(chunk)
                 finish = _finish(chunk)
                 if text or finish:
                     yield GenerationChunk(text=text, finish_reason=finish)
                 try:
-                    chunk = await asyncio.wait_for(agen.__anext__(), STREAM_IDLE_TIMEOUT_S)
+                    chunk = await _bounded(agen.__anext__(), STREAM_IDLE_TIMEOUT_S)
                 except StopAsyncIteration:
                     chunk = None
                 except asyncio.CancelledError:
@@ -245,8 +254,16 @@ class GeminiProvider:
                 except Exception as exc:
                     raise map_exception(exc) from exc
         finally:
-            await _aclose(agen)
-            await self._settle(rid, spec, est_in, tokens_out)
+            await asyncio.shield(self._cleanup(rid, spec, usage[0], usage[1], agen))
+
+    async def _cleanup(
+        self, rid: str | None, spec: ModelSpec, tokens_in: int, tokens_out: int, agen: Any
+    ) -> None:
+        try:
+            await self._settle(rid, spec, tokens_in, tokens_out)
+        finally:
+            if agen is not None:
+                await _aclose(agen)
 
     async def decide(
         self, role: ModelRole, input_text: str, questions: Mapping[str, DecisionQuestion]
@@ -256,27 +273,37 @@ class GeminiProvider:
         t0 = time.perf_counter()
 
         async def call() -> Any:
-            return await asyncio.wait_for(
-                self._client.aio.decisions.create(model=spec.model_id, input=input_text, questions=params),
+            return await _bounded(
+                self._client.aio.decisions.create(
+                    model=spec.model_id, input=input_text, questions=cast(Any, params)
+                ),
                 spec.timeout_s,
             )
 
-        res = await with_retry(call, self._policy)
-        pf = getattr(res, "prompt_feedback", None)
-        if pf is not None and getattr(pf, "block_reason", None):
-            reason = str(getattr(pf.block_reason, "value", pf.block_reason)).lower()
-            raise UpstreamBlocked("decision input blocked", reason=reason, stage="prompt")
-        raw = dict(res.answers or {})
-        missing = set(questions) - set(raw)
-        if missing:
-            raise UpstreamError(f"decision response missing answers: {sorted(missing)}")
-        usage = getattr(res, "usage", None)
-        return DecisionResult(
-            answers={k: _answer(raw[k]) for k in questions},
-            model_id=spec.model_id,
-            input_tokens=int(getattr(usage, "total_input_tokens", 0) or 0),
-            latency_ms=(time.perf_counter() - t0) * 1000,
-        )
+        # Metered like generation (review S12): reserve an estimate, settle actual input tokens, 0 on failure.
+        est_in = _estimate_tokens(input_text + "".join(q.instructions for q in questions.values()))
+        rid = await self._spend.reserve(_cost(spec, est_in, 0)) if self._spend is not None else None
+        tokens_in = 0
+        try:
+            res = await with_retry(call, self._policy)
+            usage = getattr(res, "usage", None)
+            tokens_in = int(getattr(usage, "total_input_tokens", 0) or est_in)
+            pf = getattr(res, "prompt_feedback", None)
+            if pf is not None and getattr(pf, "block_reason", None):
+                reason = str(getattr(pf.block_reason, "value", pf.block_reason)).lower()
+                raise UpstreamBlocked("decision input blocked", reason=reason, stage="prompt")
+            raw = dict(res.answers or {})
+            missing = set(questions) - set(raw)
+            if missing:
+                raise UpstreamError(f"decision response missing answers: {sorted(missing)}")
+            return DecisionResult(
+                answers={k: _answer(raw[k]) for k in questions},
+                model_id=spec.model_id,
+                input_tokens=tokens_in,
+                latency_ms=(time.perf_counter() - t0) * 1000,
+            )
+        finally:
+            await asyncio.shield(self._settle(rid, spec, tokens_in, 0))
 
     async def embed(self, texts: Sequence[str], *, dim: int) -> list[list[float]]:
         spec = self._spec(ModelRole.EMBED)
@@ -292,7 +319,7 @@ class GeminiProvider:
             contents = [types.Content(parts=[types.Part(text=t)]) for t in batch]
 
             async def call(contents: list[types.Content] = contents) -> types.EmbedContentResponse:
-                return await asyncio.wait_for(
+                return await _bounded(
                     self._client.aio.models.embed_content(model=spec.model_id, contents=contents, config=cfg),
                     spec.timeout_s,
                 )
@@ -313,7 +340,16 @@ def _unit(v: list[float]) -> list[float]:
 async def _aclose(agen: Any) -> None:
     closer = getattr(agen, "aclose", None)
     if closer is not None:
-        try:
+        with contextlib.suppress(Exception):  # best-effort close of a dead stream
             await closer()
-        except Exception:  # noqa: S110 - best-effort close of a dead stream
-            pass
+
+
+async def _bounded(awaitable: Awaitable[T], seconds: float) -> T:
+    """Timeout that never swallows an outer cancellation.
+
+    On Python 3.11, asyncio.wait_for can drop a task.cancel() when the inner awaitable completes in the same
+    loop iteration, which would leave an upstream stream open after a client disconnect.
+    asyncio.timeout() has no such race. Expiry raises TimeoutError (mapped to UpstreamTimeout).
+    """
+    async with asyncio.timeout(seconds):
+        return await awaitable

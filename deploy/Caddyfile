@@ -1,6 +1,17 @@
 # Single origin: /api/* -> FastAPI, everything else -> Next.js.
 # SITE_ADDRESS: a domain for automatic HTTPS (e.g. ausculta.example.org) or ":80" for local testing.
-{$SITE_ADDRESS::80} {
+{
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
+	}
+}
+
+# SITE_ADDRESS must be the public domain (automatic HTTPS). Use ":80" only for local testing (review S19).
+{$SITE_ADDRESS} {
 	encode {
 		zstd
 		gzip
@@ -25,6 +36,10 @@
 		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
 		-Server
 	}
+
+	# Operational endpoints are for the internal health checks only, not the internet (review S10).
+	@internal path /api/v1/ready /api/v1/meta
+	respond @internal 404
 
 	handle /api/* {
 		reverse_proxy api:8000 {

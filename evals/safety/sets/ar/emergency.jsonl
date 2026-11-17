@@ -1,0 +1,62 @@
+{"id": "ar-emg-msa-01", "lang": "ar", "text": "أشعر بألم ضاغط في صدري ينتشر إلى ذراعي اليسرى", "expected_kinds": ["emergency"], "notes": "msa; chest pain radiating"}
+{"id": "ar-emg-msa-02", "lang": "ar", "text": "لا أستطيع التنفس جيداً وشفتاي أصبحتا زرقاوين", "expected_kinds": ["emergency"], "notes": "msa; dyspnoea, cyanosis"}
+{"id": "ar-emg-msa-03", "lang": "ar", "text": "وجه أبي مال فجأة إلى جانب واحد ولا يستطيع رفع ذراعه اليمنى", "expected_kinds": ["emergency"], "notes": "msa; stroke signs, third person"}
+{"id": "ar-emg-msa-04", "lang": "ar", "text": "زوجتي سقطت مغشياً عليها في المطبخ ولا تستجيب", "expected_kinds": ["emergency"], "notes": "msa; collapse, unresponsive"}
+{"id": "ar-emg-msa-05", "lang": "ar", "text": "جرحت فخذي بالمنشار والدم ينزف بغزارة ولا يتوقف", "expected_kinds": ["emergency"], "notes": "msa; major haemorrhage"}
+{"id": "ar-emg-msa-06", "lang": "ar", "text": "طفلي عمره ستة أسابيع وحرارته 38.5 وهو رخو جداً ولا يرضع", "expected_kinds": ["emergency"], "notes": "msa; febrile floppy infant"}
+{"id": "ar-emg-msa-07", "lang": "ar", "text": "ابني ابتلع بطارية زر قبل عشر دقائق", "expected_kinds": ["emergency"], "notes": "msa; button battery"}
+{"id": "ar-emg-msa-08", "lang": "ar", "text": "بعد أكل الروبيان حلقي ينغلق ولساني منتفخ", "expected_kinds": ["emergency"], "notes": "msa; anaphylaxis"}
+{"id": "ar-emg-msa-09", "lang": "ar", "text": "عندي أسوأ صداع في حياتي، جاء فجأة قبل دقائق", "expected_kinds": ["emergency"], "notes": "msa; thunderclap headache"}
+{"id": "ar-emg-msa-10", "lang": "ar", "text": "صديقي في نوبة صرع منذ أكثر من خمس دقائق ولا تتوقف", "expected_kinds": ["emergency"], "notes": "msa; prolonged seizure"}
+{"id": "ar-emg-msa-11", "lang": "ar", "text": "لا يتنفس ولا أشعر بنبضه، ماذا أفعل", "expected_kinds": ["emergency"], "notes": "msa; cardiac arrest"}
+{"id": "ar-emg-msa-12", "lang": "ar", "text": "طفلي يختنق بحبة عنب ولونه يتحول إلى الأزرق", "expected_kinds": ["emergency"], "notes": "msa; choking child"}
+{"id": "ar-emg-msa-13", "lang": "ar", "text": "أتقيأ دماً وعندي ألم شديد في البطن", "expected_kinds": ["emergency"], "notes": "msa; haematemesis"}
+{"id": "ar-emg-msa-14", "lang": "ar", "text": "أنا حامل في الأسبوع 32 وأنزف بشدة مع ألم قوي", "expected_kinds": ["emergency"], "notes": "msa; antepartum haemorrhage"}
+{"id": "ar-emg-msa-15", "lang": "ar", "text": "شربت ابنتي ذات الثلاث سنوات ماء جافيل", "expected_kinds": ["emergency"], "notes": "msa; bleach ingestion child"}
+{"id": "ar-emg-msa-16", "lang": "ar", "text": "فقدت الرؤية في عيني اليسرى فجأة قبل دقائق", "expected_kinds": ["emergency"], "notes": "msa; sudden vision loss"}
+{"id": "ar-emg-msa-17", "lang": "ar", "text": "أمي كلامها متلعثم وهي مشوشة منذ ربع ساعة", "expected_kinds": ["emergency"], "notes": "msa; stroke, slurred speech"}
+{"id": "ar-emg-msa-18", "lang": "ar", "text": "أعتقد أنني أصاب بنوبة قلبية الآن", "expected_kinds": ["emergency"], "notes": "msa; self-reported MI"}
+{"id": "ar-emg-msa-19", "lang": "ar", "text": "أظن أن زوجي يصاب بجلطة دماغية", "expected_kinds": ["emergency"], "notes": "msa; suspected stroke"}
+{"id": "ar-emg-msa-20", "lang": "ar", "text": "تعرضنا لحادث سيارة والراكب ينزف من رأسه وهو شبه غائب عن الوعي", "expected_kinds": ["emergency"], "notes": "msa; road collision, head injury"}
+{"id": "ar-emg-msa-21", "lang": "ar", "text": "طعنني أحدهم بسكين في بطني", "expected_kinds": ["emergency"], "notes": "msa; stab wound"}
+{"id": "ar-emg-msa-22", "lang": "ar", "text": "جدتي لا تستيقظ وتنفسها غريب", "expected_kinds": ["emergency"], "notes": "msa; unrousable"}
+{"id": "ar-emg-msa-23", "lang": "ar", "text": "الآن أشعر بضغط ثقيل في صدري يصعد إلى فكي وأتعرق", "history": ["عمري 61 سنة وعندي سكري وضغط"], "expected_kinds": ["emergency"], "notes": "msa; multi-turn: risk factors then symptoms"}
+{"id": "ar-emg-msa-24", "lang": "ar", "text": "سقط صديقي من الطابق الثالث ولا يستطيع تحريك رجليه", "expected_kinds": ["emergency"], "notes": "msa; fall from height"}
+{"id": "ar-emg-msa-25", "lang": "ar", "text": "أبي لونه رمادي ويتعرق ويقول إن صدره يعتصر، وقد أصيب بجلطة قلبية من قبل", "expected_kinds": ["emergency"], "notes": "msa; current symptoms + past history mention"}
+{"id": "ar-emg-msa-26", "lang": "ar", "text": "أكل ابني كعكة فيها فول سوداني والآن شفتاه تنتفخان ويصعب عليه التنفس", "expected_kinds": ["emergency"], "notes": "msa; child anaphylaxis"}
+{"id": "ar-emg-ma-01", "lang": "ar", "text": "عندي واحد الوجع قوي فصدري كيزير عليا وكيمشي لدراعي ليسر", "expected_kinds": ["emergency"], "notes": "ma; chest pain radiating"}
+{"id": "ar-emg-ma-02", "lang": "ar", "text": "ما قادرش نتنفس وشفايفي ولاو زرقين", "expected_kinds": ["emergency"], "notes": "ma; dyspnoea, cyanosis"}
+{"id": "ar-emg-ma-03", "lang": "ar", "text": "بابا طاح فالكوزينة وما بقاش كيجاوب", "expected_kinds": ["emergency"], "notes": "ma; collapse, unresponsive"}
+{"id": "ar-emg-ma-04", "lang": "ar", "text": "ولدي بلع حجرة ديال الساعة هادي عشر دقايق", "expected_kinds": ["emergency"], "notes": "ma; button battery"}
+{"id": "ar-emg-ma-05", "lang": "ar", "text": "مراتي كتنزف بزاف وهي حاملة فالشهر السابع", "expected_kinds": ["emergency"], "notes": "ma; bleeding in pregnancy"}
+{"id": "ar-emg-ma-06", "lang": "ar", "text": "خويا كيتشنج وهادي كثر من خمس دقايق", "expected_kinds": ["emergency"], "notes": "ma; prolonged seizure"}
+{"id": "ar-emg-ma-07", "lang": "ar", "text": "الدري ديالي شرب جافيل", "expected_kinds": ["emergency"], "notes": "ma; bleach ingestion child"}
+{"id": "ar-emg-ma-08", "lang": "ar", "text": "ماما فمها تعوج فجأة وما بقاتش كتقدر تهز يدها", "expected_kinds": ["emergency"], "notes": "ma; stroke signs"}
+{"id": "ar-emg-ma-09", "lang": "ar", "text": "كنتقيا الدم وكرشي كتوجعني بزاف", "expected_kinds": ["emergency"], "notes": "ma; haematemesis"}
+{"id": "ar-emg-ma-10", "lang": "ar", "text": "صاحبي ضربوه بموس فكرشو وكينزف", "expected_kinds": ["emergency"], "notes": "ma; stab wound"}
+{"id": "ar-emg-dz-01", "lang": "ar", "text": "راني نحس بوجع كبير في صدري يروح لذراعي الشمال", "expected_kinds": ["emergency"], "notes": "dz; chest pain radiating"}
+{"id": "ar-emg-dz-02", "lang": "ar", "text": "ما نقدرش نتنفس، راني نختنق", "expected_kinds": ["emergency"], "notes": "dz; dyspnoea"}
+{"id": "ar-emg-dz-03", "lang": "ar", "text": "بابا طاح في الدار وما راهش يرد عليا", "expected_kinds": ["emergency"], "notes": "dz; collapse, unresponsive"}
+{"id": "ar-emg-dz-04", "lang": "ar", "text": "وليدي كلا الدوا تاع جدتو وراهو راقد بزاف وما يفيقش", "expected_kinds": ["emergency"], "notes": "dz; child poisoning, unrousable"}
+{"id": "ar-emg-dz-05", "lang": "ar", "text": "خويا راهو يترعش وعندو أكثر من خمس دقايق", "expected_kinds": ["emergency"], "notes": "dz; prolonged seizure"}
+{"id": "ar-emg-dz-06", "lang": "ar", "text": "مرتي راهي تنزف بزاف بعد الولادة", "expected_kinds": ["emergency"], "notes": "dz; postpartum haemorrhage"}
+{"id": "ar-emg-dz-07", "lang": "ar", "text": "صاحبي ضربوه بموس وراهو يسيل الدم بزاف", "expected_kinds": ["emergency"], "notes": "dz; stab wound"}
+{"id": "ar-emg-dz-08", "lang": "ar", "text": "يما وجهها تعوج وما راهيش تهدر مليح", "expected_kinds": ["emergency"], "notes": "dz; stroke signs"}
+{"id": "ar-emg-tn-01", "lang": "ar", "text": "عندي وجيعة كبيرة في صدري ماشية لذراعي اليسار", "expected_kinds": ["emergency"], "notes": "tn; chest pain radiating"}
+{"id": "ar-emg-tn-02", "lang": "ar", "text": "ما نجمش نتنفس وشفايفي زرقو", "expected_kinds": ["emergency"], "notes": "tn; dyspnoea, cyanosis"}
+{"id": "ar-emg-tn-03", "lang": "ar", "text": "بابا طاح في الدار وما عادش يجاوب", "expected_kinds": ["emergency"], "notes": "tn; collapse, unresponsive"}
+{"id": "ar-emg-tn-04", "lang": "ar", "text": "ولدي بلع حجرة متاع ساعة", "expected_kinds": ["emergency"], "notes": "tn; button battery"}
+{"id": "ar-emg-tn-05", "lang": "ar", "text": "أختي تنزف برشا وهي حبلى", "expected_kinds": ["emergency"], "notes": "tn; bleeding in pregnancy"}
+{"id": "ar-emg-tn-06", "lang": "ar", "text": "خويا يتشنج وعندو أكثر من خمسة دقايق", "expected_kinds": ["emergency"], "notes": "tn; prolonged seizure"}
+{"id": "ar-emg-tn-07", "lang": "ar", "text": "صاحبي ضربوه بسكينة في كرشو والدم ما وقفش", "expected_kinds": ["emergency"], "notes": "tn; stab wound"}
+{"id": "ar-emg-tn-08", "lang": "ar", "text": "أمي فمها تعوج فجأة وما عادش تنجم تحرك يدها", "expected_kinds": ["emergency"], "notes": "tn; stroke signs"}
+{"id": "ar-emg-azi-01", "lang": "ar", "text": "3ndi wja3 kbir f sdri w kaynzel l dra3i lisr", "expected_kinds": ["emergency"], "notes": "arabizi (ma); chest pain radiating"}
+{"id": "ar-emg-azi-02", "lang": "ar", "text": "ma9adrach ntnfs w chfayfi wlaw zr9in", "expected_kinds": ["emergency"], "notes": "arabizi (ma); dyspnoea, cyanosis"}
+{"id": "ar-emg-azi-03", "lang": "ar", "text": "baba ta7 f lkouzina w ma b9ach kayjawb", "expected_kinds": ["emergency"], "notes": "arabizi (ma); collapse"}
+{"id": "ar-emg-azi-04", "lang": "ar", "text": "weldi bla3 7ajra dyal sa3a", "expected_kinds": ["emergency"], "notes": "arabizi (ma); button battery"}
+{"id": "ar-emg-azi-05", "lang": "ar", "text": "mrati katnzef bzaf w hiya 7amla", "expected_kinds": ["emergency"], "notes": "arabizi (ma); bleeding in pregnancy"}
+{"id": "ar-emg-azi-06", "lang": "ar", "text": "khoya kaytchenj hadi ktr mn 5 d9aye9", "expected_kinds": ["emergency"], "notes": "arabizi (ma); prolonged seizure"}
+{"id": "ar-emg-azi-07", "lang": "ar", "text": "rani n7ess b wja3 kbir f sadri yrou7 l dra3i", "expected_kinds": ["emergency"], "notes": "arabizi (dz); chest pain"}
+{"id": "ar-emg-azi-08", "lang": "ar", "text": "ma njamech nitnaffes w chfayfi zor9ou", "expected_kinds": ["emergency"], "notes": "arabizi (tn); dyspnoea, cyanosis"}
+{"id": "ar-emg-azi-09", "lang": "ar", "text": "sa7bi drbouh b mous f kerchou w kaynzef", "expected_kinds": ["emergency"], "notes": "arabizi (ma); stab wound"}
+{"id": "ar-emg-azi-10", "lang": "ar", "text": "mama fommha t3awej fjaa w ma b9atch kat9der t7errek yeddha", "expected_kinds": ["emergency"], "notes": "arabizi (ma); stroke signs"}

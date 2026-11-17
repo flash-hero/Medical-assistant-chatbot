@@ -11,25 +11,528 @@ sources:
     name: MedlinePlus Health Topics
     publisher: U.S. National Library of Medicine
     homepage: https://medlineplus.gov/
-    status: hold   # data track: re-read terms, then set active with evidence
+    status: active
     wave: 1
     trust_tier: 1
     reuse_mode: paraphrase_ok
-    languages: [en, es]
+    languages: [en]   # Spanish topics exist in the file but Spanish is not a target language
     content_types: [condition, wellness]
     license:
       id: public-domain-us-gov
-      name: Public domain (U.S. Government work); credit MedlinePlus
+      name: Public domain (U.S. Government work); acknowledge MedlinePlus
       evidence_url: https://medlineplus.gov/about/using/usingcontent/
       commercial_use: yes
-      attribution: "Source: MedlinePlus, U.S. National Library of Medicine"
-      conditions: ["do not use the MedlinePlus logo", "do not imply NLM endorsement",
-                   "A.D.A.M. encyclopedia and ASHP drug monographs are copyrighted and excluded"]
+      attribution: "Source: MedlinePlus, National Library of Medicine"
+      conditions:
+        - "Public-domain scope per the page: homepage, summaries on health topic pages, medical test information, Genetics summaries, watermarked illustrations, recipes, videos, tutorials"
+        - "Acknowledge MedlinePlus with 'Courtesy of MedlinePlus from the National Library of Medicine' or 'Source: MedlinePlus, National Library of Medicine'"
+        - "A.D.A.M. Medical Encyclopedia and ASHP drug monographs are copyrighted: never ingest (medlineplus.gov/ency/, medlineplus.gov/druginfo/)"
+        - "Images and photos may be copyrighted: images are never ingested"
+        - "Do not use the NLM logo; do not frame or masquerade MedlinePlus URLs as another domain; RSS feeds are personal use only"
+        - "xml.html: the XML files are offered for download and use; indicate that the information is from MedlinePlus.gov"
+      verified_on: 2026-11-15
+      verified_by: data-agent
     access:
       method: bulk
       endpoints: ["https://medlineplus.gov/xml.html"]
+      notes: "robots.txt disallows /xml/ for generic crawlers, but xml.html explicitly publishes these files for download; only the dated file URLs listed on xml.html are fetched (robots override recorded in the fetch manifest)"
     refresh_days: 7
     domains: [medlineplus.gov]
+
+  - id: medlineplus_genetics
+    name: MedlinePlus Genetics
+    publisher: U.S. National Library of Medicine
+    homepage: https://medlineplus.gov/genetics/
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [genetics, condition]
+    license:
+      id: public-domain-us-gov
+      name: Public domain (U.S. Government work); acknowledge MedlinePlus
+      evidence_url: https://medlineplus.gov/about/using/usingcontent/
+      commercial_use: yes
+      attribution: "Source: MedlinePlus, National Library of Medicine"
+      conditions:
+        - "Public-domain scope per the page: 'Summaries on Genetics pages, including health condition, gene, and chromosome pages and the Help Me Understand Genetics handbook' (English and Spanish)"
+        - "Acknowledge MedlinePlus with 'Courtesy of MedlinePlus from the National Library of Medicine' or 'Source: MedlinePlus, National Library of Medicine'"
+        - "Images and photos on Genetics pages may be copyrighted: images are never ingested"
+        - "The data are best interpreted using the labeling and context of the corresponding pages on the website (geneticsdatafilesapi page)"
+        - "db-key-list entries (SNOMED CT, ICD-10-CM, GTR...) are pointers only: only MeSH and OMIM identifiers are kept, as metadata, never as text"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://medlineplus.gov/download/ghr-summaries.xml", "https://medlineplus.gov/about/developers/geneticsdatafilesapi/"]
+      notes: "ghr-summaries.xml compendium of all condition, gene, chromosome and mtDNA summaries; /download/ is not disallowed by robots.txt"
+    refresh_days: 30
+    domains: [medlineplus.gov]
+    # evidence page 2: https://medlineplus.gov/about/developers/geneticsdatafilesapi/ (data files and API description)
+
+  - id: openfda_labels
+    name: openFDA drug labels (SPL)
+    publisher: U.S. Food and Drug Administration
+    homepage: https://open.fda.gov/
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [drug_label]
+    license:
+      id: CC0-1.0
+      name: Public domain, CC0 1.0 Universal dedication (FDA openFDA Terms of Service)
+      evidence_url: https://open.fda.gov/terms/
+      commercial_use: yes
+      attribution: "Data provided by the U.S. Food and Drug Administration (https://open.fda.gov)"
+      conditions:
+        - "Terms: content and data on openFDA are public domain under CC0 1.0 'unless otherwise noted'; commercial use allowed without permission"
+        - "Attribution is requested, not required; the example citation is used as the attribution line"
+        - "Works where CC0 does not apply are 'clearly marked by a warning'; the drug label download carries no such marking (download.json meta: disclaimer, terms, license only); documents containing 'not in the public domain' or 'third party copy rights may apply' are dropped"
+        - "The GMDN Agency notice (no AI-training use without licence) applies to device GMDN term data only; no device data is fetched"
+        - "openFDA data are unvalidated and must not be relied on for medical care decisions (download.json disclaimer): labels carry jurisdiction 'US FDA label'"
+        - "Right to Limit: access may be restricted if limits are circumvented; downloads use the published bulk partitions at 1 request/second"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://api.fda.gov/download.json"]
+      notes: "14 zip partitions of drug label JSON (about 1.75 GB). download.open.fda.gov serves robots.txt as 403 (S3 bucket without a robots file), so the zip URLs, which are explicitly published in download.json, are fetched robots-exempt; the exemption is recorded in the fetch manifest."
+    refresh_days: 7
+    domains: [api.fda.gov, download.open.fda.gov, open.fda.gov, dailymed.nlm.nih.gov]
+
+  - id: niddk
+    name: NIDDK health information
+    publisher: National Institute of Diabetes and Digestive and Kidney Diseases (NIH)
+    homepage: https://www.niddk.nih.gov/health-information
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition, lab_test, wellness]
+    license:
+      id: us-gov-copyright-free-niddk
+      name: Copyright free (NIDDK copyright notice); acknowledge NIDDK
+      evidence_url: https://www.niddk.nih.gov/copyright
+      commercial_use: conditional
+      attribution: "Source: National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK), National Institutes of Health"
+      conditions:
+        - "Page text: 'The majority of information on this site is copyright free and can be freely downloaded and reproduced. Content reproduced without changes should acknowledge the National Institute of Diabetes and Digestive and Kidney Diseases (NIDDK) as the source.'"
+        - "Exceptions: documents co-sponsored with private organisations (other parties may retain rights) and graphics licensed from third parties; images and logos are never ingested; pages carrying their own copyright statement are dropped by the quality gates"
+        - "Edited content: NIDDK and NIH logos must be removed; content must not be used to imply endorsement of any company, product or service, or to recommend specific medical advice, treatments or referrals"
+        - "Commercial use is not addressed explicitly on the page ('copyright free'); recorded as conditional"
+        - "robots.txt Crawl-delay: 10 seconds is honoured; the sitemap is https://www.niddk.nih.gov/sitemap-sc.xml"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.niddk.nih.gov/sitemap-sc.xml"]
+      notes: "English /health-information/ pages only (Spanish, clinical-trial listings, statistics and outreach pages skipped); 10 s between requests per robots.txt; professional pages kept with audience=professional"
+    refresh_days: 30
+    domains: [niddk.nih.gov]
+
+  - id: nci_pdq
+    name: NCI PDQ cancer information summaries (patient version)
+    publisher: National Cancer Institute (NIH)
+    homepage: https://www.cancer.gov/publications/pdq
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition]
+    license:
+      id: us-gov-free-of-copyright-nci
+      name: Text free of copyright (NCI Reuse of NCI Information); credit NCI
+      evidence_url: https://www.cancer.gov/policies/copyright-reuse
+      commercial_use: conditional
+      attribution: "Source: National Cancer Institute (NCI), PDQ Cancer Information Summaries (Patient Version), cancer.gov"
+      conditions:
+        - "Page text: 'Unless otherwise indicated, all text within National Cancer Institute (NCI) products is free of copyright and may be reused without our permission. Credit the National Cancer Institute as the source.'"
+        - "Digital reproduction: link to the original NCI product using its original title (citations carry the page URL and title)"
+        - "Graphics may be copyrighted by third parties: images are never ingested"
+        - "The NCI logo and the PDQ trademark may only be used in reproductions of original, wholly unchanged NCI products: the NCI logo is never used and excerpts must not be presented as an NCI PDQ summary"
+        - "Commercial use is not addressed explicitly on the page ('free of copyright ... without our permission'); recorded as conditional"
+        - "Only patient-version PDQ summaries (types/*/patient/*-pdq) are ingested; health-professional versions, Spanish pages and the 'About This PDQ Summary' section are not"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.cancer.gov/sitemaps/pageinstructions.xml"]
+      notes: "robots.txt allows all paths (User-agent: * with no Disallow); retired patient summaries redirect to non-PDQ pages and are skipped"
+    refresh_days: 30
+    domains: [cancer.gov]
+
+  - id: cdc
+    name: CDC web content (syndication API)
+    publisher: Centers for Disease Control and Prevention
+    homepage: https://www.cdc.gov/
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: quote_only
+    languages: [en]
+    content_types: [condition, wellness]
+    license:
+      id: us-gov-public-domain-cdc
+      name: Public domain (U.S. Government work) with CDC use conditions
+      evidence_url: https://www.cdc.gov/other/agencymaterials.html
+      commercial_use: conditional
+      attribution: "Source: Centers for Disease Control and Prevention (CDC). Reference to specific commercial products or companies does not constitute endorsement by CDC, HHS or the U.S. Government. This material is available at no charge on cdc.gov."
+      conditions:
+        - "Page text: most CDC and ATSDR information 'is not subject to copyright, is in the public domain, and may be freely used or reproduced without obtaining copyright permission'"
+        - "Requirement 1: attribute the agency ('Source: CDC'); requirement 2: show a non-endorsement disclaimer; requirement 3: 'You may not change the substantive content of the materials' (hence reuse_mode=quote_only); requirement 4: state that the material is otherwise available on the agency website for no charge"
+        - "Exceptions: resources and images made by contractors/grantees or licensed from third parties, and works of state and local governments, may be copyrighted; images are never ingested"
+        - "CDC, ATSDR and HHS logos are never used; content is taken from the CDC Content Syndication API (tools.cdc.gov/api/v2), the channel CDC offers for reuse of its pages"
+        - "Occupational (NIOSH) pages and non-English items are not ingested"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: api
+      endpoints: ["https://tools.cdc.gov/api/v2/resources/media"]
+      notes: "English HTML media items (about 3,700); each fetched unchanged from its contentUrl; the citation URL is the item sourceUrl on www.cdc.gov; tools.cdc.gov robots.txt does not disallow the API"
+    refresh_days: 14
+    domains: [cdc.gov]
+
+  - id: cdc_vis
+    name: CDC Vaccine Information Statements
+    publisher: Centers for Disease Control and Prevention
+    homepage: https://www.cdc.gov/vaccines/hcp/current-vis/index.html
+    status: active
+    wave: 1
+    trust_tier: 1
+    reuse_mode: quote_only
+    languages: [en]
+    content_types: [vaccine]
+    license:
+      id: us-gov-public-domain-cdc
+      name: Public domain (U.S. Government work) with CDC use conditions
+      evidence_url: https://www.cdc.gov/other/agencymaterials.html
+      commercial_use: conditional
+      attribution: "Source: Centers for Disease Control and Prevention (CDC), Vaccine Information Statement. Reference to specific commercial products or companies does not constitute endorsement by CDC, HHS or the U.S. Government. This material is available at no charge on cdc.gov."
+      conditions:
+        - "Same CDC terms as the cdc source: attribution, non-endorsement disclaimer, no change to substantive content (quote_only), statement that the material is free on cdc.gov"
+        - "VIS are produced by CDC under the National Childhood Vaccine Injury Act; only the current English HTML pages on www.cdc.gov are used (translations are hosted by Immunize.org and are not ingested)"
+        - "Images and logos are never ingested"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.cdc.gov/vaccines/hcp/current-vis/index.html"]
+      notes: "about 35 current VIS pages linked from the index; robots.txt does not disallow /vaccines/"
+    refresh_days: 30
+    domains: [cdc.gov]
+
+  # ---------------- Wave 2: NIH institutes (each institute's own terms read on 2026-11-15) ----------------
+  - id: nimh
+    name: NIMH health information
+    publisher: National Institute of Mental Health (NIH)
+    homepage: https://www.nimh.nih.gov/health
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition]
+    license:
+      id: us-gov-public-domain-nimh
+      name: Public domain (NIMH Copyright Policy); cite NIMH
+      evidence_url: https://www.nimh.nih.gov/site-info/policies
+      commercial_use: conditional
+      attribution: "Source: National Institute of Mental Health (NIMH), National Institutes of Health"
+      conditions:
+        - "Page text: 'The information on our website and in our materials is in the public domain. You may copy and reuse it without permission.'"
+        - "Modifications: 'You can edit or reformat the copied text, but you cannot change it in a way that is misleading or inaccurate.' Attribution: 'please cite the National Institute of Mental Health as the source.'"
+        - "Images: the page excludes reuse of website photos and publication images ('You may not reuse or copy any of the publication images'): images are never ingested"
+        - "Commercial use is not addressed explicitly; recorded as conditional. Do not use the NIMH logo or imply endorsement"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.nimh.nih.gov/sites/default/files/sitemap/sitemap.xml"]
+      notes: "robots.txt allows /health/; /health/topics/* and /health/publications/* English pages only; 2 s between requests"
+    refresh_days: 30
+    domains: [nimh.nih.gov]
+
+  - id: nhlbi
+    name: NHLBI health information
+    publisher: National Heart, Lung, and Blood Institute (NIH)
+    homepage: https://www.nhlbi.nih.gov/health
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: quote_only
+    languages: [en]
+    content_types: [condition, wellness]
+    license:
+      id: us-gov-public-domain-nhlbi
+      name: Public domain (NHLBI website policy), content to be used unchanged
+      evidence_url: https://www.nhlbi.nih.gov/about/contact/trademark-branding-and-logo
+      commercial_use: conditional
+      attribution: "Source: National Heart, Lung, and Blood Institute (NHLBI), National Institutes of Health, HHS"
+      conditions:
+        - "Page text: 'Most of the information on the NHLBI website is in the public domain and can be used without restriction. The NHLBI asks only that no changes be made to the publications, videos, images, or other formatted multimedia products and that the material, as well any NHLBI webpage links, not be used in any direct or indirect product endorsement or advertising.' Treated conservatively as quote_only"
+        - "Some images are licensed from third parties and restricted; images and logos are never ingested; pages with their own copyright statement are dropped"
+        - "Commercial use is not addressed explicitly; recorded as conditional, with no product endorsement or advertising use"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.nhlbi.nih.gov/sitemap.xml"]
+      notes: "robots.txt allows /health/; English /health/<topic>[/<subpage>] pages only; 2 s between requests"
+    refresh_days: 30
+    domains: [nhlbi.nih.gov]
+
+  - id: nei
+    name: NEI eye health information
+    publisher: National Eye Institute (NIH)
+    homepage: https://www.nei.nih.gov/eye-health-information
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition, wellness]
+    license:
+      id: us-gov-public-domain-nei
+      name: Public domain (NEI Copyright Policy); courtesy credit requested
+      evidence_url: https://www.nei.nih.gov/web-policies/copyright-policy
+      commercial_use: conditional
+      attribution: "Courtesy: National Eye Institute, National Institutes of Health (NEI/NIH)"
+      conditions:
+        - "Page text: 'Unless otherwise noted, information on the National Eye Institute website is in the public domain. Public domain information may be freely distributed and copied, but, as a courtesy, we request that the National Eye Institute be given an appropriate acknowledgement'"
+        - "Documents, illustrations and photographs licensed from private parties may be copyrighted: images are never ingested; NEI logos are never used"
+        - "Commercial use is not addressed explicitly; recorded as conditional"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.nei.nih.gov/sitemap.xml"]
+      notes: "robots.txt allows /eye-health-information/; eye-conditions-and-diseases and healthy-vision pages only; 2 s between requests"
+    refresh_days: 30
+    domains: [nei.nih.gov]
+
+  - id: nichd
+    name: NICHD health topics
+    publisher: Eunice Kennedy Shriver National Institute of Child Health and Human Development (NIH)
+    homepage: https://www.nichd.nih.gov/health/topics
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition, wellness]
+    license:
+      id: us-gov-public-domain-nichd
+      name: Public domain (NICHD website disclaimer, Copyright and Reuse); credit NICHD
+      evidence_url: https://www.nichd.nih.gov/disclaimer
+      commercial_use: conditional
+      attribution: "Courtesy: Eunice Kennedy Shriver National Institute of Child Health and Human Development"
+      conditions:
+        - "Page text: 'Most text appearing on the NICHD website has been either prepared by employees of the U.S. government as part of their official duties or prepared under contracts for NICHD. In both instances, the text is in the public domain and not subject to copyright... You may freely copy that material and credit NICHD'"
+        - "Some documents (for example full-text journal articles) are copyright-protected; logos, photos and illustrations must not be reused without permission: images and logos are never ingested"
+        - "Commercial use is not addressed explicitly; recorded as conditional"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.nichd.nih.gov/default/sitemap.xml"]
+      notes: "robots.txt does not disallow /health/topics/; English /health/topics/* only; 2 s between requests"
+    refresh_days: 30
+    domains: [nichd.nih.gov]
+
+  - id: niams
+    name: NIAMS health topics
+    publisher: National Institute of Arthritis and Musculoskeletal and Skin Diseases (NIH)
+    homepage: https://www.niams.nih.gov/health-topics
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition]
+    license:
+      id: us-gov-public-domain-niams
+      name: Public domain (NIAMS Disclaimer page); credit NIAMS
+      evidence_url: https://www.niams.nih.gov/disclaimer
+      commercial_use: conditional
+      attribution: "Source: National Institute of Arthritis and Musculoskeletal and Skin Diseases (NIAMS), National Institutes of Health"
+      conditions:
+        - "Page text: 'The text you find on this site is in the public domain. You may use and reproduce text material you find on this website.'"
+        - "Many photographs and illustrations were purchased from other sources and are copyrighted: images are never ingested"
+        - "robots.txt disallows GPTBot, CCbot, anthropic-ai, Claude-Web and Google-Extended entirely; AuscultaBot is not listed and robots.txt is respected, but the owner should confirm the NIAMS stance on AI use before indexing this source"
+        - "Commercial use is not addressed explicitly; recorded as conditional"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.niams.nih.gov/sitemap.xml"]
+      notes: "English /health-topics/* pages only; 2 s between requests"
+    refresh_days: 30
+    domains: [niams.nih.gov]
+
+  - id: nccih
+    name: NCCIH health information
+    publisher: National Center for Complementary and Integrative Health (NIH)
+    homepage: https://www.nccih.nih.gov/health
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [en]
+    content_types: [condition, wellness]
+    license:
+      id: us-gov-public-domain-nccih
+      name: Public domain (NCCIH Website Information and Policies); credit NCCIH
+      evidence_url: https://www.nccih.nih.gov/tools/privacy
+      commercial_use: conditional
+      attribution: "Source: National Center for Complementary and Integrative Health (NCCIH), National Institutes of Health"
+      conditions:
+        - "Page text: 'Text on the NCCIH website is not copyrighted and is in the public domain. You may print and copy our publications. Please credit the National Center for Complementary and Integrative Health as the source, and include the publication title and date, where applicable. Do not use our information in a way that suggests we endorse any commercial product or service.'"
+        - "The site may host copyrighted documents (e.g. full-text journal articles) and purchased photos/graphics: images are never ingested"
+        - "Commercial use is not addressed explicitly; recorded as conditional"
+      verified_on: 2026-11-15
+      verified_by: data-agent
+    access:
+      method: crawl
+      endpoints: ["https://www.nccih.nih.gov/sitemap/sitemap-index.xml"]
+      notes: "robots.txt has a single Disallow; /health/<slug> consumer pages only (provider and Spanish pages skipped); 2 s between requests"
+    refresh_days: 30
+    domains: [nccih.nih.gov]
+
+  # ---------------- Wave 3: native French and Arabic (and English) encyclopaedic content ----------------
+  - id: wikipedia_medicine
+    name: Wikipedia medicine articles (English, French, Arabic)
+    publisher: Wikimedia Foundation and Wikipedia contributors
+    homepage: https://www.wikipedia.org/
+    status: active
+    wave: 3
+    trust_tier: 3
+    reuse_mode: paraphrase_ok
+    languages: [en, fr, ar]
+    content_types: [condition]
+    license:
+      id: CC-BY-SA-4.0
+      name: Creative Commons Attribution-ShareAlike 4.0 International
+      evidence_url: https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use
+      commercial_use: conditional
+      attribution: "Source: Wikipedia, the free encyclopedia (CC BY-SA 4.0); authors are listed in each article's page history"
+      conditions:
+        - "Terms of Use section 7: text contributions are licensed CC BY-SA 4.0 (siteinfo rightsinfo of en/fr/ar.wikipedia.org returns https://creativecommons.org/licenses/by-sa/4.0/); commercial use is allowed"
+        - "Attribution: a hyperlink to the article (its history page lists the authors) satisfies the credit requirement per Terms of Use section 7; every citation links to the article URL stored in the document"
+        - "Share-alike: derivative text (verbatim excerpts, translations, close paraphrases) must be offered under CC BY-SA 4.0 with the same attribution; the app shows the licence name and link wherever such text appears"
+        - "Text only: images, infobox data, tables and references are not ingested (images carry their own licences)"
+        - "Trust tier 3: community-edited, flagged as lower trust than the government and institute sources; never the sole basis for a drug dose or a care decision"
+        - "Wikimedia Robot policy (wikitech Robot_policy, Action API rules): descriptive User-Agent, one request at a time, at most 2 requests/second, maxlag on every call; robots.txt disallows /w/ for generic crawlers but the policy names api.php as the interface for bots, so API calls are robots-exempt (recorded in the fetch manifest)"
+        - "Scope: English WikiProject Medicine Top- and High-importance articles plus the French and Arabic articles they link to"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: api
+      endpoints: ["https://en.wikipedia.org/w/api.php", "https://fr.wikipedia.org/w/api.php", "https://ar.wikipedia.org/w/api.php"]
+      rate_limit_per_min: 120
+      notes: "action=query: categorymembers of Category:Top-importance / High-importance medicine articles, langlinks (batches of 50), then prop=extracts|info|revisions|pageprops with explaintext and exsectionformat=wiki; disambiguation pages skipped; reference, external-link and see-also sections dropped"
+    refresh_days: 90
+    domains: [wikipedia.org]
+
+  - id: bdpm
+    name: Base de données publique des médicaments (BDPM)
+    publisher: ANSM, HAS and Assurance Maladie (France)
+    homepage: https://base-donnees-publique.medicaments.gouv.fr/
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: quote_only
+    languages: [fr]
+    content_types: [drug_label]
+    license:
+      id: etalab-licence-ouverte-1.0
+      name: Licence Ouverte (Open Licence, Etalab, October 2011)
+      evidence_url: https://base-donnees-publique.medicaments.gouv.fr/telechargement
+      commercial_use: yes
+      attribution: "Source : Base de données publique des médicaments (ANSM, HAS, Assurance Maladie), Licence Ouverte ; données mises à jour mensuellement"
+      conditions:
+        - "Download page: reproduce, distribute, redistribute and exploit the data; do not alter the data or distort its meaning; the source must be stated; the mention confers no official character on the reuse"
+        - "Licence text (/docs/telechargement/licence_bdpm.pdf, Licence Ouverte Oct 2011): free, worldwide, perpetual, commercial exploitation allowed; condition: name the producer and give the date of the last update (a hyperlink to the information satisfies it); do not suggest official endorsement; the reuser must not mislead third parties about the content, source or update date"
+        - "Because of the no-alteration condition the documents are quote_only: field values are kept verbatim inside a fixed French template"
+        - "Scope limit: the files hold administrative data, composition, prescription conditions, HAS SMR opinions and generic groups. They contain no summary of product characteristics and no package leaflet, so no indications, posology or side-effect text; answers needing those must say the source does not cover them"
+        - "The producers state they are not liable for out-of-date information: documents record the retrieval date and the corpus is refreshed monthly"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://base-donnees-publique.medicaments.gouv.fr/telechargement"]
+      notes: "Five tab-separated windows-1252 files under /download/file/: CIS_bdpm, CIS_COMPO_bdpm, CIS_HAS_SMR_bdpm, CIS_CPD_bdpm, CIS_GENER_bdpm; robots.txt allows everything. Only authorised, marketed specialities become documents (about 13,500 of 15,800)"
+    refresh_days: 30
+    domains: [base-donnees-publique.medicaments.gouv.fr]
+
+  - id: has_publications
+    name: HAS publications (texts of Haute Autorité de santé publications)
+    publisher: Haute Autorité de santé (France)
+    homepage: https://www.has-sante.fr/
+    status: active
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [fr]
+    content_types: [guideline]
+    license:
+      id: etalab-licence-ouverte-2.0
+      name: Licence Ouverte 2.0 (Etalab)
+      evidence_url: https://www.data.gouv.fr/datasets/textes-des-publications-de-la-has-7/
+      commercial_use: yes
+      attribution: "Source : Haute Autorité de santé (HAS), jeu de données « Textes des publications de la HAS », Licence Ouverte 2.0"
+      conditions:
+        - "data.gouv.fr dataset 'Textes des publications de la HAS' (slug textes-des-publications-de-la-has-7), licence field lov2 = Licence Ouverte 2.0; datasheet: 'Des redevances ou des restrictions sont-elles appliquées dans l'accès aux données ? Non.'; updated weekly"
+        - "HAS page 'Réutilisation des données de la HAS : rappel du cadre applicable' (has-sante.fr/jcms/p_4579115): data freely reusable under the open licence, including for commercial purposes (communication, reproduction, extraction, adaptation, distribution, exploitation); condition: state the origin, the source and the update date"
+        - "Derived analyses are not validated by the HAS and must not be presented as HAS validation or communication"
+        - "HAS legal notice: editorial content of third parties is not reusable without agreement; documents are used as published by the HAS"
+        - "Mostly professional-audience documents (recommendations, opinions, evaluations): audience is flagged per document and patient guides are preferred in retrieval"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://minio.data.has-sante.fr/has-text-extract/TextesPublicationsHAS_XML.zip"]
+      notes: "Single 614 MB zip of semi-structured XML text per publication, rebuilt weekly; minio.data.has-sante.fr serves no robots.txt (HTTP 403), the file is the dataset's documented download"
+    refresh_days: 30
+    domains: [has-sante.fr]
+
+  - id: ema_product_information
+    name: EMA product information and EPAR summaries (French)
+    publisher: European Medicines Agency
+    homepage: https://www.ema.europa.eu/
+    status: hold
+    wave: 2
+    trust_tier: 1
+    reuse_mode: paraphrase_ok
+    languages: [fr]
+    content_types: [drug_label]
+    license:
+      id: ema-legal-notice
+      name: EMA legal notice (reproduction authorised with acknowledgement)
+      evidence_url: https://www.ema.europa.eu/en/about-us/legal-notice
+      commercial_use: conditional
+      attribution: "Source : Agence européenne des médicaments (EMA)"
+      conditions:
+        - "Legal notice read 2026-11-16: material 'may be reproduced and / or distributed, totally or in part ... for non-commercial and commercial purposes, provided that EMA is always acknowledged as the source'; the acknowledgement must be included in each copy; permissions do not apply to content supplied by third parties; the EMA logo may not be used"
+        - "The notice does not mention product-information texts or EPARs specifically; the official adopted text prevails over the web copy"
+        - "Not activated: see access notes"
+      verified_on: 2026-11-16
+      verified_by: data-agent
+    access:
+      method: bulk
+      endpoints: ["https://www.ema.europa.eu/en/documents/report/documents-output-epar_documents_json-report_en.json"]
+      notes: "HOLD: on 2026-11-16 www.ema.europa.eu answered AuscultaBot with HTTP 429 and a CloudFront 'Sorry' page for the JSON report, the French product-information PDFs and the EPAR pages (robots.txt itself is readable and allows these paths; one page request succeeded after a pause, later ones were refused). Re-probed later on 2026-11-16 (one request each, no retry): robots.txt HTTP 200, the JSON report HTTP 429 with the same CloudFront page, so the site still rate-limits our identity and the source stays on hold. The block was not worked around. Next steps: ask EMA for crawler access / use the documented JSON files from an allow-listed identity, or ingest the same French texts from the Union Register of medicinal products (health.ec.europa.eu, reachable) after reading its reuse terms. Needs a PDF text extractor (pypdf is installed)."
+    refresh_days: 30
+    domains: [ema.europa.eu]
+
+  # ---- NIH institutes held: the server refuses the AuscultaBot user agent (not circumvented) ----
+  - {id: nia, name: NIA health information, publisher: National Institute on Aging (NIH), homepage: https://www.nia.nih.gov/health, status: hold, wave: 2, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en], content_types: [condition], domains: [nia.nih.gov], notes: "HOLD: www.nia.nih.gov answers AuscultaBot with HTTP 405 for robots.txt and every page on 2026-11-15, so neither robots.txt nor the policy page could be read by us; no workaround attempted. Search-result summaries say text is public domain with credit, but that is not our own read. Retry with the owner's approval (e.g. a registered crawler identity) or use MedlinePlus topics that already cover NIA content.", license: {id: unverified, name: Not verified (site blocks crawler), commercial_use: unknown}}
+  - {id: ninds, name: NINDS health information, publisher: National Institute of Neurological Disorders and Stroke (NIH), homepage: https://www.ninds.nih.gov/health-information, status: hold, wave: 2, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en], content_types: [condition], domains: [ninds.nih.gov], notes: "HOLD: www.ninds.nih.gov answers AuscultaBot with HTTP 403 for robots.txt and every page on 2026-11-15; terms and robots.txt not readable by us; no workaround attempted.", license: {id: unverified, name: Not verified (site blocks crawler), commercial_use: unknown}}
+  - {id: niaid, name: NIAID health information, publisher: National Institute of Allergy and Infectious Diseases (NIH), homepage: https://www.niaid.nih.gov/diseases-conditions, status: hold, wave: 2, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en], content_types: [condition], domains: [niaid.nih.gov], notes: "HOLD: www.niaid.nih.gov answers AuscultaBot with HTTP 405 for robots.txt and every page on 2026-11-15; terms and robots.txt not readable by us; no workaround attempted.", license: {id: unverified, name: Not verified (site blocks crawler), commercial_use: unknown}}
 
   # ---------------- Excluded (never fetched, never indexed) ----------------
   - {id: x_mayo_clinic, name: Mayo Clinic, publisher: Mayo Foundation, homepage: https://www.mayoclinic.org/, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [condition], domains: [mayoclinic.org], license: {id: proprietary, name: "All rights reserved; terms prohibit scraping/reuse", commercial_use: no}}
@@ -46,9 +549,9 @@ sources:
   - {id: x_nice, name: NICE guidance, publisher: National Institute for Health and Care Excellence, homepage: https://www.nice.org.uk/, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [en], content_types: [guideline], domains: [nice.org.uk], notes: "AI use excluded from the UK Open Content Licence", license: {id: nice-ocl, name: UK Open Content Licence (AI use excluded), commercial_use: no}}
   - {id: x_canada_ca_pages, name: Government of Canada health web pages, publisher: Government of Canada, homepage: https://www.canada.ca/en/health-canada.html, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [en, fr], content_types: [condition], domains: [canada.ca], notes: "Commercial reproduction needs written permission (open.canada.ca datasets are separate)", license: {id: crown-copyright-ca, name: Crown copyright, commercial_use: no}}
   - {id: x_sante_publique_france, name: Santé publique France website text, publisher: Santé publique France, homepage: https://www.santepubliquefrance.fr/, status: excluded, wave: 0, trust_tier: 1, reuse_mode: link_only, languages: [fr], content_types: [condition], domains: [santepubliquefrance.fr], license: {id: proprietary-fr, name: "Reproduction for research/study only; no commercial use", commercial_use: no}}
-  - {id: x_medlineplus_adam, name: MedlinePlus A.D.A.M. Medical Encyclopedia, publisher: Ebix / A.D.A.M., homepage: https://medlineplus.gov/encyclopedia.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [condition], domains: [], notes: "medlineplus.gov/ency/ paths", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
-  - {id: x_medlineplus_ashp, name: MedlinePlus drug monographs (ASHP), publisher: ASHP, homepage: https://medlineplus.gov/druginformation.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [drug_label], domains: [], notes: "medlineplus.gov/druginfo/meds/ paths", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
-  - {id: x_medrag_textbooks, name: MedRAG/textbooks and MedRAG/statpearls datasets, publisher: Hugging Face community, homepage: https://huggingface.co/MedRAG, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [textbook], domains: [], license: {id: none, name: No licence / copyrighted textbooks, commercial_use: no}}
+  - {id: x_medlineplus_adam, name: MedlinePlus A.D.A.M. Medical Encyclopedia, publisher: Ebix / A.D.A.M., homepage: https://medlineplus.gov/encyclopedia.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [condition], domains: [medlineplus.gov/ency/, medlineplus.gov/spanish/ency/], notes: "medlineplus.gov/ency/ paths", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
+  - {id: x_medlineplus_ashp, name: MedlinePlus drug monographs (ASHP), publisher: ASHP, homepage: https://medlineplus.gov/druginformation.html, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en, es], content_types: [drug_label], domains: [medlineplus.gov/druginfo/, medlineplus.gov/spanish/druginfo/], notes: "medlineplus.gov/druginfo/ paths (ASHP monographs under /meds/, licensed supplement monographs under /natural/)", license: {id: proprietary, name: Licensed to NLM; not reusable, commercial_use: no}}
+  - {id: x_medrag_textbooks, name: MedRAG/textbooks and MedRAG/statpearls datasets, publisher: Hugging Face community, homepage: https://huggingface.co/MedRAG, status: excluded, wave: 0, trust_tier: 2, reuse_mode: link_only, languages: [en], content_types: [textbook], domains: [huggingface.co/medrag], license: {id: none, name: No licence / copyrighted textbooks, commercial_use: no}}
 
   # ---------------- Optional non-commercial profile (off by default) ----------------
   - {id: who_fact_sheets, name: WHO fact sheets, publisher: World Health Organization, homepage: https://www.who.int/news-room/fact-sheets, status: optional_noncommercial, wave: 3, trust_tier: 1, reuse_mode: paraphrase_ok, languages: [en, fr, ar], content_types: [condition], domains: [who.int], license: {id: CC-BY-NC-SA-3.0-IGO, name: CC BY-NC-SA 3.0 IGO, evidence_url: "https://www.who.int/about/policies/publishing/copyright", commercial_use: no, attribution: "Source: World Health Organization"}}

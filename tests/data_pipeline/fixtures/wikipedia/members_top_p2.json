@@ -1,0 +1,17 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "categorymembers": [
+   {
+    "pageid": 5,
+    "ns": 1,
+    "title": "Talk:Cancer"
+   },
+   {
+    "pageid": 6,
+    "ns": 1,
+    "title": "Category talk:Odd"
+   }
+  ]
+ }
+}

@@ -65,6 +65,7 @@ class SafetyEvent(_Event):
     message: str
     contacts: tuple[Contact, ...] = ()
     sticky: bool = True  # UI keeps the banner visible for the rest of the session
+    language: Locale | None = None  # language of title/message (may differ from the UI locale)
 
 
 class DeltaEvent(_Event):
@@ -82,6 +83,7 @@ class AnswerEvent(_Event):
     replaces_stream: bool = False
     source_language_note: bool = False  # true when cited sources are in a different language
     show_seek_care: bool = False  # UI renders the "when to seek care" panel
+    language: Locale | None = None  # language the text is written in (may differ from the UI locale)
 
 
 class NoticeEvent(_Event):

@@ -1,0 +1,28 @@
+{
+ "batchcomplete": true,
+ "query": {
+  "pages": [
+   {
+    "pageid": 3333,
+    "ns": 0,
+    "title": "Mercury",
+    "extract": "Mercury may refer to:\n- planet\n- element",
+    "contentmodel": "wikitext",
+    "pagelanguage": "en",
+    "lastrevid": 5,
+    "fullurl": "https://en.wikipedia.org/wiki/Mercury",
+    "canonicalurl": "https://en.wikipedia.org/wiki/Mercury",
+    "revisions": [
+     {
+      "revid": 5,
+      "parentid": 4,
+      "timestamp": "2026-01-01T00:00:00Z"
+     }
+    ],
+    "pageprops": {
+     "disambiguation": ""
+    }
+   }
+  ]
+ }
+}

@@ -37,6 +37,38 @@ EMBED_DIM = 768
 EMBED_QUERY_PREFIX = "task: search result | query: "
 EMBED_MAX_BATCH = 100  # API limit, measured in spike S1
 
+
+@dataclass(frozen=True)
+class EmbeddingSpec:
+    """Embedding model used for BOTH documents and queries (vectors of different models never mix).
+
+    Both supported models use the same prompt format: queries EMBED_QUERY_PREFIX + text, documents
+    "title: {title} | text: {content}" (Chunk.embedding_text()). See docs/decisions/0003-local-embeddings.md.
+    """
+
+    backend: str  # "local" (ONNX on this machine) | "gemini" (API) | "fake" (tests)
+    model_id: str
+    dim: int
+    usd_per_m_input: float = 0.0
+    licence: str = ""
+
+
+EMBEDDINGS: dict[str, EmbeddingSpec] = {
+    # Spike S7 (2026-11-16): recall@20 1.000 EN/FR/AR, nDCG@8 0.965 vs 0.987 for gemini-embedding-2, 28 ms per
+    # query on CPU, no quota. Gemma Terms of Use (commercial use allowed under the prohibited-use policy).
+    "local": EmbeddingSpec("local", "google/embeddinggemma-300m", EMBED_DIM, 0.0, "gemma"),
+    "gemini": EmbeddingSpec("gemini", "gemini-embedding-2", EMBED_DIM, 0.20, "google-api-terms"),
+    "fake": EmbeddingSpec("fake", "fake-hash-embedding", EMBED_DIM, 0.0, "test-only"),
+}
+
+
+def embedding_spec(backend: str) -> EmbeddingSpec:
+    try:
+        return EMBEDDINGS[backend]
+    except KeyError as exc:
+        raise ValueError(f"unknown embedding backend {backend!r}") from exc
+
+
 # Prices are standard-tier list prices (USD per 1M tokens) as of 2026-11-15; used for spend estimates only.
 _FREE_TIER: dict[ModelRole, ModelSpec] = {
     ModelRole.ANSWER: ModelSpec("gemini-3.5-flash-lite", None, 1200, 20.0, 0.30, 2.50),

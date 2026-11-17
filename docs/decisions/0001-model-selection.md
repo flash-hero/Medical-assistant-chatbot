@@ -44,6 +44,10 @@ All IDs live in `core/models.py`; nothing else may hard-code a model ID.
 
 - `embed_content_free_tier_requests`: **100 per minute, counted per text** (a 100-text batch uses the whole minute).
   `retryDelay` hint on 429: ~47 s. The provider throttles embeddings to 90 texts/min on the free tier
-  (`app/llm/throttle.py`), so bulk indexing runs at ~5,400 chunks/hour. Daily cap not yet observed.
+  (`app/llm/throttle.py`), so bulk indexing runs at ~5,400 chunks/hour while the daily cap allows.
+- `embed_content_free_tier_requests` per DAY: **1,000, counted per text** (confirmed 2026-11-16 16:59 UTC:
+  "Embed content requests per day limit exceeded on Free Tier", retryDelay 54,012 s, i.e. reset at midnight
+  Pacific). Live query embeddings share this budget. The full corpus (187,909 chunks) would need ~188 days on
+  the free tier versus about $10 on the paid tier, so billing is required for a real index.
 - `gemini-4-argon`, `gemini-4-carbon`: free-tier limit 0 (paid only).
 - `gemini-decision-1`: published free-tier limits 200 RPM / 50k TPM / 10k RPD.
