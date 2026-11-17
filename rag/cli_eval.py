@@ -11,17 +11,12 @@ from typing import Any
 from qdrant_client import AsyncQdrantClient
 
 from core.config import Settings
+from rag.embedding import embed_model_id
 from rag.errors import EmbeddingQuotaExhausted, GateFailed, IndexMismatch
 from rag.index import alias_target, count_points, list_collections, switch_alias
-from rag.manifest import (
-    ActivePointer,
-    read_active,
-    read_build_state,
-    read_manifest,
-    verify_manifest,
-    write_active,
-)
+from rag.manifest import ActivePointer, read_active, read_build_state, read_manifest, write_active
 from rag.paths import COLLECTION_PREFIX, GOLD_DIR, DataPaths, validate_collection
+from rag.verify import verify_collection
 
 Handler = Callable[[argparse.Namespace, Settings], Coroutine[Any, Any, int]]
 MIN_OVERRIDE_REASON = 10
@@ -134,13 +129,15 @@ def _corpus_version(paths: DataPaths, collection: str) -> str:
 # ---- eval --------------------------------------------------------------------------------------------
 async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     from evals.retrieval.runner import EvalContext, EvalOptions, run_eval
-    from rag.cli import EXIT_GATE, EXIT_OK, close_llm, llm_provider, out, qdrant_client
+    from rag.cli import EXIT_GATE, EXIT_OK, close_llm, embedding_for, llm_provider, out, qdrant_client
     from rag.offline import CacheOnlyLLM
     from rag.sparse import SparseEncoder
 
     paths = DataPaths.from_settings(settings)
     client = qdrant_client(settings)
     llm = CacheOnlyLLM() if args.offline else llm_provider(settings)
+    # queries are embedded with the deployment's backend (offline: never called, so no model is loaded)
+    embedding = embedding_for(settings, llm=llm, cache_only=args.offline)
     try:
         live = await alias_target(client, settings.qdrant_alias)
         collection = validate_collection(args.collection or await default_collection(client, settings))
@@ -153,10 +150,9 @@ async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
             embed_latency_sample=args.embed_latency_sample,
             write_config=not args.no_write_config,
             resume_check=not args.no_resume_check,
-            backend=settings.llm_backend,
             free_tier=settings.is_free_tier,
         )
-        ctx = EvalContext(client, llm, paths, SparseEncoder(paths.fastembed_dir), _now())
+        ctx = EvalContext(client, llm, paths, SparseEncoder(paths.fastembed_dir), _now(), embedding)
         report = await run_eval(ctx, opts)
     except EmbeddingQuotaExhausted as exc:
         from rag.cli import EXIT_QUOTA
@@ -167,6 +163,8 @@ async def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     finally:
         await client.close()
         await close_llm(llm)
+        if embedding.provider is not llm:
+            await embedding.aclose()
     for line in save_eval_report(paths, report, ctx.when, live_collection=live):
         out(line)
     return EXIT_GATE if any(g["verdict"] == "FAIL" for g in report["gates"]) else EXIT_OK
@@ -213,29 +211,14 @@ def render_report(report: dict[str, Any]) -> list[str]:
 
 
 # ---- promote / rollback ------------------------------------------------------------------------------
-async def _payload_checksums(client: AsyncQdrantClient, collection: str) -> list[str]:
-    sums: list[str] = []
-    offset: Any = None
-    while True:
-        records, offset = await client.scroll(
-            collection, limit=1024, offset=offset, with_payload=["checksum"]
-        )
-        sums.extend(str((r.payload or {}).get("checksum", "")) for r in records)
-        if offset is None:
-            return sums
-
-
-async def verify_collection(client: AsyncQdrantClient, paths: DataPaths, collection: str, secret: str) -> str:
-    """The collection must have a manifest whose HMAC matches the checksums actually stored in Qdrant."""
-    if not await client.collection_exists(collection):
-        raise IndexMismatch(f"collection {collection!r} does not exist")
-    manifest = read_manifest(paths, collection)
-    if manifest is None:
-        raise IndexMismatch(f"{collection} has no manifest (incomplete build?)")
-    sums = await _payload_checksums(client, collection)
-    if len(sums) != manifest.chunks or not verify_manifest(manifest, sums, secret):
-        raise IndexMismatch(f"{collection}: stored chunks do not match the signed manifest")
-    return manifest.corpus_version
+async def _verified_version(
+    client: AsyncQdrantClient, paths: DataPaths, settings: Settings, collection: str, secret: str
+) -> str:
+    """Signed-manifest check (rag/verify.py), incl. the deployment's embedding model; never overridable."""
+    verified = await verify_collection(
+        client, paths, collection, secret, embed_model=embed_model_id(settings.embed_backend)
+    )
+    return verified.corpus_version
 
 
 async def _switch(
@@ -309,9 +292,8 @@ async def cmd_promote(args: argparse.Namespace, settings: Settings) -> int:
         out(f"WARNING: promoting despite '{check.reason}'. Override recorded in {paths.active_pointer}")
     client = qdrant_client(settings, timeout=30)
     try:  # the signed-manifest check is never overridable
-        version = await verify_collection(
-            client, paths, collection, settings.session_secret.get_secret_value()
-        )
+        secret = settings.session_secret.get_secret_value()
+        version = await _verified_version(client, paths, settings, collection, secret)
         await _switch(client, paths, settings, collection, version, override=override)
     finally:
         await client.close()
@@ -330,7 +312,8 @@ async def cmd_rollback(args: argparse.Namespace, settings: Settings) -> int:
     client = qdrant_client(settings, timeout=30)
     try:
         target = active.previous_collection
-        version = await verify_collection(client, paths, target, settings.session_secret.get_secret_value())
+        secret = settings.session_secret.get_secret_value()
+        version = await _verified_version(client, paths, settings, target, secret)
         await _switch(client, paths, settings, target, version)
     finally:
         await client.close()

@@ -2,13 +2,17 @@
 
 Config files are loaded once at startup (`load_engine_config`); a malformed file raises ConfigFileError
 there, never during a turn. The hospital profile is the exception: a missing, invalid or expired profile
-only disables receptionist features (ProfileState.error), it never stops the app."""
+only disables receptionist features (ProfileState.error), it never stops the app. A demo profile is only
+served in demo mode outside staging/prod (review C10, `enforce_demo_policy`).
+
+The guard's population threshold is capped at POPULATION_THRESHOLD (review C6): a pregnancy / child /
+older-adult probability at or above it makes the answer verify-then-release."""
 
 from __future__ import annotations
 
 import importlib.metadata
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 
@@ -20,8 +24,8 @@ from app.guardrails.lexicon import LexiconMatcher, LexiconSettings, load_lexicon
 from app.guardrails.output_checks import policy_ngrams
 from app.guardrails.router import GuardRouter
 from app.guardrails.safety_config import SafetyConfig, load_safety_config
-from app.hospital.profile import ProfileState, load_profile
-from app.pipeline.engine import TurnEngine
+from app.hospital.profile import ProfileState, enforce_demo_policy, load_profile
+from app.pipeline.engine import TURN_DEADLINE_S, TurnEngine
 from app.pipeline.medical import MedicalResponder
 from app.pipeline.prompts import PromptSet, load_prompt_set
 from app.pipeline.rewrite import QueryRewriter
@@ -34,6 +38,7 @@ from core.schemas.events import ReleaseInfo
 
 log = structlog.get_logger(__name__)
 UNKNOWN_CORPUS = "none"
+POPULATION_THRESHOLD = 0.3
 _RELEASE_ROLES = (
     ModelRole.ANSWER,
     ModelRole.ANSWER_FALLBACK,
@@ -97,6 +102,17 @@ def corpus_version_of(retriever: Retriever | None) -> str:
         return UNKNOWN_CORPUS
 
 
+def with_policies(config: EngineConfig, settings: Settings) -> EngineConfig:
+    """The config as served: demo profile only in demo mode (C10), population threshold <= 0.3 (C6)."""
+    profile_state = enforce_demo_policy(config.profile_state, demo_mode=settings.demo_mode, env=settings.env)
+    safety = config.safety
+    if safety.population_threshold > POPULATION_THRESHOLD:
+        safety = replace(safety, population_threshold=POPULATION_THRESHOLD)
+    if profile_state is config.profile_state and safety is config.safety:
+        return config
+    return replace(config, profile_state=profile_state, safety=safety)
+
+
 def build_engine(
     config: EngineConfig,
     *,
@@ -105,7 +121,9 @@ def build_engine(
     sessions: SessionStore,
     settings: Settings,
     today: Callable[[], date] | None = None,
+    deadline_s: float = TURN_DEADLINE_S,
 ) -> TurnEngine:
+    config = with_policies(config, settings)
     safety = config.safety
     router = GuardRouter(llm, config.lexicon, config.guard_prompts, safety)
     verifier = GroundednessVerifier(
@@ -131,5 +149,6 @@ def build_engine(
         sessions=sessions,
         settings=settings,
         release=release_info(settings, config.prompts, corpus),
+        deadline_s=deadline_s,
         **extra,
     )

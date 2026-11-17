@@ -28,7 +28,6 @@ from rag.manifest import (
     read_active,
     read_build_state,
     read_manifest,
-    sign_checksums,
     write_active,
     write_build_state,
     write_manifest,
@@ -40,12 +39,23 @@ from rag.retrieval_config import RetrievalConfig, save_retrieval_config
 NOW = datetime(2026, 11, 16, tzinfo=UTC)
 
 
-def test_signature_depends_on_every_checksum_and_needs_a_secret():
-    assert sign_checksums(["b", "a"], "k") == sign_checksums(["a", "b"], "k")
-    assert sign_checksums(["a", "b"], "k") != sign_checksums(["a", "c"], "k")
-    assert sign_checksums(["a"], "k") != sign_checksums(["a"], "other")
+def test_manifest_needs_a_secret_and_its_digest_ignores_chunk_order():
+    from rag.manifest import chunks_digest
+
+    chunks = chunk_document(make_doc("asthma"), publisher="P")
+    other = chunk_document(make_doc("measles"), publisher="P")
+    assert chunks_digest([*chunks, *other]) == chunks_digest([*other, *chunks])
+    assert chunks_digest(chunks) != chunks_digest(other)
     with pytest.raises(InvalidInput):
-        sign_checksums(["a"], "")
+        make_manifest(
+            corpus_version="v1",
+            collection="ausculta_corpus_v1",
+            chunks=chunks,
+            embed_model="m",
+            embed_dim=768,
+            secret="",
+            created_at=NOW,
+        )
 
 
 def test_manifest_build_state_and_active_pointer_roundtrip(tmp_path):

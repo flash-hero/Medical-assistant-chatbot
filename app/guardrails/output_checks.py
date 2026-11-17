@@ -4,9 +4,10 @@ Per sentence, in order:
   1. canary-token leak and system-prompt echo (word 8-gram overlap)           -> fatal: answer withdrawn
   2. markup removal: URLs, e-mail addresses, markdown links/images, HTML, code -> sentence kept, text modified
   3. phone numbers not in HospitalProfile.allowed_numbers()                     -> number removed
+     (also short numbers after a call verb or near an emergency word: app/guardrails/scrub.py)
   4. citation markers that do not reference a provided passage                 -> marker removed
   5. numeric grounding: number+unit / % must appear in a cited passage         -> sentence dropped
-  6. forbidden claims (diagnosis, personal dosing, stopping treatment)         -> sentence dropped
+  6. forbidden claims (diagnosis, personal dosing, stopping treatment, triage) -> sentence dropped
 """
 
 from __future__ import annotations
@@ -16,8 +17,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.guardrails.claims import find_forbidden_claims
-from app.guardrails.numeric import ungrounded_quantities
-from app.guardrails.pii import PHONE_PATTERNS
+from app.guardrails.numeric import UNPARSED, ungrounded_quantities
+from app.guardrails.scrub import strip_domains, strip_phones
 from app.guardrails.sentences import Sentence, split_sentences
 from core.text import detection_form
 
@@ -27,10 +28,6 @@ _MD_IMAGE = re.compile(r"!\[[^\]]{0,300}\]\([^)]{0,800}\)")
 _MD_LINK = re.compile(r"\[([^\]\d][^\]]{0,300})\]\([^)]{0,800}\)")
 _HTML = re.compile(r"</?[a-zA-Z][^<>]{0,300}>|<!--.*?-->", re.DOTALL)
 _URL = re.compile(r"\b(?:https?://|ftp://|www\.)\S+", re.IGNORECASE)
-_DOMAIN = re.compile(
-    r"\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|gov|edu|int|fr|ma|dz|tn|uk|io|info|health|example)\b(?:/\S*)?",
-    re.IGNORECASE,
-)
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CODE = re.compile(r"`+")
 _MARKER_LIST = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)+)\]")
@@ -108,17 +105,8 @@ def strip_markup(text: str) -> str:
     out = _HTML.sub("", out)
     out = _URL.sub("", out)
     out = _EMAIL.sub("", out)
-    out = _DOMAIN.sub("", out)
+    out = strip_domains(out)
     return _CODE.sub("", out)
-
-
-def _strip_phones(text: str, allowed: frozenset[str]) -> str:
-    def repl(m: re.Match[str]) -> str:
-        return m.group(0) if re.sub(r"\D", "", m.group(0)) in allowed else ""
-
-    for pattern in PHONE_PATTERNS:
-        text = pattern.sub(repl, text)
-    return text
 
 
 def _fix_markers(text: str, n_passages: int) -> tuple[str, tuple[int, ...]]:
@@ -143,15 +131,18 @@ def check_sentence(sentence: str, ctx: CheckContext) -> SentenceCheck:
     leak = _leak(sentence, ctx)
     if leak:
         return SentenceCheck("", kept=False, modified=True, fatal=True, violations=(leak,), citations=())
-    cleaned = _strip_phones(strip_markup(sentence), ctx.allowed_numbers)
+    cleaned = strip_phones(strip_markup(sentence), ctx.allowed_numbers)
     cleaned, cited = _fix_markers(cleaned, len(ctx.passages))
     cleaned = _tidy(cleaned)
     violations: list[str] = []
     if cleaned != sentence.strip():
         violations.append("markup_or_number_removed")
     sources = [ctx.passages[i - 1] for i in cited] if cited else list(ctx.passages)
-    if ungrounded_quantities(cleaned, sources):
+    ungrounded = ungrounded_quantities(cleaned, sources)
+    if any(q.unit != UNPARSED for q in ungrounded):
         violations.append("numeric_ungrounded")
+    if any(q.unit == UNPARSED for q in ungrounded):
+        violations.append("numeric_unparsed")
     violations.extend(f"forbidden_{v.category}" for v in find_forbidden_claims(cleaned))
     drop = any(v.startswith(("numeric_", "forbidden_")) for v in violations) or not _has_words(cleaned)
     return SentenceCheck(

@@ -1,6 +1,10 @@
 """Query rewrite (REWRITE role, JSON schema): standalone query in the user's language, English search queries
 and content-type filters. Skipped (no model call) when the message is already standalone English, to save
-quota."""
+quota.
+
+A provider block on the rewrite call (UpstreamBlocked) is a risk signal about the user's message and is
+re-raised, never downgraded to "rewrite failed" (review C8). Medication questions always search drug labels
+only (review C7)."""
 
 from __future__ import annotations
 
@@ -15,7 +19,7 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from app.pipeline.prompts import build_rewrite_prompt
-from core.errors import UpstreamError
+from core.errors import UpstreamBlocked, UpstreamError
 from core.models import ModelRole
 from core.ports import GenerationRequest, LLMProvider
 from core.schemas.chat import Intent, Locale, RetrievalQuery
@@ -31,6 +35,7 @@ _ALLOWED_TYPES = frozenset(t.value for t in ContentType) - {
     ContentType.TEXTBOOK.value,
 }
 MAX_QUERY_CHARS = 500
+DRUG_LABEL_FILTER: dict[str, list[str]] = {"content_type": [ContentType.DRUG_LABEL.value]}
 
 
 class _RewriteJSON(BaseModel):
@@ -66,11 +71,16 @@ def is_standalone_english(message: str, language: Locale, history: Sequence[str]
     return not history or not _ANAPHORA.search(message)
 
 
+def intent_filters(intent: Intent) -> dict[str, list[str]]:
+    """Filters every query of this intent must carry (medication -> drug labels only)."""
+    return {k: list(v) for k, v in DRUG_LABEL_FILTER.items()} if intent is Intent.MEDICATION else {}
+
+
 def _filters(types: Sequence[str], intent: Intent) -> dict[str, list[str]]:
+    if intent is Intent.MEDICATION:
+        return intent_filters(intent)
     allowed = [t for t in dict.fromkeys(types) if t in _ALLOWED_TYPES]
-    if not allowed or (intent is Intent.MEDICATION and ContentType.DRUG_LABEL.value not in allowed):
-        return {}
-    return {"content_type": allowed}
+    return {"content_type": allowed} if allowed else {}
 
 
 class QueryRewriter:
@@ -104,6 +114,8 @@ class QueryRewriter:
             async with asyncio.timeout(self._timeout + 1):
                 out = await self._llm.generate(request)
             data = _RewriteJSON.model_validate(json.loads(out.text))
+        except UpstreamBlocked:
+            raise
         except (UpstreamError, TimeoutError, ValueError, ValidationError) as exc:
             log.warning("rewrite_failed", error=type(exc).__name__)
             return RewriteOutcome(

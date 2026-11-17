@@ -1,5 +1,6 @@
 """Dry-run build planning (`python -m rag plan`): chunk sources exactly as a build would, then count how many
-embeddings are still missing from the persistent cache. No API call, no Qdrant call, nothing written.
+embeddings are still missing from the persistent cache. No embedding call (the model is not even loaded), no
+Qdrant call, nothing written. The ETA uses the configured backend's rate (local CPU or Gemini throttle).
 
 The embedding cache is keyed by chunk checksum, so identical chunk texts (repeated sections across pages)
 are embedded once; `to_embed` counts unique missing checksums, which is what a build actually sends.
@@ -21,11 +22,17 @@ from rag.paths import DataPaths
 from rag.registry import Registry
 
 FREE_TIER_TEXTS_PER_MIN = 90.0  # provider throttle (app/llm/throttle.py; quota 100/min, counted per text)
-# The free-tier DAILY embedding quota is unknown. The 2026-11-15 build stopped once on a 429 the provider
-# classified as day-scope, but on 2026-11-16 embedding kept answering after ~1,000 texts and no day-scope 429
-# was logged, so no cap is assumed by default (`--daily-cap N` gives a what-if). Whatever the cap, a build
-# stops cleanly with exit 3 on a real day-scope 429 and the same command resumes with zero repeats.
-FREE_TIER_TEXTS_PER_DAY: int | None = None
+# Gemini free-tier DAILY embedding quota: 1,000 texts/day (embed_content_free_tier_requests, confirmed
+# 2026-11-16, ADR 0003). A build stops cleanly with exit 3 on a day-scope 429 and resumes with zero repeats.
+FREE_TIER_TEXTS_PER_DAY = 1000
+# Local EmbeddingGemma-300M on the dev laptop CPU (i7-11800H, batch 16, ~260-token chunks): spike S7,
+# ADR 0003.
+LOCAL_CPU_CHUNKS_PER_S = 2.7
+
+
+def default_rate_per_min(backend: str) -> float:
+    """Expected embeddings per minute: the Gemini throttle, or measured local CPU throughput."""
+    return FREE_TIER_TEXTS_PER_MIN if backend == "gemini" else LOCAL_CPU_CHUNKS_PER_S * 60
 
 
 @dataclass(frozen=True)
@@ -55,7 +62,7 @@ class SourcePlan:
 class BuildPlan:
     sources: tuple[SourcePlan, ...]
     rate_per_min: float = FREE_TIER_TEXTS_PER_MIN
-    daily_cap: int | None = FREE_TIER_TEXTS_PER_DAY
+    daily_cap: int | None = None  # quota-limited backends only (Gemini free tier)
 
     def buildable(self) -> tuple[SourcePlan, ...]:
         return tuple(s for s in self.sources if s.status == "ready")
@@ -140,7 +147,7 @@ def plan_build(
     limit: int | None = None,
     include_unready: bool = False,
     rate_per_min: float = FREE_TIER_TEXTS_PER_MIN,
-    daily_cap: int | None = FREE_TIER_TEXTS_PER_DAY,
+    daily_cap: int | None = None,
 ) -> BuildPlan:
     plans = tuple(
         plan_source(

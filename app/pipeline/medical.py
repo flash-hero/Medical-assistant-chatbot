@@ -5,12 +5,16 @@ off-screen, checked (output checks + numeric grounding + groundedness) and relea
 AnswerEvent(mode="verified"). Low-risk answers stream as sentence-buffered DeltaEvents that already passed
 the inline checks, then a final AnswerEvent (replaces_stream=True when post-checks changed the text).
 Degrade ladder: (rerank skipping happens inside the retriever) -> ANSWER_FALLBACK model -> static "busy"
-answer that still shows the emergency number."""
+answer that still shows the emergency number.
+
+Medication questions search drug labels only, are answered from drug-label passages only (abstain when none
+came back) and cite the label's jurisdiction (review C7). A provider block on the rewrite call is a refusal
+plus a sticky risk flag on the session (review C8)."""
 
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import aclosing
 from dataclasses import dataclass, replace
 from typing import cast
@@ -24,16 +28,23 @@ from app.guardrails.sentences import Sentence, SentenceBuffer
 from app.pipeline.citations import build_citations, needs_source_language_note
 from app.pipeline.prompts import PromptSet, build_answer_prompt
 from app.pipeline.record import TurnTrace
-from app.pipeline.rewrite import QueryRewriter
+from app.pipeline.rewrite import QueryRewriter, intent_filters
 from app.pipeline.texts import Texts
 from core.errors import UpstreamBlocked, UpstreamError
 from core.models import ModelRole
 from core.ports import GenerationChunk, GenerationRequest, LLMProvider, Retriever
-from core.schemas.chat import GuardVerdict, Intent, RetrievalResult, RetrievedPassage
+from core.schemas.chat import GuardVerdict, Intent, RetrievalResult, RetrievedPassage, RiskKind
 from core.schemas.events import AnswerEvent, ChatEvent, DeltaEvent, NoticeEvent, StatusEvent
 from core.schemas.hospital import HospitalProfile
+from core.schemas.source import ContentType
 
 log = structlog.get_logger(__name__)
+OnBlocked = Callable[[RiskKind], Awaitable[None]]
+
+
+def block_kind(exc: UpstreamBlocked) -> RiskKind:
+    """The risk a provider block on the user's input stands for (same mapping as the guard router)."""
+    return RiskKind.INJECTION if exc.reason == "jailbreak" else RiskKind.HARMFUL_REQUEST
 
 
 class _Leak(Exception):
@@ -47,6 +58,7 @@ class MedicalTurn:
     verdict: GuardVerdict
     high_risk: bool
     profile: HospitalProfile | None
+    on_input_blocked: OnBlocked | None = None  # records a sticky risk flag when the rewrite call is blocked
 
 
 @dataclass(frozen=True)
@@ -89,7 +101,13 @@ class MedicalResponder:
             yield self._template("retrieval_unavailable", turn, "template")
             return
         yield StatusEvent(stage="searching")
-        result, standalone = await self._retrieve(turn, trace)
+        try:
+            result, standalone = await self._retrieve(turn, trace)
+        except UpstreamBlocked as exc:
+            if turn.on_input_blocked is not None:
+                await turn.on_input_blocked(block_kind(exc))
+            yield self._blocked(turn, trace, exc, replaces=False)
+            return
         if result is None:
             yield self._notice("degraded", lang, turn.profile)
             yield self._template("retrieval_unavailable", turn, "template")
@@ -98,7 +116,12 @@ class MedicalResponder:
             trace.update(mode="abstain")
             yield self._abstain(turn)
             return
-        passages = result.passages
+        passages = self._admissible(intent, result.passages)
+        if not passages:
+            trace.audit("abstain", reason="no_drug_label")
+            trace.update(mode="abstain")
+            yield self._abstain(turn)
+            return
         ctx = CheckContext(
             canary=self._prompts.canary,
             policy_ngrams=self._policy_ngrams,
@@ -117,20 +140,31 @@ class MedicalResponder:
             yield ev
         log.debug("medical_answer_done", intent=intent.value)
 
+    @staticmethod
+    def _admissible(intent: Intent, passages: Sequence[RetrievedPassage]) -> tuple[RetrievedPassage, ...]:
+        """Medication answers may only use drug-label passages (whatever the retriever returned)."""
+        if intent is not Intent.MEDICATION:
+            return tuple(passages)
+        return tuple(p for p in passages if p.content_type is ContentType.DRUG_LABEL)
+
     # ---- retrieval ---------------------------------------------------------------------------------
     async def _retrieve(self, turn: MedicalTurn, trace: TurnTrace) -> tuple[RetrievalResult | None, str]:
         v = turn.verdict
         outcome = await self._rewriter.rewrite(turn.message, turn.history, v.language, v.intent)
         if outcome.error:
             trace.degrade("rewrite_failed")
-        standalone = outcome.query.standalone_query
+        query = outcome.query
+        forced = intent_filters(v.intent)
+        if forced:
+            query = query.model_copy(update={"filters": forced})
+        standalone = query.standalone_query
         trace.mark("rewrite")
         if self._retriever is None:
             return None, standalone
         try:
             # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow a turn cancellation
             async with asyncio.timeout(self._cfg.timeouts.retrieval_s):
-                result = await self._retriever.retrieve(outcome.query)
+                result = await self._retriever.retrieve(query)
         except Exception as exc:
             log.warning("retrieval_failed", error=type(exc).__name__)
             trace.degrade("retrieval_failed")
@@ -330,8 +364,9 @@ class MedicalResponder:
             trace.audit("abstain", reason=final.abstain or "verifier_unavailable")
             trace.update(mode="abstain")
             return [self._abstain(turn, replaces=streamed_text is not None)]
-        citations = build_citations(passages, final.cited)
-        note = needs_source_language_note(citations, turn.verdict.language)
+        lang = turn.verdict.language
+        citations = build_citations(passages, final.cited, texts=self._texts, locale=lang)
+        note = needs_source_language_note(citations, lang)
         trace.update(mode=mode, verified=final.verified)
         events: list[ChatEvent] = []
         if note:
@@ -346,6 +381,7 @@ class MedicalResponder:
                 replaces_stream=replaces,
                 source_language_note=note,
                 show_seek_care=True,
+                language=lang,
             )
         )
         return events
@@ -360,6 +396,7 @@ class MedicalResponder:
             verified=False,
             replaces_stream=replaces,
             show_seek_care=key in ("abstain", "retrieval_unavailable", "busy"),
+            language=lang,
         )
 
     def _abstain(self, turn: MedicalTurn, *, replaces: bool = False) -> AnswerEvent:
@@ -374,6 +411,7 @@ class MedicalResponder:
             verified=False,
             replaces_stream=replaces,
             show_seek_care=True,
+            language=lang,
         )
 
     def _busy(self, turn: MedicalTurn, trace: TurnTrace, *, replaces: bool) -> AnswerEvent:

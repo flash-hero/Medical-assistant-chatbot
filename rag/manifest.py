@@ -1,32 +1,26 @@
-"""Signed corpus manifests, build state and the active-collection pointer (all JSON in manifests/)."""
+"""Signed corpus manifests, build state and the active-collection pointer (all JSON in manifests/).
+
+Signature scheme: rag/signing.py. Verification against the stored Qdrant payloads: rag/verify.py.
+"""
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from core.errors import InvalidInput
 from core.schemas.document import Chunk, CorpusManifest
 from rag.fileio import atomic_write_text, read_json
 from rag.paths import DataPaths
+from rag.signing import corpus_digest, record_hash, sign_manifest
 
 
-def sign_checksums(checksums: Iterable[str], secret: str) -> str:
-    """HMAC-SHA256 over the newline-joined, sorted chunk checksums."""
-    if not secret:
-        raise InvalidInput("AUSCULTA_SESSION_SECRET is required to sign the corpus manifest")
-    message = "\n".join(sorted(checksums)).encode("utf-8")
-    return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
-
-
-def verify_manifest(manifest: CorpusManifest, checksums: Iterable[str], secret: str) -> bool:
-    return hmac.compare_digest(manifest.signature, sign_checksums(checksums, secret))
+def chunks_digest(chunks: Sequence[Chunk]) -> str:
+    """Corpus digest of chunks as they are stored in Qdrant (payload = Chunk.model_dump(mode="json"))."""
+    return corpus_digest(record_hash(c.model_dump(mode="json")) for c in chunks)
 
 
 def make_manifest(
@@ -40,7 +34,7 @@ def make_manifest(
     created_at: datetime,
 ) -> CorpusManifest:
     per_source = Counter(c.source_id for c in chunks)
-    return CorpusManifest(
+    unsigned = CorpusManifest(
         corpus_version=corpus_version,
         collection=collection,
         embed_model=embed_model,
@@ -49,8 +43,9 @@ def make_manifest(
         sources=dict(sorted(per_source.items())),
         documents=len({c.doc_id for c in chunks}),
         chunks=len(chunks),
-        signature=sign_checksums((c.checksum for c in chunks), secret),
     )
+    signature = sign_manifest(unsigned, chunks_digest(chunks), secret)
+    return unsigned.model_copy(update={"signature": signature})
 
 
 def write_manifest(paths: DataPaths, manifest: CorpusManifest) -> str:

@@ -91,9 +91,8 @@ async def test_minute_rate_limit_waits_retry_after_then_continues(cache):
         embed_error=UpstreamRateLimited("rl", scope="minute", retry_after_s=47.0),
     )
     sleep = FakeSleep()
-    out = await DocumentEmbedder(fake, cache, model_id=MODEL, batch_size=50, sleep=sleep).embed_chunks(
-        _chunks(2)
-    )
+    emb = DocumentEmbedder(fake, cache, model_id=MODEL, batch_size=50, sleep=sleep, quota_limited=True)
+    out = await emb.embed_chunks(_chunks(2))
     assert sleep.calls == [47.0, 47.0]
     assert out.embedded == 6
     assert out.waited_s == 94.0
@@ -104,11 +103,14 @@ async def test_rate_limit_without_hint_waits_default_and_transient_errors_wait(c
         embed_failures_remaining=1, embed_error=UpstreamRateLimited("rl", scope="unknown", retry_after_s=None)
     )
     sleep = FakeSleep()
-    await DocumentEmbedder(fake, cache, model_id=MODEL, sleep=sleep).embed_chunks(_chunks(1))
+    await DocumentEmbedder(fake, cache, model_id=MODEL, sleep=sleep, quota_limited=True).embed_chunks(
+        _chunks(1)
+    )
     assert sleep.calls == [60.0]
     fake2 = FakeLLMProvider(embed_failures_remaining=1, embed_error=UpstreamUnavailable("503"))
     sleep2 = FakeSleep()
-    await DocumentEmbedder(fake2, cache, model_id=MODEL + "2", sleep=sleep2).embed_chunks(_chunks(1))
+    emb2 = DocumentEmbedder(fake2, cache, model_id=MODEL + "2", sleep=sleep2, quota_limited=True)
+    await emb2.embed_chunks(_chunks(1))
     assert sleep2.calls == [15.0]
 
 
@@ -116,7 +118,9 @@ async def test_day_quota_stops_cleanly_with_progress_saved(cache):
     chunks = _chunks()
     spy = SpyLLM(fail_on_call=3, failure=UpstreamRateLimited("day", scope="day", retry_after_s=None))
     with pytest.raises(EmbeddingQuotaExhausted) as info:
-        await DocumentEmbedder(spy, cache, model_id=MODEL, batch_size=4).embed_chunks(chunks)
+        await DocumentEmbedder(spy, cache, model_id=MODEL, batch_size=4, quota_limited=True).embed_chunks(
+            chunks
+        )
     assert info.value.embedded == 8
     assert info.value.remaining == len(chunks) - 8
     assert info.value.scope == "day"
@@ -128,7 +132,7 @@ async def test_persistent_minute_limit_gives_up_after_max_waits(cache):
         embed_failures_remaining=100, embed_error=UpstreamRateLimited("rl", scope="minute", retry_after_s=1.0)
     )
     sleep = FakeSleep()
-    emb = DocumentEmbedder(fake, cache, model_id=MODEL, sleep=sleep, max_waits=3)
+    emb = DocumentEmbedder(fake, cache, model_id=MODEL, sleep=sleep, max_waits=3, quota_limited=True)
     with pytest.raises(EmbeddingQuotaExhausted) as info:
         await emb.embed_chunks(_chunks(1))
     assert info.value.scope == "minute"
@@ -189,8 +193,115 @@ async def test_query_embedder_rejects_empty_query():
         await qe.embed(["   "])
 
 
-def test_fake_backend_uses_a_separate_cache_namespace():
-    from rag.embedding import embed_model_id
+# ---- local backend, backend selection, cache namespace (ADR 0003, review P19) ------------------------
+async def test_local_backend_never_waits_and_errors_propagate_with_progress_saved(cache):
+    """No quota on local inference: a failure is raised at once (no sleep, no 'quota exhausted' story),
+    and every batch embedded before it is already committed, so re-running resumes."""
+    chunks = _chunks()
+    sleep = FakeSleep()
+    down = SpyLLM(fail_on_call=3, failure=UpstreamUnavailable("local embedding failed (RuntimeError)"))
+    with pytest.raises(UpstreamUnavailable):
+        await DocumentEmbedder(down, cache, model_id=MODEL, batch_size=4, sleep=sleep).embed_chunks(chunks)
+    assert sleep.calls == []
+    assert cache.count(MODEL, EMBED_DIM) == 8
+    limited = FakeLLMProvider(
+        embed_failures_remaining=1, embed_error=UpstreamRateLimited("rl", scope="day", retry_after_s=None)
+    )
+    with pytest.raises(UpstreamRateLimited):  # not converted: only the Gemini backend has quotas
+        await DocumentEmbedder(limited, cache, model_id=MODEL + "x", sleep=sleep).embed_chunks(chunks[:1])
+    resumed = SpyLLM()
+    out = await DocumentEmbedder(resumed, cache, model_id=MODEL, batch_size=4).embed_chunks(chunks)
+    assert out.cache_hits == 8
+    assert len(resumed.embedded) == len(chunks) - 8
+    assert out.api_calls == resumed.embed_calls
 
-    assert embed_model_id("gemini") == "gemini-embedding-2"
-    assert embed_model_id("fake") == "fake/gemini-embedding-2"
+
+def test_cache_namespace_is_model_id_plus_text_format():
+    from core.models import embedding_spec
+    from rag.embedding import EMBED_TEXT_FORMAT, embed_model_id
+
+    assert embed_model_id("local") == f"google/embeddinggemma-300m@{EMBED_TEXT_FORMAT}"
+    assert embed_model_id("gemini") == f"gemini-embedding-2@{EMBED_TEXT_FORMAT}"
+    assert embed_model_id("fake") == f"{embedding_spec('fake').model_id}@{EMBED_TEXT_FORMAT}"
+    assert len({embed_model_id(b) for b in ("local", "gemini", "fake")}) == 3  # vectors never mix
+    with pytest.raises(ValueError, match="unknown embedding backend"):
+        embed_model_id("nope")
+
+
+def test_text_format_is_pinned_so_template_changes_bump_the_cache_namespace():
+    """Review P19. If this fails because the document template, EMBED_QUERY_PREFIX or the query
+    normalisation changed, bump rag.embedding.EMBED_TEXT_FORMAT (old vectors must not be served for the
+    new text), then update the expected strings here."""
+    from rag.embedding import EMBED_TEXT_FORMAT, prefixed_query
+
+    chunk = chunk_document(make_doc("asthma", title="Asthma"), publisher="P")[0]
+    assert EMBED_TEXT_FORMAT == "fmt1"
+    assert chunk.embedding_text() == f"title: Asthma | text: {chunk.context_header}\n{chunk.text}"
+    assert prefixed_query("  What   is asthma? ") == "task: search result | query: What is asthma?"
+
+
+def test_embedding_backend_follows_the_settings(monkeypatch):
+    from app.llm.local_embedder import LocalEmbeddingProvider
+    from core.config import Settings
+    from rag.embedding import embed_model_id, embedding_backend
+
+    local = embedding_backend(Settings(AUSCULTA_EMBED_BACKEND="local"))
+    assert isinstance(local.provider, LocalEmbeddingProvider)  # built, not loaded (conftest guard)
+    assert (local.name, local.model_id, local.quota_limited, local.dim) == (
+        "local",
+        embed_model_id("local"),
+        False,
+        EMBED_DIM,
+    )
+    fake = embedding_backend(Settings(AUSCULTA_EMBED_BACKEND="fake"))
+    assert isinstance(fake.provider, FakeLLMProvider)
+    assert not fake.quota_limited
+    llm = FakeLLMProvider()
+    gemini = embedding_backend(
+        Settings(AUSCULTA_EMBED_BACKEND="gemini", AUSCULTA_LLM_BACKEND="gemini"), llm=llm
+    )
+    assert gemini.provider is llm  # the Gemini provider is reused, not built twice
+    assert gemini.quota_limited
+    spy = SpyLLM()
+    assert embedding_backend(Settings(AUSCULTA_EMBED_BACKEND="local"), provider=spy).provider is spy
+
+
+async def test_backend_builds_matching_embedders_and_closes_its_provider(cache):
+    from rag_fixtures import fake_embedding
+
+    class Closable(SpyLLM):
+        closed = 0
+
+        async def aclose(self):
+            self.closed += 1
+
+    provider = Closable()
+    backend = fake_embedding(provider, quota_limited=True)
+    doc = backend.document_embedder(cache, batch_size=7)
+    assert (doc.model_id, doc.quota_limited) == (backend.model_id, True)
+    assert backend.query_embedder().model_id == backend.model_id
+    await backend.aclose()
+    assert provider.closed == 1
+    await fake_embedding(SpyLLM()).aclose()  # providers without aclose are fine
+
+
+async def test_query_embedder_warmup_loads_the_model_when_the_provider_can():
+    class Warm(SpyLLM):
+        warmed = 0
+
+        async def warmup(self):
+            self.warmed += 1
+
+    warm = Warm()
+    await QueryEmbedder(warm, model_id=MODEL).warmup()
+    assert warm.warmed == 1
+    await QueryEmbedder(SpyLLM(), model_id=MODEL).warmup()  # no warmup method: nothing to do
+
+
+def test_embedders_require_a_cache_namespace(cache):
+    with pytest.raises(ValueError, match="namespace"):
+        DocumentEmbedder(SpyLLM(), cache, model_id="")
+    with pytest.raises(ValueError, match="namespace"):
+        QueryEmbedder(SpyLLM(), model_id="")
+    with pytest.raises(ValueError, match="batch_size"):
+        DocumentEmbedder(SpyLLM(), cache, model_id=MODEL, batch_size=0)

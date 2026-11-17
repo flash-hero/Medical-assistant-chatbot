@@ -112,27 +112,60 @@ def test_active_sources_and_plan_build(setup):
     assert plan.rate_per_min == 60.0
 
 
-def test_cli_plan_prints_counts_eta_and_the_build_command(tmp_path, registry_path, monkeypatch, capsys):
+def _plan_cli(tmp_path, registry_path, monkeypatch, backend: str) -> None:
     root = tmp_path / "data"
     write_normalized(root, "demo_src", retrieval_docs())
-    settings = Settings(AUSCULTA_DATA_ROOT=str(root), AUSCULTA_LLM_BACKEND="fake")
+    settings = Settings(
+        AUSCULTA_DATA_ROOT=str(root), AUSCULTA_LLM_BACKEND="fake", AUSCULTA_EMBED_BACKEND=backend
+    )
     monkeypatch.setattr("rag.cli.get_settings", lambda: settings)
-    monkeypatch.setattr("rag.cli.load_registry", lambda: load_registry(registry_path))
-    assert main(["plan", "--corpus-version", "v9", "--daily-cap", "50"]) == 0
+    monkeypatch.setattr("rag.cli_plan.load_registry", lambda: load_registry(registry_path))
+
+
+def test_cli_plan_local_backend_eta_uses_measured_cpu_throughput(
+    tmp_path, registry_path, monkeypatch, capsys
+):
+    _plan_cli(tmp_path, registry_path, monkeypatch, "local")
+    assert main(["plan", "--corpus-version", "v9"]) == 0
     printed = capsys.readouterr().out
     assert "demo_src" in printed
-    assert "chunks/min" in printed
+    assert "Embedding model: google/embeddinggemma-300m (local backend, 768-d)" in printed
+    assert "Embedding time at 162 chunks/min" in printed  # 2.7 chunks/s (ADR 0003)
+    assert "Local CPU inference: no API cost, no quota" in printed
+    assert "resumes with zero repeat embeddings" in printed
+    assert "Paid-tier cost estimate" not in printed
+    assert "day(s) of quota" not in printed
+    assert "python -m rag build --corpus-version v9 --sources demo_src" in printed
+    assert main(["plan", "--rate", "60"]) == 0
+    assert "Embedding time at 60 chunks/min" in capsys.readouterr().out
+
+
+def test_cli_plan_gemini_backend_shows_cost_throttle_and_daily_cap(
+    tmp_path, registry_path, monkeypatch, capsys
+):
+    _plan_cli(tmp_path, registry_path, monkeypatch, "gemini")
+    assert main(["plan", "--corpus-version", "v9"]) == 0
+    printed = capsys.readouterr().out
+    assert "Embedding time at 90 chunks/min" in printed
     assert "input tokens/min" in printed
     assert "Paid-tier cost estimate" in printed
-    assert "What-if daily cap of 50 texts/day" in printed
-    assert "python -m rag build --corpus-version v9 --sources demo_src" in printed
-    assert main(["plan", "--sources", "demo_src,held_src", "--exclude", "demo_src"]) == 0
+    assert "Daily cap of 1,000 texts/day" in printed  # confirmed free-tier cap (ADR 0003)
+    assert main(["plan", "--daily-cap", "50"]) == 0
+    assert "Daily cap of 50 texts/day" in capsys.readouterr().out
+    assert main(["plan", "--sources", "demo_src,held_src", "--exclude", "demo_src", "--daily-cap", "0"]) == 0
     printed = capsys.readouterr().out
     assert "not_indexable" in printed
-    assert "daily embedding quota: unknown" in printed  # no cap is assumed by default
-    assert "resumes with zero repeat embeddings" in printed
+    assert "none assumed" in printed
     assert "day(s) of quota" not in printed
     assert "Build command" not in printed
+
+
+def test_default_rate_per_backend():
+    from rag.plan import FREE_TIER_TEXTS_PER_MIN, LOCAL_CPU_CHUNKS_PER_S, default_rate_per_min
+
+    assert default_rate_per_min("gemini") == FREE_TIER_TEXTS_PER_MIN == 90.0
+    assert default_rate_per_min("local") == pytest.approx(LOCAL_CPU_CHUNKS_PER_S * 60) == pytest.approx(162.0)
+    assert 187_909 / default_rate_per_min("local") / 60 == pytest.approx(19.3, abs=0.1)  # ADR 0003: ~19 h
 
 
 def test_cli_logging_survives_a_replaced_and_closed_stderr(monkeypatch):

@@ -1,10 +1,18 @@
-"""Embeddings through core.ports.LLMProvider.embed (never the SDK directly).
+"""Embeddings through core.ports.EmbeddingProvider (never an SDK directly). ADR 0003: ONE model embeds both
+documents and queries; by default google/embeddinggemma-300m on this machine's CPU (AUSCULTA_EMBED_BACKEND).
 
-DocumentEmbedder  bulk, resumable: persistent cache keyed by (model id, dim, chunk checksum), one provider
-                  call per batch (<= 90 texts = one free-tier throttle window), each batch committed at once.
-                  Per-minute 429: wait retry_after_s (or 60 s) and continue. Daily 429: stop cleanly with
-                  EmbeddingQuotaExhausted (progress is already cached; re-running resumes).
+EmbeddingBackend  the deployment's embedding model: provider + cache namespace + whether it is quota-limited.
+                  Built by embedding_backend(settings) through app.llm.factory.build_embedding_provider.
+DocumentEmbedder  bulk, resumable: persistent cache keyed by (namespace, dim, chunk checksum), one provider
+                  call per batch, each batch committed at once (a killed build resumes with zero repeats).
+                  Quota-limited backends (Gemini API) only: per-minute 429 -> wait retry_after_s (or 60 s) and
+                  continue; daily 429 -> stop cleanly with EmbeddingQuotaExhausted. The local backend has no
+                  quota and no throttle: its errors propagate at once (re-running resumes from the cache).
 QueryEmbedder     online: EMBED_QUERY_PREFIX, in-process LRU+TTL cache, optional persistent cache (evals).
+
+Cache namespace (review P19): "<model id>@<EMBED_TEXT_FORMAT>". Vectors of different models never mix, and
+changing what is sent to the model (Chunk.embedding_text() template, EMBED_QUERY_PREFIX, query
+normalisation) must bump EMBED_TEXT_FORMAT so vectors of the old text are never served for the new one.
 """
 
 from __future__ import annotations
@@ -17,17 +25,21 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import structlog
 
 from core.errors import UpstreamError, UpstreamRateLimited, UpstreamTimeout, UpstreamUnavailable
-from core.models import EMBED_DIM, EMBED_QUERY_PREFIX, ModelRole, model_for
-from core.ports import LLMProvider
+from core.models import EMBED_DIM, EMBED_QUERY_PREFIX, embedding_spec
+from core.ports import EmbeddingProvider
 from core.schemas.document import Chunk
 from core.text import sanitize
 from rag.embed_cache import EmbeddingCache
 from rag.errors import EmbeddingQuotaExhausted
+
+if TYPE_CHECKING:
+    from core.config import Settings
+    from core.ports import LLMProvider
 
 log = structlog.get_logger(__name__)
 
@@ -35,16 +47,72 @@ K = TypeVar("K")
 V = TypeVar("V")
 Sleep = Callable[[float], Awaitable[None]]
 
-DEFAULT_BATCH = 90  # one free-tier throttle window (provider budgets 90 texts/min)
+DEFAULT_BATCH = 90  # texts per provider call and per committed cache batch (= one Gemini free-tier window)
 DEFAULT_RATE_LIMIT_WAIT_S = 60.0
 TRANSIENT_WAIT_S = 15.0
+# Version of the text sent to the embedding model; part of the cache namespace (review P19). Bump it when
+# Chunk.embedding_text(), EMBED_QUERY_PREFIX or normalize_query() change what a model receives.
+# fmt1 = documents "title: {title} | text: {context_header}\n{text}", queries EMBED_QUERY_PREFIX + query.
+EMBED_TEXT_FORMAT = "fmt1"
+QUOTA_LIMITED_BACKENDS = frozenset({"gemini"})
 
 
-def embed_model_id(backend: str = "gemini") -> str:
-    """Model id used as the embedding-cache namespace. The fake backend gets its own namespace so fake
-    vectors can never be served as real ones from a shared cache."""
-    model = model_for(ModelRole.EMBED).model_id
-    return model if backend == "gemini" else f"{backend}/{model}"
+def embed_model_id(backend: str) -> str:
+    """Embedding-cache namespace and manifest `embed_model` of a backend: "<model id>@<text format>".
+
+    The model id comes from core.models.embedding_spec, so the local, Gemini and fake backends each have
+    their own namespace and fake or other-model vectors can never be served from a shared cache."""
+    return f"{embedding_spec(backend).model_id}@{EMBED_TEXT_FORMAT}"
+
+
+@dataclass(frozen=True)
+class EmbeddingBackend:
+    """The deployment's single embedding model (documents AND queries, ADR 0003)."""
+
+    name: str  # "local" | "gemini" | "fake"
+    provider: EmbeddingProvider
+    model_id: str  # cache namespace / manifest embed_model, see embed_model_id()
+    quota_limited: bool  # True only for the Gemini API (per-minute and daily quotas)
+    dim: int = EMBED_DIM
+
+    def document_embedder(
+        self, cache: EmbeddingCache, *, batch_size: int = DEFAULT_BATCH
+    ) -> DocumentEmbedder:
+        return DocumentEmbedder(
+            self.provider,
+            cache,
+            model_id=self.model_id,
+            dim=self.dim,
+            batch_size=batch_size,
+            quota_limited=self.quota_limited,
+        )
+
+    def query_embedder(self, *, persistent: EmbeddingCache | None = None) -> QueryEmbedder:
+        return QueryEmbedder(self.provider, model_id=self.model_id, dim=self.dim, persistent=persistent)
+
+    async def aclose(self) -> None:
+        closer = getattr(self.provider, "aclose", None)
+        if closer is not None:
+            await closer()
+
+
+def embedding_backend(
+    settings: Settings, *, llm: LLMProvider | None = None, provider: EmbeddingProvider | None = None
+) -> EmbeddingBackend:
+    """The backend selected by AUSCULTA_EMBED_BACKEND. `provider` replaces the real one (cache-only builds,
+    tests); otherwise app.llm.factory.build_embedding_provider builds it (`llm` is reused for "gemini")."""
+    name = settings.embed_backend
+    if provider is None:
+        from app.llm.factory import build_embedding_provider
+
+        provider = build_embedding_provider(settings, llm=llm)
+    return EmbeddingBackend(
+        name=name,
+        provider=provider,
+        model_id=embed_model_id(name),
+        quota_limited=name in QUOTA_LIMITED_BACKENDS,
+        dim=embedding_spec(name).dim,
+    )
 
 
 def _check_vectors(vectors: Sequence[Sequence[float]], expected: int, dim: int) -> None:
@@ -66,12 +134,13 @@ class EmbedOutcome:
 class DocumentEmbedder:
     def __init__(
         self,
-        llm: LLMProvider,
+        provider: EmbeddingProvider,
         cache: EmbeddingCache,
         *,
-        model_id: str | None = None,
+        model_id: str,
         dim: int = EMBED_DIM,
         batch_size: int = DEFAULT_BATCH,
+        quota_limited: bool = False,
         sleep: Sleep = asyncio.sleep,
         max_waits: int = 30,
         default_wait_s: float = DEFAULT_RATE_LIMIT_WAIT_S,
@@ -79,11 +148,14 @@ class DocumentEmbedder:
     ) -> None:
         if batch_size < 1:
             raise ValueError("batch_size must be >= 1")
-        self._llm = llm
+        if not model_id:
+            raise ValueError("model_id (the embedding-cache namespace) is required")
+        self._provider = provider
         self._cache = cache
-        self._model = model_id or embed_model_id()
+        self._model = model_id
         self._dim = dim
         self._batch = batch_size
+        self._quota_limited = quota_limited
         self._sleep = sleep
         self._max_waits = max_waits
         self._default_wait_s = default_wait_s
@@ -92,6 +164,10 @@ class DocumentEmbedder:
     @property
     def model_id(self) -> str:
         return self._model
+
+    @property
+    def quota_limited(self) -> bool:
+        return self._quota_limited
 
     async def embed_chunks(self, chunks: Sequence[Chunk]) -> EmbedOutcome:
         return await self.embed_texts([(c.checksum, c.embedding_text()) for c in chunks])
@@ -119,11 +195,15 @@ class DocumentEmbedder:
         return EmbedOutcome(MappingProxyType(vectors), hits, embedded, api_calls, waited)
 
     async def _call(self, texts: list[str]) -> tuple[list[list[float]], int, float]:
+        if not self._quota_limited:  # local inference: no quota, no throttle, nothing worth waiting for
+            vectors = await self._provider.embed(texts, dim=self._dim)
+            _check_vectors(vectors, len(texts), self._dim)
+            return vectors, 1, 0.0
         waits, waited, calls = 0, 0.0, 0
         while True:
             calls += 1
             try:
-                vectors = await self._llm.embed(texts, dim=self._dim)
+                vectors = await self._provider.embed(texts, dim=self._dim)
                 _check_vectors(vectors, len(texts), self._dim)
                 return vectors, calls, waited
             except UpstreamRateLimited as exc:
@@ -198,20 +278,32 @@ class QueryVectors:
 class QueryEmbedder:
     def __init__(
         self,
-        llm: LLMProvider,
+        provider: EmbeddingProvider,
         *,
-        model_id: str | None = None,
+        model_id: str,
         dim: int = EMBED_DIM,
         maxsize: int = 2048,
         ttl_s: float = 3600.0,
         persistent: EmbeddingCache | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._llm = llm
-        self._model = model_id or embed_model_id()
+        if not model_id:
+            raise ValueError("model_id (the embedding-cache namespace) is required")
+        self._provider = provider
+        self._model = model_id
         self._dim = dim
         self._memory: TTLCache[str, tuple[float, ...]] = TTLCache(maxsize, ttl_s, clock=clock)
         self._persistent = persistent
+
+    @property
+    def model_id(self) -> str:
+        return self._model
+
+    async def warmup(self) -> None:
+        """Load the embedding model now (local backend: ~1.2 GB read once) instead of on the first query."""
+        warm = getattr(self._provider, "warmup", None)
+        if warm is not None:
+            await warm()
 
     def _lookup(self, keys: Sequence[str]) -> dict[str, tuple[float, ...]]:
         found = {k: v for k in keys if (v := self._memory.get(k)) is not None}
@@ -234,7 +326,7 @@ class QueryEmbedder:
         if todo:
             by_key = dict(zip(keys, texts, strict=True))
             t0 = time.perf_counter()
-            vectors = await self._llm.embed([by_key[k] for k in todo], dim=self._dim)
+            vectors = await self._provider.embed([by_key[k] for k in todo], dim=self._dim)
             api_ms = (time.perf_counter() - t0) * 1000
             _check_vectors(vectors, len(todo), self._dim)
             for k, vec in zip(todo, vectors, strict=True):

@@ -13,6 +13,7 @@ from datetime import date
 from core.schemas.chat import RetrievalQuery, RetrievalResult, RetrievedPassage
 from core.schemas.source import ContentType, Language, ReuseMode
 
+# (title, heading, text); the third one is a drug label (content_type drug_label, source openfda_labels).
 SYNTHETIC_PASSAGES: tuple[tuple[str, str, str], ...] = (
     (
         "Fever",
@@ -45,11 +46,12 @@ def make_passage(
     language: Language = Language.EN,
     reuse: ReuseMode = ReuseMode.PARAPHRASE_OK,
     content_type: ContentType = ContentType.CONDITION,
+    source_id: str = "fake_source",
 ) -> RetrievedPassage:
     return RetrievedPassage(
         chunk_id=f"fake:doc{n}#s1#0",
         doc_id=f"fake:doc{n}",
-        source_id="fake_source",
+        source_id=source_id,
         title=title,
         url=f"https://example.org/fake/{n}",  # type: ignore[arg-type]
         heading_path=(title, heading),
@@ -66,8 +68,9 @@ def make_passage(
 
 
 def default_passages() -> tuple[RetrievedPassage, ...]:
+    label = {"content_type": ContentType.DRUG_LABEL, "source_id": "openfda_labels"}
     return tuple(
-        make_passage(i, text, title=title, heading=heading)
+        make_passage(i, text, title=title, heading=heading, **(label if "label" in title else {}))  # type: ignore[arg-type]
         for i, (title, heading, text) in enumerate(SYNTHETIC_PASSAGES, 1)
     )
 

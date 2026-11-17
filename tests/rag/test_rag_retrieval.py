@@ -27,7 +27,10 @@ from rag.retrieval_config import ConfidenceModel, RetrievalConfig
 from rag.sparse import SparseEncoder
 from rag.synonyms import SynonymIndex
 
-pytestmark = [pytest.mark.filterwarnings(w) for w in QDRANT_LOCAL_WARNINGS]
+pytestmark = [
+    pytest.mark.filterwarnings(w)
+    for w in (*QDRANT_LOCAL_WARNINGS, "ignore:Failed to obtain server version:UserWarning")
+]
 
 LEXICAL_GATE = ConfidenceModel(weights={"lexical_coverage": 12.0}, bias=-6.0)
 CFG = RetrievalConfig(confidence=LEXICAL_GATE)
@@ -224,14 +227,28 @@ def test_query_texts_dedupes_caps_and_rejects_empty():
 
 
 async def test_build_retriever_composition_root_follows_the_active_pointer(tmp_path):
+    import shutil
     from datetime import UTC, datetime
 
+    from app.llm.local_embedder import LocalEmbeddingProvider
+    from rag.embedding import embed_model_id
+
+    shared = DataPaths.from_settings(Settings()).fastembed_dir  # BM25 assets: health() must not download
+    shutil.copytree(shared, DataPaths(tmp_path).fastembed_dir, ignore=shutil.ignore_patterns(".locks"))
     settings = Settings(
-        AUSCULTA_DATA_ROOT=str(tmp_path), AUSCULTA_LLM_BACKEND="fake", QDRANT_URL="http://127.0.0.1:9"
+        AUSCULTA_DATA_ROOT=str(tmp_path),
+        AUSCULTA_LLM_BACKEND="fake",
+        AUSCULTA_EMBED_BACKEND="local",
+        QDRANT_URL="http://127.0.0.1:9",
     )
-    empty = build_retriever(settings, FakeLLMProvider())
+    llm = FakeLLMProvider()
+    empty = build_retriever(settings, llm)
     assert isinstance(empty, Retriever)
     assert empty.corpus_version == ""
+    # queries are embedded by the local model (ADR 0003), never by the LLM provider; nothing loaded yet
+    assert isinstance(empty._qe._provider, LocalEmbeddingProvider)
+    assert empty._qe.model_id == embed_model_id("local")
+    assert empty._reranker._llm is llm
     await empty.aclose()
     pointer = ActivePointer(
         alias="ausculta_corpus", collection="c1", corpus_version="v9", promoted_at=datetime.now(UTC)
@@ -243,6 +260,54 @@ async def test_build_retriever_composition_root_follows_the_active_pointer(tmp_p
         assert not await retriever.health()
     finally:
         await retriever.aclose()
+
+
+async def test_health_runs_a_real_sparse_encode_and_search(indexed, sparse, tmp_path):
+    """Review P3: readiness is more than get_collection: the BM25 analyser must encode and the collection
+    must answer a search with at least one point."""
+    from rag.index import ensure_collection
+
+    client, collection = indexed
+    assert await make_retriever(client, collection, sparse).health()
+    await ensure_collection(client, "empty_collection")
+    assert not await make_retriever(client, "empty_collection", sparse).health()
+
+    class BrokenSparse(SparseEncoder):
+        def encode_query(self, text, language):
+            raise OSError("read-only file system: fastembed cache")
+
+    broken = BrokenSparse(tmp_path / "nowhere")
+    assert not await make_retriever(client, collection, broken).health()
+
+    class StopwordsOnly(SparseEncoder):
+        def encode_query(self, text, language):
+            from rag.sparse import SparseVec
+
+            return SparseVec((), ())
+
+    assert not await make_retriever(client, collection, StopwordsOnly(tmp_path)).health()
+
+
+async def test_warmup_loads_the_sparse_analysers_and_the_embedding_model(sparse):
+    calls: list[str] = []
+
+    class Warm(FakeLLMProvider):
+        async def warmup(self):
+            calls.append("embedding")
+
+    class Sparse(SparseEncoder):
+        def warmup(self, languages=("en", "fr", "ar")):
+            calls.append("sparse")
+
+    r = HybridRetriever(
+        client=None,
+        collection="c",
+        query_embedder=QueryEmbedder(Warm(), model_id="q"),
+        sparse=Sparse(sparse._cache_dir),
+        reranker=NoopReranker(),
+    )
+    await r.warmup()
+    assert calls == ["sparse", "embedding"]
 
 
 @pytest.mark.services

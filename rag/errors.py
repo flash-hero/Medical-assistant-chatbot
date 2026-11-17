@@ -36,6 +36,12 @@ class IndexMismatch(AusculaError):
     code, http_status = "index_mismatch", 409
 
 
+class CorpusUnverified(IndexMismatch):
+    """A collection does not match its signed manifest (or cannot be checked): never serve or promote it."""
+
+    code, http_status = "corpus_unverified", 503
+
+
 class GateFailed(AusculaError):
     """Promotion refused: the collection has no passing retrieval-gate report."""
 

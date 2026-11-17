@@ -1,12 +1,21 @@
-"""Repositories over the async session factory. Every write is its own short transaction."""
+"""Repositories over the async session factory. Every write is its own short transaction.
+
+Retention (review S6/P7): `Storage.purge_expired()` deletes every row older than its table's retention and is
+idempotent; the API runs it at startup and then hourly. Appointment personal data keeps the contract's 30 days
+(`purge_after`); the other periods are engineering defaults to be confirmed by the DPIA (docs/runbook.md)."""
 
 from __future__ import annotations
 
 import secrets
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from types import MappingProxyType
+from typing import Any
 
+import structlog
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.pipeline.record import TurnRecord
@@ -20,7 +29,18 @@ from app.storage.models import (
     TurnRow,
 )
 
+log = structlog.get_logger(__name__)
 APPOINTMENT_RETENTION = timedelta(days=30)
+RETENTION: Mapping[str, timedelta] = MappingProxyType(
+    {
+        "appointments": APPOINTMENT_RETENTION,
+        "sessions": timedelta(days=90),  # == turns: deleting a session cascades to its turns
+        "turns": timedelta(days=90),
+        "feedback": timedelta(days=180),
+        "audit_events": timedelta(days=365),
+    }
+)
+CODE_ATTEMPTS = 5  # request-code collisions (32^6 codes) are retried with a fresh code
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
 
 
@@ -138,6 +158,11 @@ class AuditRepository:
             return len(rows.all())
 
 
+async def _delete_older(db: AsyncSession, model: Any, column: Any, cutoff: datetime) -> int:
+    result = await db.execute(delete(model).where(column < cutoff))
+    return int(result.rowcount or 0)  # type: ignore[attr-defined]
+
+
 class FeedbackRepository:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._s = sessions
@@ -162,10 +187,32 @@ class AppointmentRepository:
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._s = sessions
 
-    async def create(self, data: AppointmentInput, *, now: datetime | None = None) -> str:
+    async def create(
+        self,
+        data: AppointmentInput,
+        *,
+        now: datetime | None = None,
+        audit: Mapping[str, object] | None = None,
+    ) -> str:
+        """Store the request and (when `audit` is given) its audit event in ONE transaction (review P15).
+        A request-code collision is retried with a fresh code (review S7); after CODE_ATTEMPTS it raises."""
         now = now or datetime.now(UTC)
+        for attempt in range(1, CODE_ATTEMPTS + 1):
+            code = new_request_code()
+            try:
+                await self._insert(code, data, now, audit)
+            except IntegrityError:
+                if attempt == CODE_ATTEMPTS:
+                    raise
+                log.warning("appointment_code_collision", attempt=attempt)
+                continue
+            return code
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _insert(
+        self, code: str, data: AppointmentInput, now: datetime, audit: Mapping[str, object] | None
+    ) -> None:
         purge = now + APPOINTMENT_RETENTION
-        code = new_request_code()
         async with self._s.begin() as db:
             db.add(
                 AppointmentRequestRow(
@@ -188,7 +235,15 @@ class AppointmentRepository:
                     purge_after=purge,
                 )
             )
-        return code
+            if audit is not None:
+                db.add(
+                    AuditEventRow(
+                        created_at=now,
+                        session_id=data.session_id,
+                        event_type="appointment_request",
+                        detail=dict(audit),
+                    )
+                )
 
     async def purge_expired(self, now: datetime | None = None) -> PurgeResult:
         """Delete appointment personal data (and the request rows) past their 30-day retention."""
@@ -216,6 +271,24 @@ class Storage:
     audit: AuditRepository
     feedback: FeedbackRepository
     appointments: AppointmentRepository
+
+    async def purge_expired(self, now: datetime | None = None) -> dict[str, int]:
+        """Delete every row past its retention (RETENTION). Idempotent; safe to run from several workers."""
+        now = now or datetime.now(UTC)
+        appointments = await self.appointments.purge_expired(now)
+        counts = {"appointment_contacts": appointments.contacts, "appointment_requests": appointments.requests}
+        async with self.appointments._s.begin() as db:
+            counts["turns"] = await _delete_older(db, TurnRow, TurnRow.created_at, now - RETENTION["turns"])
+            counts["sessions"] = await _delete_older(
+                db, SessionRow, SessionRow.created_at, now - RETENTION["sessions"]
+            )
+            counts["audit_events"] = await _delete_older(
+                db, AuditEventRow, AuditEventRow.created_at, now - RETENTION["audit_events"]
+            )
+            counts["feedback"] = await _delete_older(
+                db, FeedbackRow, FeedbackRow.created_at, now - RETENTION["feedback"]
+            )
+        return counts
 
     @classmethod
     def from_factory(cls, factory: async_sessionmaker[AsyncSession]) -> Storage:

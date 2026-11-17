@@ -12,6 +12,49 @@ Owner dirs: `rag/`, `tests/rag/`, `evals/retrieval/`, `docs/decisions/0002-retri
 | 3 | Retrieval evaluation (gold EN/FR/AR + OOC, ablations, calibration, report, metrics, ADR 0002) | done | Run 4 (16:40 UTC) found the r5 full online eval had COMPLETED before the restart: exit 0 at 12:19 UTC after 20 min (log `reports/retrieval/run-online-20261116-r5.log`), report `20261116T115912Z.json`, calibrated config `manifests/ausculta_corpus_2026_11_16_seed1.retrieval.json`, `reports/rag.metrics.json` (7 records, free_tier). `evals.run --only rag.`: PASS 4, PROVISIONAL 3 (recall@20 0.990 EN/FR/AR), FAIL 0. Rerank OFF (-0.39 nDCG@8 points on 61 paired queries). `docs/decisions/0002-retrieval.md` written with all numbers. Earlier history: Gold: `gen_20261116T062632Z_{en,fr,ar}.jsonl` generated 06:25 UTC by gemini-3.5-flash-lite (60 passages x 3 langs + 30 OOC x 3, FR/AR English rewrites by the model without the passage; ~11 generation calls, estimated from the file contents since that run's stdout was lost) + `agent_seed1_*` (36 answerable + 24 OOC per lang). Total 450 rows, 599 distinct query texts. 10:50 UTC: per-run gate records renamed `<stamp>.gates.json` (evals.run reads every `*.metrics.json`, newest wins, so an offline or validation-collection eval would have replaced the live numbers); `reports/rag.metrics.json` is now written only by an ONLINE eval of the alias target. Online eval started 10:52 UTC (log `reports/retrieval/run-online-20261116.log`). |
 | 4 | Full-build preparation (chunk counts per ACTIVE source, ETA at 90 chunks/min, `--limit 50` validation on 2 non-MedlinePlus sources, exact command for the lead) | done | Run 4: plan re-run 16:45 UTC right after `wikipedia_medicine` got its ready marker (16:45:00): `reports/rag-plan-20261116T1650.txt` (no API calls). 15 ready sources excl. openfda_labels, 26,766 docs, 189,169 chunks, 187,909 new embeddings (1,011 cached), 50.5M tokens, 2,088 min = 34.8 h at 90/min; ~$10.10 at paid list price. Per-source table, daily-quota caveat and the exact command: section "Full build (for the lead)" below. Collections: only `ausculta_corpus_2026_11_16_seed1` (alias target) remains; nothing else to delete. Earlier history: `--limit 50` validation done (val50, 291 chunks). Plan run 11:52 UTC (`reports/rag-plan-20261116.txt`, 23 s, no API): 14 ready sources excl. openfda_labels, 22,844 docs, 111,373 chunks, 110,113 new embeddings (1,011 cached), 25.1M tokens, 1,223 min = 20.4 h at 90/min; wikipedia_medicine not ready (being fetched). Daily cap now treated as UNKNOWN in `rag plan` (no default cap). 11:57 UTC: deleted Qdrant collections `ausculta_corpus_2026_11_16_val50` and `ausculta_corpus_2026_11_15_1` (their vectors stay in the embedding cache; manifest/build-state files kept as history); only seed1 (alias target) remains. Left: record the command. |
 
+## Run 5 (22:00-23:30 UTC): local embeddings + review fixes (code only, Qdrant untouched)
+
+Why: ADR 0003. The free tier embeds 1,000 texts/day and billing cannot be enabled, so documents AND queries
+are now embedded by `google/embeddinggemma-300m` (ONNX, CPU) through `app.llm.factory.build_embedding_provider`.
+Qdrant was reported stopped (memory pressure) and was NOT used or restarted by this run; every test uses
+qdrant-client local mode. Note for the lead: at 22:2x UTC a `qdrant.exe` (PID 21244, started 16:37 local)
+was still listening on 127.0.0.1:6333, and the baseline test run's `services` test created and deleted its
+throwaway collection `ausculta_corpus_pytest_svc` there; every later run used `-m "not services"`.
+
+Changes (all uncommitted; tests for each):
+- `rag/embedding.py`: `DocumentEmbedder` / `QueryEmbedder` take a `core.ports.EmbeddingProvider`;
+  `EmbeddingBackend` + `embedding_backend(settings, llm=None)` = the deployment's one model (provider, cache
+  namespace, `quota_limited`). Per-minute waits / daily-quota stop only when `quota_limited` (Gemini); the
+  local backend never sleeps and its errors propagate (build exit 1 with the resume command; the cache keeps
+  every committed 90-chunk batch). `QueryEmbedder.warmup()` loads the model.
+- P19: cache namespace `"<model id>@fmt1"` (`EMBED_TEXT_FORMAT`; a test pins the document/query strings and
+  says to bump it). Local = `google/embeddinggemma-300m@fmt1`. Old Gemini vectors stay under
+  `gemini-embedding-2` (unused).
+- `rag/retrieval.py`: `build_retriever(settings, llm)` unchanged signature, embeds queries with
+  `embedding_backend(settings, llm=llm)`; `warmup()` = BM25 analysers + embedding model (P12);
+  `health()` = real BM25 encode + 1-result sparse search + non-empty count, 3 s bound, never raises (P3).
+- S8/P6: `rag/signing.py` (scheme `ausculta-manifest-v1`: HKDF-SHA256 key from `AUSCULTA_SESSION_SECRET`,
+  info `ausculta-manifest-v1`; HMAC over all manifest fields + digest of the served fields of every stored
+  chunk) and `rag/verify.py` (recomputes `sha256(context_header + "\n" + text)` from stored text, checks
+  point ids, count, embed model and HMAC). Promote and rollback use it. New error
+  `rag.errors.CorpusUnverified` (code `corpus_unverified`, subclass of `IndexMismatch`). Old manifests
+  (seed1, val50) no longer verify (Gemini collections anyway).
+- API startup hook (to be wired by the API track):
+  `async def rag.verify.verify_live_corpus(settings: Settings, *, client: AsyncQdrantClient | None = None) -> VerifiedCorpus`
+  returns `VerifiedCorpus(collection, corpus_version, embed_model, chunks)` or raises `CorpusUnverified`
+  (no secret, no alias, no/foreign manifest, other embedding model, edited payload, missing/extra points,
+  Qdrant unreachable). It reads every payload once (signed fields only, no vectors).
+- `rag eval` (online) refuses a collection built with another embedding model; reports carry `embed_model`
+  and `collection_embed_model`. `rag promote` / `rollback` refuse it too.
+- `rag plan`: ETA from the backend: local 2.7 chunks/s = 162/min (spike S7); Gemini keeps 90/min, the
+  cost line and the daily cap (now 1,000 texts/day by default, confirmed). No embedding call, no model load.
+- P20: `rag/build.py::_state` typed (no more `type: ignore`), `rag/cli_plan.py` imports `load_registry` from
+  `rag.registry`; also fixed the 7 mypy errors in `evals/retrieval/` (`gold.py`, `generate.py`,
+  `resume_check.py`). `rag/` + `evals/retrieval/`: mypy strict clean (40 files).
+- `evals/retrieval/dense_check.py`: dense-only check without Qdrant (numpy cosine), used by tests and for
+  the one real-model check below.
+- Tests: conftest guard makes any attempt to LOAD the real embedding model fail the test (pytest.fail).
+
 ## Run 4 (started 16:39 UTC, after the PC restart)
 
 - Qdrant up; only `ausculta_corpus_2026_11_16_seed1` exists, alias -> seed1. The r5 full eval had finished

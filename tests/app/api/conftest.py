@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -46,6 +46,14 @@ class Api:
     container: Container
     llm: Any
     retriever: Any
+    extra_clients: list[httpx.AsyncClient] = field(default_factory=list)
+
+    def client_for(self, ip: str) -> httpx.AsyncClient:
+        """Another client of the same app whose requests come from `ip` (closed with the fixture)."""
+        transport = httpx.ASGITransport(app=self.app, client=(ip, 50001))
+        client = httpx.AsyncClient(transport=transport, base_url="http://testserver")
+        self.extra_clients.append(client)
+        return client
 
     async def session(self, locale: str = "en") -> dict[str, Any]:
         r = await self.client.post("/api/v1/session", json={"locale": locale})
@@ -85,6 +93,11 @@ def api_factory(
         keepalive_s: float = 15.0,
         config: Any = None,
         cancel_grace_s: float = 1.0,
+        redis_client: Any = None,
+        rate_rules: Any = None,
+        purge_interval_s: float = 3600.0,
+        turn_deadline_s: float | None = None,
+        client: tuple[str, int] = ("203.0.113.7", 50000),
         **env: Any,
     ) -> AsyncIterator[Api]:
         llm = llm or scripted_provider()
@@ -97,13 +110,22 @@ def api_factory(
             keepalive_s=keepalive_s,
             cancel_grace_s=cancel_grace_s,
             today=lambda: today,
+            redis_client=redis_client,
+            rate_rules=rate_rules,
+            purge_interval_s=purge_interval_s,
+            turn_deadline_s=turn_deadline_s,
         )
         app = create_app(settings, overrides=overrides)
         container: Container = app.state.container
         async with app.router.lifespan_context(app):
-            transport = httpx.ASGITransport(app=app, client=("203.0.113.7", 50000))
-            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-                yield Api(client, app, container, llm, retriever)
+            transport = httpx.ASGITransport(app=app, client=client)
+            async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as http:
+                api = Api(http, app, container, llm, retriever)
+                try:
+                    yield api
+                finally:
+                    for extra in api.extra_clients:
+                        await extra.aclose()
 
     return factory
 

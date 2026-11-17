@@ -5,11 +5,12 @@ Runs against a local-path Qdrant and the fake LLM backend; no network."""
 import json
 import re
 import shutil
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from qdrant_client import AsyncQdrantClient
-from rag_fixtures import QDRANT_LOCAL_WARNINGS, make_doc, retrieval_docs, write_normalized
+from rag_fixtures import QDRANT_LOCAL_WARNINGS, fake_embedding, make_doc, retrieval_docs, write_normalized
 from test_rag_eval_runner import gold_rows
 from test_rag_eval_units import _passing_report
 
@@ -28,6 +29,7 @@ def env(tmp_path, registry_path, monkeypatch):
     settings = Settings(
         AUSCULTA_DATA_ROOT=str(tmp_path / "data"),
         AUSCULTA_LLM_BACKEND="fake",
+        AUSCULTA_EMBED_BACKEND="fake",
         AUSCULTA_SESSION_SECRET="cli-test-secret-0123456789",
         QDRANT_ALIAS="cli_alias",
     )
@@ -57,7 +59,9 @@ def test_cli_build_eval_promote_rollback(env, capsys):
     paths, gold = env
     assert main(["build", "--corpus-version", "c1", "--sources", "demo_src"]) == EXIT_OK
     assert main(["build", "--corpus-version", "c2", "--sources", "demo_src", "--cache-only"]) == EXIT_OK
-    assert "embedded 0 (api calls 0)" in capsys.readouterr().out
+    printed = capsys.readouterr().out
+    assert "embedded 0 (embedding calls 0)" in printed
+    assert "Embedding model: fake-hash-embedding@fmt1 (fake backend)" in printed
 
     assert main(["status"]) == EXIT_OK
     status = capsys.readouterr().out
@@ -215,7 +219,8 @@ def test_eval_stops_cleanly_with_exit_3_when_the_daily_embedding_quota_is_spent(
     assert main(["build", "--corpus-version", "q1", "--sources", "demo_src"]) == EXIT_OK
     day = UpstreamRateLimited("daily", scope="day", retry_after_s=None)
     fake = FakeLLMProvider(embed_failures_remaining=99, embed_error=day)
-    monkeypatch.setattr("rag.cli.llm_provider", lambda settings: fake)
+    gemini_like = replace(fake_embedding(fake, quota_limited=True), name="gemini")  # only Gemini has quotas
+    monkeypatch.setattr("rag.cli.embedding_for", lambda settings, llm=None, cache_only=False: gemini_like)
     capsys.readouterr()
     args = ["eval", "--collection", "ausculta_corpus_q1", "--gold", str(gold), "--no-resume-check"]
     assert main(args) == EXIT_QUOTA
@@ -273,3 +278,54 @@ def test_cli_gold_generates_unreviewed_files_within_the_call_budget(env, tmp_pat
     ]
     assert main([*capped, "--min-tokens", "1"]) == EXIT_ERROR
     assert "Partial output was saved" in capsys.readouterr().out
+
+
+def test_build_uses_the_configured_local_embedding_model_namespace(env, monkeypatch, capsys):
+    """Default backend: local EmbeddingGemma. Cache-only so the test never loads the model."""
+    from rag.cli import get_settings
+
+    local = get_settings().model_copy(update={"embed_backend": "local"})
+    monkeypatch.setattr("rag.cli.get_settings", lambda: local)
+    assert main(["build", "--corpus-version", "l1", "--sources", "demo_src", "--cache-only"]) == EXIT_QUOTA
+    printed = capsys.readouterr().out
+    assert "Embedding model: google/embeddinggemma-300m@fmt1 (local backend)" in printed
+    assert "0 API calls made" in printed
+
+
+def test_promote_refuses_a_collection_built_with_another_embedding_model(env, monkeypatch, capsys):
+    paths, _ = env
+    assert main(["build", "--corpus-version", "e1", "--sources", "demo_src"]) == EXIT_OK
+    _passing(paths, "ausculta_corpus_e1", 1)
+    from rag.cli import get_settings
+
+    local = get_settings().model_copy(update={"embed_backend": "local"})
+    monkeypatch.setattr("rag.cli.get_settings", lambda: local)
+    capsys.readouterr()
+    assert main(["promote", "ausculta_corpus_e1"]) == EXIT_ERROR
+    assert "embeds queries with google/embeddinggemma-300m@fmt1" in capsys.readouterr().out
+    assert read_active(paths) is None
+
+
+def test_local_embedding_failure_stops_the_build_with_the_resume_command(env, monkeypatch, capsys):
+    from rag_fixtures import SpyLLM
+
+    from core.errors import UpstreamUnavailable
+    from rag.embedding import embed_model_id
+
+    failing = SpyLLM(fail_on_call=2, failure=UpstreamUnavailable("local embedding failed (RuntimeError)"))
+    local = replace(fake_embedding(failing), name="local", model_id=embed_model_id("local"))
+    monkeypatch.setattr("rag.cli.embedding_for", lambda settings, llm=None, cache_only=False: local)
+    args = ["build", "--corpus-version", "f1", "--sources", "demo_src", "--batch-size", "3"]
+    assert main(args) == EXIT_ERROR
+    captured = capsys.readouterr()
+    assert "Embedding failed [upstream_unavailable]" in captured.out
+    assert "python -m rag build --corpus-version f1 --sources demo_src" in captured.out
+    assert "command_failed" in captured.err
+    resumed = SpyLLM()
+    monkeypatch.setattr(
+        "rag.cli.embedding_for",
+        lambda settings, llm=None, cache_only=False: replace(local, provider=resumed),
+    )
+    assert main(args) == EXIT_OK
+    assert set(failing.embedded).isdisjoint(resumed.embedded)  # resumed with zero repeat embeddings
+    assert "cache hits 3" in capsys.readouterr().out

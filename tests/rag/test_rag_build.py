@@ -5,15 +5,18 @@ from qdrant_client import AsyncQdrantClient
 from rag_fixtures import QDRANT_LOCAL_WARNINGS, SpyLLM, corpus_docs, make_doc, write_normalized
 
 from core.errors import UpstreamRateLimited
+from core.schemas.document import Chunk
 from rag.build import BuildRequest, IndexBuilder, load_documents
 from rag.embed_cache import EmbeddingCache
 from rag.embedding import DocumentEmbedder
 from rag.errors import CorpusNotReady, EmbeddingQuotaExhausted, IndexMismatch, SourceNotIndexable
 from rag.index import count_points, ensure_collection, switch_alias
-from rag.manifest import read_build_state, read_manifest, verify_manifest
+from rag.manifest import chunks_digest, read_build_state, read_manifest
 from rag.paths import DataPaths
 from rag.registry import load_registry
+from rag.signing import signature_matches
 from rag.sparse import SparseEncoder
+from rag.verify import verify_collection
 
 pytestmark = [pytest.mark.filterwarnings(w) for w in QDRANT_LOCAL_WARNINGS]
 
@@ -35,9 +38,11 @@ async def client():
     await c.close()
 
 
-def _builder(tmp_path, registry_path, client, sparse, llm, cache, batch=90):
+def _builder(tmp_path, registry_path, client, sparse, llm, cache, batch=90, *, quota_limited=False):
     paths = DataPaths(tmp_path / "data")
-    embedder = DocumentEmbedder(llm, cache, model_id="test-embed", batch_size=batch)
+    embedder = DocumentEmbedder(
+        llm, cache, model_id="test-embed", batch_size=batch, quota_limited=quota_limited
+    )
     return IndexBuilder(
         paths=paths,
         registry=load_registry(registry_path),
@@ -64,11 +69,15 @@ async def test_build_indexes_corpus_and_writes_signed_manifest(tmp_path, registr
     assert len(rows) == 4
     assert json.loads(rows[0])["context_header"].startswith("DemoPlus | ")
     manifest = read_manifest(paths, report.collection)
-    checksums = [json.loads(r)["checksum"] for r in rows]
+    chunks = [Chunk.model_validate_json(r) for r in rows]
     assert manifest.sources == {"demo_src": 4}
     assert manifest.embed_dim == 768
-    assert verify_manifest(manifest, checksums, SECRET)
-    assert not verify_manifest(manifest, checksums[:-1], SECRET)
+    assert manifest.embed_model == "test-embed"
+    assert signature_matches(manifest, chunks_digest(chunks), SECRET)
+    assert not signature_matches(manifest, chunks_digest(chunks[:-1]), SECRET)
+    assert not signature_matches(manifest, chunks_digest(chunks), "another-secret-0123456789")
+    verified = await verify_collection(client, paths, report.collection, SECRET, embed_model="test-embed")
+    assert (verified.chunks, verified.corpus_version) == (4, "2026-11-15.t1")
     state = read_build_state(paths, report.collection)
     assert state.status == "indexed"
     assert state.indexed_chunks == 4
@@ -125,7 +134,7 @@ async def test_day_quota_mid_build_then_resume_repeats_zero_embeddings(
     db = tmp_path / "emb.sqlite3"
     first = SpyLLM(fail_on_call=3, failure=UpstreamRateLimited("quota", scope="day", retry_after_s=None))
     with EmbeddingCache(db) as cache:
-        builder = _builder(tmp_path, registry_path, client, sparse, first, cache, batch=3)
+        builder = _builder(tmp_path, registry_path, client, sparse, first, cache, batch=3, quota_limited=True)
         with pytest.raises(EmbeddingQuotaExhausted):
             await builder.build(req)
     state = read_build_state(DataPaths(tmp_path / "data"), req.collection)

@@ -16,11 +16,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
+from pydantic import HttpUrl
 from qdrant_client import AsyncQdrantClient
 
 from core.errors import UpstreamRateLimited
 from core.models import ModelRole
 from core.schemas.document import Document, Section
+from core.schemas.source import ContentType, Language, ReuseMode
 from evals.fakes.fake_llm import FakeLLMProvider
 from rag.build import BuildRequest, IndexBuilder
 from rag.embed_cache import EmbeddingCache
@@ -68,12 +70,12 @@ def _doc(i: int) -> Document:
     return Document(
         doc_id=f"{_SOURCE}:t{i}",
         source_id=_SOURCE,
-        url=f"https://example.gov/t{i}",
+        url=HttpUrl(f"https://example.gov/t{i}"),
         title=f"Topic {i}",
-        language="en",
-        content_type="condition",
+        language=Language.EN,
+        content_type=ContentType.CONDITION,
         trust_tier=1,
-        reuse_mode="paraphrase_ok",
+        reuse_mode=ReuseMode.PARAPHRASE_OK,
         license_id="public-domain-us-gov",
         attribution="Source: Example Health Agency",
         retrieved_at=datetime(2026, 11, 15, tzinfo=UTC),
@@ -122,7 +124,11 @@ async def _run(root: Path, registry: Path, sparse: SparseEncoder, llm: CountingL
                 paths=DataPaths(root),
                 registry=load_registry(registry),
                 client=client,
-                embedder=DocumentEmbedder(llm, cache, model_id="resume-check", batch_size=batch),
+                # quota_limited: the simulated stop is a Gemini daily-quota 429 (a local build stops on a
+                # kill instead; both resume from the same per-batch cache commits)
+                embedder=DocumentEmbedder(
+                    llm, cache, model_id="resume-check", batch_size=batch, quota_limited=True
+                ),
                 sparse=sparse,
                 secret="resume-check-secret",  # noqa: S106 - throwaway key for a throwaway manifest
                 alias="resume_check_alias",

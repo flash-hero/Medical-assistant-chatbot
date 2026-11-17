@@ -175,3 +175,69 @@ def test_tag_characters_flagged_as_smuggling():
     res = process_ingress(smuggled, max_chars=2000)
     assert res.text == "hi"
     assert "tag_chars" in res.smuggling_flags
+
+
+# ---- review S3: Unicode digits, single-spaced digits, "I'm <Name>" ---------------------------------------
+@pytest.mark.parametrize(
+    "text",
+    [
+        "My number is ٠٦١٢٣٤٥٦٧٨",  # Arabic-Indic
+        "رقمي ۰۶۱۲۳۴۵۶۷۸",  # Persian
+        "My number is ０６１２３４５６７８",  # fullwidth
+        "my number is 0 6 1 2 3 4 5 6 7 8",  # single-spaced
+        "call me on 0-6-1-2-3-4-5-6-7-8",
+        "+٢١٢ ٦ ٦١ ٢٣ ٤٥ ٦٧",
+    ],
+)
+def test_unicode_and_spaced_digit_phones_are_redacted(text):
+    out = _r(text)
+    assert "[PHONE]" in out.text
+    assert not any(c.isdigit() for c in out.text)
+    assert out.counts["PHONE"] == 1
+
+
+def test_north_american_trunk_prefix_is_redacted_whole():
+    out = _r("my number is 1-800-222-1222")
+    assert out.text == "my number is [PHONE]"
+
+
+def test_unicode_digits_become_ascii_in_the_redacted_text():
+    assert _r("عمري ٤٥ سنة").text == "عمري 45 سنة"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("I'm Sarah Connor and I have a fever", "I'm [NAME] and I have a fever"),
+        ("Hi, I am John and my chest hurts", "Hi, I am [NAME] and my chest hurts"),
+        ("Bonjour, je suis Marie Dupont, j'ai de la fièvre", "Bonjour, je suis [NAME], j'ai de la fièvre"),
+        ("أنا سارة وعندي حمى", "أنا [NAME] وعندي حمى"),
+        ("انا محمد عندي صداع", "انا [NAME] عندي صداع"),
+        ("أنا عبد الله مريض", "أنا [NAME] مريض"),
+    ],
+)
+def test_capitalised_self_introductions_are_redacted(text, expected):
+    out = _r(text)
+    assert out.text == expected
+    assert out.counts["NAME"] == 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I am diabetic and I have a fever",
+        "I am Diabetic and pregnant",
+        "I'm pregnant and bleeding",
+        "I'm French and I live in Rabat",
+        "I am HIV positive",
+        "I'm Type 2 diabetic",
+        "I'm not sure what to do",
+        "je suis enceinte de 3 mois",
+        "Je suis Diabétique",
+        "أنا مريض وعندي حمى",
+        "أنا حامل",
+    ],
+)
+def test_self_descriptions_are_not_names(text):
+    out = _r(text)
+    assert "[NAME]" not in out.text

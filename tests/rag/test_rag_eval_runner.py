@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 from qdrant_client import AsyncQdrantClient
-from rag_fixtures import QDRANT_LOCAL_WARNINGS, build_index, retrieval_docs
+from rag_fixtures import QDRANT_LOCAL_WARNINGS, build_index, fake_embedding, retrieval_docs
 
 from core.config import Settings
 from core.errors import UpstreamRateLimited, UpstreamUnavailable
@@ -117,7 +117,7 @@ async def setup(tmp_path, registry_path, sparse):
 async def test_online_eval_runs_all_ablations_calibrates_and_writes_config(setup, sparse):
     client, collection, tmp = setup
     llm = FakeLLMProvider()
-    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW)
+    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW, fake_embedding(llm))
     opts = EvalOptions(
         collection=collection,
         gold_dir=tmp / "gold",
@@ -126,7 +126,6 @@ async def test_online_eval_runs_all_ablations_calibrates_and_writes_config(setup
         rerank_min_paired=1,
         embed_latency_sample=2,
         resume_check=False,
-        backend="fake",
     )
     report = await run_eval(ctx, opts)
     names = [a["ablation"] for a in report["ablations"]]
@@ -144,15 +143,35 @@ async def test_online_eval_runs_all_ablations_calibrates_and_writes_config(setup
     assert stored.confidence.calibrated
     assert {r["metric"] for r in report["gate_records"]} >= {"recall_at_20", "retrieval_latency_p95_ms"}
     assert {g["gate"] for g in report["gates"]} >= {"rag.recall_at_20_en", "rag.retrieval_p95_ms"}
+    assert report["embed_model"] == report["collection_embed_model"] == ctx.embedding.model_id
     second = await run_eval(ctx, opts)  # query cache: nothing embedded twice
     assert second["pre_embed"]["embedded"] == 0
+
+
+async def test_online_eval_refuses_query_vectors_of_another_model(setup, sparse):
+    """A collection built with one embedding model cannot be evaluated with another's query vectors."""
+    from dataclasses import replace
+
+    from rag.embedding import embed_model_id
+    from rag.errors import IndexMismatch
+
+    client, collection, tmp = setup
+    llm = FakeLLMProvider()
+    local = replace(fake_embedding(llm), name="local", model_id=embed_model_id("local"))
+    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW, local)
+    opts = EvalOptions(collection=collection, gold_dir=tmp / "gold", resume_check=False)
+    with pytest.raises(IndexMismatch, match="google/embeddinggemma-300m"):
+        await run_eval(ctx, opts)
+    assert llm.count("embed") == 0
+    offline = await run_eval(ctx, replace(opts, offline=True))  # stand-in vectors: no model involved
+    assert offline["embed_model"] is None
 
 
 async def test_online_eval_completes_when_reranking_is_out_of_quota(setup, sparse):
     client, collection, tmp = setup
     day = UpstreamRateLimited("spent", scope="day", retry_after_s=None)
     llm = FakeLLMProvider(failures={ModelRole.RERANK: day})
-    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW)
+    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW, fake_embedding(llm))
     opts = EvalOptions(
         collection=collection,
         gold_dir=tmp / "gold",
@@ -161,7 +180,6 @@ async def test_online_eval_completes_when_reranking_is_out_of_quota(setup, spars
         rerank_min_paired=1,
         embed_latency_sample=1,
         resume_check=False,
-        backend="fake",
     )
     report = await run_eval(ctx, opts)
     rerank = report["ablations"][-1]
@@ -228,7 +246,7 @@ async def test_offline_eval_makes_no_api_call_and_emits_only_latency_records(set
     from rag.offline import CacheOnlyLLM
 
     llm = CacheOnlyLLM()
-    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW)
+    ctx = EvalContext(client, llm, DataPaths(tmp / "data"), sparse, NOW, fake_embedding(llm))
     opts = EvalOptions(collection=collection, gold_dir=tmp / "gold", offline=True, resume_check=False)
     report = await run_eval(ctx, opts)
     assert llm.refused_calls == 0

@@ -1,8 +1,16 @@
 """Fixed texts: safety templates (config/safety/templates.yaml) and responses, labels, form and error messages
-(config/templates/responses.yaml). Placeholders are filled ONLY from the verified hospital profile."""
+(config/templates/responses.yaml). Placeholders are filled ONLY from the verified hospital profile.
+
+Without a profile (review C11):
+  - {emergency_number} and {crisis_number} become `call_fallback` (responses.yaml), a phrase written to read
+    correctly after each template's call verb ("call ...", "appelez le ...", "اتصل بالرقم ...");
+  - a sentence that needs a profile-only contact ({handoff_*}, {main_*}) is left out, so no text points at a
+    staff line or switchboard that does not exist;
+  - the safety follow-up becomes the neutral `safety_followup_no_contacts` (no "contacts shown above")."""
 
 from __future__ import annotations
 
+import re
 import string
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -29,6 +37,9 @@ PLACEHOLDERS = frozenset(
     }
 )
 SAFETY_KINDS = ("emergency", "self_harm", "harm_to_others", "abuse_disclosure")
+PROFILE_ONLY = frozenset({"handoff_label", "handoff_number", "main_label", "main_number"})
+FOLLOWUP_NO_CONTACTS = "safety_followup_no_contacts"
+_SENTENCE_END = re.compile(r"(?<=[.!?؟])\s+")
 L10nText = Mapping[str, str]
 
 
@@ -46,6 +57,7 @@ class SafetyTemplate:
 class Texts:
     safety: Mapping[str, SafetyTemplate]
     fallback_number: L10nText
+    call_fallback: L10nText
     approval_status: str
     responses: Mapping[str, L10nText]
     notices: Mapping[str, L10nText]
@@ -66,10 +78,20 @@ class Texts:
     def label(self, key: str, locale: str) -> str:
         return self.frontdesk[key].get(locale) or self.frontdesk[key]["en"]
 
+    def render_safety(self, template: L10nText, locale: str, profile: HospitalProfile | None) -> str:
+        return render(template, locale, self.values(profile, locale))
+
+    def followup(self, kind: str, locale: str, profile: HospitalProfile | None) -> str:
+        """Text of the answer that closes a safety turn. Without a profile no contacts are shown, so the
+        template's "contacts above" wording is replaced by a neutral one."""
+        if profile is None:
+            return self.response(FOLLOWUP_NO_CONTACTS, locale, None)
+        return self.render_safety(self.safety[kind].followup, locale, profile)
+
     def values(self, profile: HospitalProfile | None, locale: str, **extra: object) -> dict[str, str]:
-        fallback = self.fallback_number.get(locale) or self.fallback_number["en"]
-        vals = dict.fromkeys(("emergency_number", "crisis_number", "handoff_number", "main_number"), fallback)
-        vals.update({"handoff_label": fallback, "main_label": fallback})
+        """Placeholder values. Profile-only keys are absent without a profile (their sentences are dropped)."""
+        fallback = self.call_fallback.get(locale) or self.call_fallback["en"]
+        vals = dict.fromkeys(("emergency_number", "crisis_number"), fallback)
         if profile is not None:
             vals["emergency_number"] = profile.emergency.number
             vals["crisis_number"] = (
@@ -84,8 +106,17 @@ class Texts:
 
 
 def render(template: L10nText, locale: str, values: Mapping[str, str]) -> str:
+    """Fill the placeholders; sentences that need a missing profile-only value are left out."""
     text = template.get(locale) or template["en"]
+    missing = PROFILE_ONLY - set(values)
+    if missing:
+        kept = [s for s in _SENTENCE_END.split(text) if not _fields(s) & missing]
+        text = " ".join(kept)
     return text.format_map(_Defaults(values))
+
+
+def _fields(text: str) -> set[str]:
+    return {f for _, f, _, _ in string.Formatter().parse(text) if f}
 
 
 class _Defaults(dict[str, str]):
@@ -132,8 +163,7 @@ def _select(selector: str, profile: HospitalProfile) -> list[PhoneContact]:
 # ---- loading ------------------------------------------------------------------------------------
 def _check_placeholders(table: L10nText, where: str) -> L10nText:
     for loc, text in table.items():
-        fields = {f for _, f, _, _ in string.Formatter().parse(text) if f}
-        unknown = fields - PLACEHOLDERS
+        unknown = _fields(text) - PLACEHOLDERS
         if unknown:
             raise ConfigFileError(f"{where}.{loc}: unknown placeholders {sorted(unknown)}")
     return MappingProxyType(dict(table))
@@ -183,11 +213,15 @@ def load_texts(safety_path: Path = SAFETY_TEMPLATES_PATH, responses_path: Path =
         raise ConfigFileError("responses.form.fields is required")
     for name, labels in form["fields"].items():
         require_locales(labels, f"form.fields.{name}")
+    responses = _l10n_table(resp_raw.get("responses"), "responses")
+    if FOLLOWUP_NO_CONTACTS not in responses:
+        raise ConfigFileError(f"responses.{FOLLOWUP_NO_CONTACTS} is required")
     return Texts(
         safety=_safety(safety_raw),
         fallback_number=require_locales(safety_raw.get("fallback_number"), "fallback_number"),
+        call_fallback=require_locales(resp_raw.get("call_fallback"), "call_fallback"),
         approval_status=str(approval.get("status", "draft")) if isinstance(approval, Mapping) else "draft",
-        responses=_l10n_table(resp_raw.get("responses"), "responses"),
+        responses=responses,
         notices=_l10n_table(resp_raw.get("notices"), "notices"),
         frontdesk=_l10n_table(resp_raw.get("frontdesk"), "frontdesk"),
         form=MappingProxyType(dict(form)),

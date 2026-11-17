@@ -260,12 +260,24 @@ def retrieval_docs() -> list[Document]:
     ]
 
 
+def fake_embedding(provider=None, *, quota_limited: bool = False):
+    """The "fake" embedding backend (hash vectors, namespace fake-hash-embedding@<format>), as
+    rag.embedding.embedding_backend builds it for AUSCULTA_EMBED_BACKEND=fake."""
+    from rag.embedding import EmbeddingBackend, embed_model_id
+
+    return EmbeddingBackend(
+        name="fake",
+        provider=provider or SpyLLM(),
+        model_id=embed_model_id("fake"),
+        quota_limited=quota_limited,
+    )
+
+
 async def build_index(tmp_path: Path, registry_path: Path, client, docs, version: str = "t1") -> str:
     """Index `docs` (source demo_src) into local-mode Qdrant with fake embeddings; returns the collection."""
     from core.config import Settings
     from rag.build import BuildRequest, IndexBuilder
     from rag.embed_cache import EmbeddingCache
-    from rag.embedding import DocumentEmbedder
     from rag.paths import DataPaths
     from rag.registry import load_registry
     from rag.sparse import SparseEncoder
@@ -278,7 +290,7 @@ async def build_index(tmp_path: Path, registry_path: Path, client, docs, version
             paths=DataPaths(root),
             registry=load_registry(registry_path),
             client=client,
-            embedder=DocumentEmbedder(SpyLLM(), cache, model_id="test-embed"),
+            embedder=fake_embedding().document_embedder(cache),
             sparse=sparse,
             secret=TEST_SECRET,
             alias="test_alias",

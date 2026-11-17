@@ -132,3 +132,130 @@ def test_common_safe_phrasings(sentence: str) -> None:
 @pytest.mark.parametrize("sentence", ["لا تضاعف الجرعة", "يؤخذ 2 مرات في اليوم حسب النشرة"])
 def test_arabic_claim_verbs_are_whole_words(sentence: str) -> None:
     assert find_forbidden_claims(sentence) == ()
+
+
+# ---- review C2: claims anywhere in the sentence, FR/AR/number-word dosing, stop-treatment without determiner ----
+@pytest.mark.parametrize(
+    ("sentence", "category"),
+    [
+        ("Based on what you describe, you probably have pneumonia.", "diagnosis"),
+        ("From your symptoms, you have a urinary tract infection.", "diagnosis"),
+        ("Dans ce cas, vous avez probablement une pneumonie.", "diagnosis"),
+        ("D'après vos symptômes, vous souffrez sans doute d'une angine.", "diagnosis"),
+        ("بناء على ما تصف، أنت مصاب بالتهاب رئوي.", "diagnosis"),
+        ("بناءً على ما تصفه، أنت مصابٌ بالتهاب رئوي.", "diagnosis"),
+        ("In your case, take 500 mg now.", "personal_dosing"),
+        ("In your case, take five hundred milligrams now.", "personal_dosing"),
+        ("You should take two tablets every four hours.", "personal_dosing"),
+        ("Vous devriez prendre 1 g de paracétamol.", "personal_dosing"),
+        ("Vous devriez prendre deux comprimés.", "personal_dosing"),
+        ("Pour la fièvre, prenez deux comprimés.", "personal_dosing"),
+        ("يجب أن تأخذ 500 ملغ.", "personal_dosing"),
+        ("يجب عليك أن تتناول قرصين.", "personal_dosing"),
+        ("Stop taking aspirin.", "stop_treatment"),
+        ("You can stop taking ibuprofen now.", "stop_treatment"),
+        ("Then stop using the inhaler.", "stop_treatment"),
+        ("Arrêtez de prendre l'aspirine.", "stop_treatment"),
+        ("Arrêtez l'aspirine.", "stop_treatment"),
+        ("توقف عن تناول الأسبرين.", "stop_treatment"),
+    ],
+)
+def test_review_c2_claims_are_caught_anywhere(sentence: str, category: str) -> None:
+    assert category in _cats(sentence)
+
+
+# ---- review C5: triage verdicts and probable-diagnosis forms ----------------------------------------------
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "You do not need to see a doctor.",
+        "You don't need to go to the hospital for this.",
+        "There is no need to see a doctor.",
+        "Go to the ER now.",
+        "Go to the emergency room immediately.",
+        "You need to see a doctor urgently.",
+        "You should go to the hospital right away.",
+        "This is not serious.",
+        "It's nothing serious.",
+        "Your condition is urgent.",
+        "Your symptoms are not serious.",
+        "Nothing to worry about.",
+        "You can wait until tomorrow.",
+        "Votre état est urgent.",
+        "Ce n'est pas grave.",
+        "Vous n'avez pas besoin de consulter un médecin.",
+        "Allez aux urgences immédiatement.",
+        "Votre situation est grave.",
+        "حالتك خطيرة.",
+        "حالتك ليست خطيرة.",
+        "لا داعي لزيارة الطبيب.",
+        "لا تحتاج إلى رؤية الطبيب.",
+        "اذهب إلى الطوارئ فورا.",
+    ],
+)
+def test_review_c5_triage_verdicts(sentence: str) -> None:
+    assert "triage" in _cats(sentence)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "This is probably appendicitis.",
+        "It could be a heart attack.",
+        "It might be a urinary tract infection.",
+        "This sounds like appendicitis.",
+        "These symptoms are most likely a migraine.",
+        "C'est probablement une appendicite.",
+        "Il s'agit probablement d'une grippe.",
+        "Cela pourrait être une crise cardiaque.",
+        "هذا على الأرجح التهاب الزائدة.",
+        "قد تكون هذه نوبة قلبية.",
+        "من المحتمل أنك مصاب بالانفلونزا.",
+    ],
+)
+def test_review_c5_probable_diagnosis(sentence: str) -> None:
+    assert "diagnosis" in _cats(sentence)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # general "when to seek care" guidance: conditional, anywhere in the sentence
+        "Go to the emergency room immediately if your lips turn blue [1].",
+        "Call your emergency number now if you have chest pain that spreads to your arm.",
+        "Seek emergency care right away in case of severe bleeding [2].",
+        "If you think it is an emergency, call 15.",
+        "Rendez-vous aux urgences immédiatement si vous avez du mal à respirer.",
+        "اذهب إلى الطوارئ فورا إذا كان لديك ألم في الصدر.",
+        # general information and safe sentences
+        "Most nosebleeds are not serious [1].",
+        "Meningitis is a serious infection [1].",
+        "Sepsis is a medical emergency. This is a medical emergency [1].",
+        "L'AVC est une urgence médicale [1].",
+        "Chest pain can be a sign of a heart attack [1].",
+        "It may be a good idea to rest.",
+        "It is important to drink fluids.",
+        "Tell your doctor about the medicines you have at home.",
+        "You should see a doctor if the fever lasts more than 3 days [1].",
+        "Patients who stop taking aspirin suddenly may have a higher risk [1].",
+        "Arrêtez de fumer.",
+        "Adults usually take 500 mg every 4 to 6 hours [1].",
+        "You can use one of these methods.",
+        "Unless you have a fever, rest at home.",
+        "",
+    ],
+)
+def test_review_c2_c5_safe_sentences_stay(sentence: str) -> None:
+    assert find_forbidden_claims(sentence) == ()
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "You can take paracetamol with or without food [1].",  # the citation marker is not a dose number
+        "Then you have the option of a flu vaccine.",
+        "So you have to drink plenty of fluids.",
+    ],
+)
+def test_citation_markers_and_generic_lead_ins_are_not_claims(sentence: str) -> None:
+    assert find_forbidden_claims(sentence) == ()

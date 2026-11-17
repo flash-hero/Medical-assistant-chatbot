@@ -26,7 +26,7 @@ from rag.errors import CorpusNotReady, EmbeddingQuotaExhausted, IndexMismatch
 from rag.fileio import atomic_write_jsonl, iter_jsonl
 from rag.index import alias_target, build_points, count_points, ensure_collection, point_id, prune_points
 from rag.index import upsert_points as qdrant_upsert
-from rag.manifest import BuildState, make_manifest, write_build_state, write_manifest
+from rag.manifest import BuildState, BuildStatus, make_manifest, write_build_state, write_manifest
 from rag.paths import DataPaths, collection_name, validate_corpus_version, validate_source_id
 from rag.registry import Registry
 from rag.sparse import SparseEncoder, SparseVec
@@ -39,7 +39,9 @@ class BuildRequest:
     corpus_version: str
     sources: tuple[str, ...]
     limit: int | None = None  # max documents per source (smoke builds)
-    batch_size: int = 90  # chunks per embed+upsert step (= one free-tier throttle window)
+    batch_size: int = (
+        90  # chunks per embed+upsert+commit step (local CPU: ~33 s; Gemini: one throttle window)
+    )
 
     def __post_init__(self) -> None:
         validate_corpus_version(self.corpus_version)
@@ -168,12 +170,21 @@ class IndexBuilder:
         self._embedder, self._sparse, self._secret = embedder, sparse, secret
         self._alias, self._chunker, self._dim, self._clock = alias, chunker, dim, clock
 
-    def _state(self, req: BuildRequest, status: str, docs: int, total: int, prog: _Progress, **kw: object):
+    def _state(
+        self,
+        req: BuildRequest,
+        status: BuildStatus,
+        docs: int,
+        total: int,
+        prog: _Progress,
+        *,
+        error: str | None = None,
+    ) -> BuildState:
         state = BuildState(
             corpus_version=req.corpus_version,
             collection=req.collection,
             sources=req.sources,
-            status=status,  # type: ignore[arg-type]
+            status=status,
             documents=docs,
             total_chunks=total,
             indexed_chunks=prog.indexed,
@@ -181,7 +192,7 @@ class IndexBuilder:
             cache_hits_this_run=prog.hits,
             updated_at=self._clock(),
             resume_command=req.resume_command(),
-            **kw,  # type: ignore[arg-type]
+            error=error,
         )
         write_build_state(self._paths, state)
         return state

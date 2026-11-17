@@ -75,7 +75,8 @@ def load_gold(directory: Path) -> tuple[GoldQuery, ...]:
 
 
 def save_gold(path: Path, rows: Iterable[GoldQuery]) -> int:
-    return atomic_write_jsonl(path, sorted(rows, key=lambda r: r.qid))
+    ordered: list[GoldQuery] = sorted(rows, key=lambda r: r.qid)
+    return atomic_write_jsonl(path, ordered)
 
 
 def with_rewrites(rows: Sequence[GoldQuery], rewrites: dict[str, str], how: Rewrite) -> list[GoldQuery]:

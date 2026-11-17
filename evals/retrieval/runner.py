@@ -1,10 +1,10 @@
 """`python -m rag eval`: evaluate one collection against the gold set and write the report.
 
-Online (default): pre-embeds every query text once into the persistent query cache (resumable, quota-aware),
-runs all ablations, fits the confidence gate, decides on reranking, measures (a) query-embedding API latency
-on a small sample and (b) the Qdrant stage on every query, and saves the tuned retrieval config next to the
-collection's manifest.
-Offline (`--offline`, no Gemini call at all): sparse-only quality numbers plus (b) latency measured through
+Online (default): pre-embeds every query text once into the persistent query cache with the deployment's
+embedding backend (resumable; quota-aware for the Gemini backend only), runs all ablations, fits the
+confidence gate, decides on reranking, measures (a) single-query embedding latency on a small sample and
+(b) the Qdrant stage on every query, and saves the tuned retrieval config next to the collection's manifest.
+Offline (`--offline`, no model call at all): sparse-only quality numbers plus (b) latency measured through
 the full hybrid path with stand-in query vectors (real cached document vectors). Offline reports carry no
 recall/abstention gate records, so they can never promote a collection.
 """
@@ -24,7 +24,7 @@ from qdrant_client import AsyncQdrantClient
 
 from core.errors import UpstreamError, UpstreamRateLimited
 from core.models import EMBED_DIM
-from core.ports import LLMProvider
+from core.ports import EmbeddingProvider, LLMProvider
 from evals.retrieval.calibrate import Calibration, Sample, calibrate
 from evals.retrieval.evaluate import (
     AblationRun,
@@ -49,12 +49,12 @@ from evals.retrieval.resume_check import measure_resume
 from rag.embed_cache import EmbeddingCache
 from rag.embedding import (
     DEFAULT_RATE_LIMIT_WAIT_S,
-    DocumentEmbedder,
+    EmbeddingBackend,
     QueryEmbedder,
-    embed_model_id,
     prefixed_query,
     query_cache_key,
 )
+from rag.errors import IndexMismatch
 from rag.index import DENSE_VECTOR, point_id
 from rag.manifest import read_manifest
 from rag.offline import StandInLLM
@@ -83,17 +83,17 @@ class EvalOptions:
     embed_latency_sample: int = 20
     write_config: bool = True
     resume_check: bool = True
-    backend: str = "gemini"
     free_tier: bool = True
 
 
 @dataclass(frozen=True)
 class EvalContext:
     client: AsyncQdrantClient
-    llm: LLMProvider
+    llm: LLMProvider  # reranking (Decisions)
     paths: DataPaths
     sparse: SparseEncoder
     when: datetime
+    embedding: EmbeddingBackend  # query embeddings: must be the model the collection was built with
 
 
 async def indexed_chunk_ids(client: AsyncQdrantClient, collection: str) -> set[str]:
@@ -122,12 +122,12 @@ PRE_EMBED_BATCH = 30  # small batches: on the free tier a batch larger than the 
 
 
 async def pre_embed(
-    llm: LLMProvider, cache: EmbeddingCache, model: str, texts: Sequence[str]
+    embedding: EmbeddingBackend, cache: EmbeddingCache, texts: Sequence[str]
 ) -> dict[str, int]:
-    """Embed every query once into the persistent query cache (resumable; waits out per-minute 429s)."""
-    outcome = await DocumentEmbedder(llm, cache, model_id=model, batch_size=PRE_EMBED_BATCH).embed_texts(
-        [(query_cache_key(t), prefixed_query(t)) for t in texts]
-    )
+    """Embed every query once into the persistent query cache (resumable; on the Gemini backend it also
+    waits out per-minute 429s and stops cleanly on the daily quota)."""
+    embedder = embedding.document_embedder(cache, batch_size=PRE_EMBED_BATCH)
+    outcome = await embedder.embed_texts([(query_cache_key(t), prefixed_query(t)) for t in texts])
     return {"texts": len(texts), "cache_hits": outcome.cache_hits, "embedded": outcome.embedded}
 
 
@@ -139,14 +139,16 @@ def _failure_wait(exc: UpstreamError, default_s: float) -> float | None:
 
 
 async def embed_api_latency(
-    llm: LLMProvider,
+    provider: EmbeddingProvider,
     texts: Sequence[str],
     n: int,
     *,
     sleep: Sleep = asyncio.sleep,
     wait_s: float = DEFAULT_RATE_LIMIT_WAIT_S,
+    dim: int = EMBED_DIM,
 ) -> dict[str, Any]:
-    """(a): wall time of single-query embedding calls on a small sample (costs up to n embedding texts).
+    """(a): wall time of single-query embedding calls on a small sample (local backend: CPU inference;
+    Gemini: API round trip, costs up to n embedding texts of quota).
 
     Informational only (no gate). It must never fail the evaluation: the 2026-11-16 10:52 run lost every
     ablation when one of these raw calls hit a per-minute 429 on the shared key. A failed sample is skipped
@@ -156,7 +158,7 @@ async def embed_api_latency(
     for text in list(texts)[:n]:
         t0 = time.perf_counter()
         try:
-            await llm.embed([prefixed_query(text)], dim=EMBED_DIM)
+            await provider.embed([prefixed_query(text)], dim=dim)
         except UpstreamError as exc:
             failed += 1
             delay = _failure_wait(exc, wait_s)
@@ -227,14 +229,18 @@ def _calibration_dict(cal: Calibration) -> dict[str, Any]:
 async def _online(
     ctx: EvalContext, opts: EvalOptions, rows: list[GoldQuery], base: RetrievalConfig
 ) -> dict[str, Any]:
-    model = embed_model_id(opts.backend)
+    emb = ctx.embedding
     out: dict[str, Any] = {}
     with EmbeddingCache(ctx.paths.query_cache_db) as qcache:
-        out["pre_embed"] = await pre_embed(ctx.llm, qcache, model, query_strings(rows))
+        out["pre_embed"] = await pre_embed(emb, qcache, query_strings(rows))
         out["embed_api_latency"] = await embed_api_latency(  # before the long ablations: cheap to redo
-            ctx.llm, [r.question for r in rows], opts.embed_latency_sample
+            emb.provider,
+            [r.question for r in rows],
+            opts.embed_latency_sample,
+            wait_s=DEFAULT_RATE_LIMIT_WAIT_S if emb.quota_limited else 0.0,
+            dim=emb.dim,
         )
-        qe = QueryEmbedder(ctx.llm, model_id=model, persistent=qcache)
+        qe = emb.query_embedder(persistent=qcache)
         retriever = _retriever(ctx, opts.collection, qe, DecisionReranker(ctx.llm))
         await retriever.warmup()
         runs = {
@@ -275,7 +281,7 @@ async def _offline(
 
 
 async def _standin_llm(ctx: EvalContext, collection: str, chunk_ids: Sequence[str]) -> StandInLLM:
-    """Real gemini-embedding-2 document vectors (from Qdrant) used as query vectors for timing only."""
+    """Real document vectors (from Qdrant) used as query vectors for timing only."""
     records = await ctx.client.retrieve(
         collection, [point_id(c) for c in chunk_ids], with_vectors=[DENSE_VECTOR]
     )
@@ -293,7 +299,21 @@ def _latency_gate(runs: dict[str, AblationRun], offline: bool) -> tuple[float, i
     return stats["retrieval_ms_p95"], int(stats["n"])
 
 
+def check_embed_model(collection_model: str | None, embedding: EmbeddingBackend) -> None:
+    """Query vectors must come from the model the collection was built with (ADR 0003): comparing vectors
+    of two models gives meaningless rankings, so an online eval refuses instead of measuring noise."""
+    if collection_model is not None and collection_model != embedding.model_id:
+        raise IndexMismatch(
+            f"collection vectors are {collection_model} but queries would be embedded with "
+            f"{embedding.model_id} ({embedding.name} backend): rebuild the collection or switch "
+            "AUSCULTA_EMBED_BACKEND"
+        )
+
+
 async def run_eval(ctx: EvalContext, opts: EvalOptions) -> dict[str, Any]:
+    manifest = read_manifest(ctx.paths, opts.collection)
+    if not opts.offline:
+        check_embed_model(manifest.embed_model if manifest else None, ctx.embedding)
     gold = load_gold(opts.gold_dir)
     indexed = await indexed_chunk_ids(ctx.client, opts.collection)
     rows, skipped = evaluable(gold, indexed)
@@ -314,7 +334,6 @@ async def run_eval(ctx: EvalContext, opts: EvalOptions) -> dict[str, Any]:
         free_tier=opts.free_tier,
         collection=opts.collection,
     )
-    manifest = read_manifest(ctx.paths, opts.collection)
     return {
         "schema": REPORT_SCHEMA,
         "measured_at": ctx.when.isoformat(),
@@ -323,6 +342,8 @@ async def run_eval(ctx: EvalContext, opts: EvalOptions) -> dict[str, Any]:
         "manifest_signed": bool(manifest and manifest.signature),
         "indexed_points": len(indexed),
         "mode": "offline" if opts.offline else "online",
+        "embed_model": None if opts.offline else ctx.embedding.model_id,
+        "collection_embed_model": manifest.embed_model if manifest else None,
         "free_tier": opts.free_tier,
         "gold": _gold_stats(gold, rows, skipped, opts.gold_dir),
         "ablations": [summarize(r) for r in runs.values()],

@@ -20,6 +20,7 @@ from app.pipeline.texts import (
     render,
 )
 from core.schemas.chat import RiskKind
+from evals.fakes.fake_redis import FakeRedis
 
 
 def _state(sid: str = "s1", *, minutes: int = 120) -> SessionState:
@@ -76,37 +77,18 @@ async def test_memory_store_drops_expired_sessions_and_evicts_oldest() -> None:
 
 
 # ---- RedisSessionStore -----------------------------------------------------------------------------
-class _FakeRedis:
-    def __init__(self, *, fail_ping: bool = False) -> None:
-        self.data: dict[str, Any] = {}
-        self.ttl: dict[str, int] = {}
-        self.fail_ping = fail_ping
-
-    async def get(self, key: str) -> Any:
-        return self.data.get(key)
-
-    async def set(self, key: str, value: str, ex: int) -> None:
-        self.data[key] = value.encode("utf-8")
-        self.ttl[key] = ex
-
-    async def ping(self) -> bool:
-        if self.fail_ping:
-            raise ConnectionError("down")
-        return True
-
-
 async def test_redis_store_round_trip_with_ttl() -> None:
-    r = _FakeRedis()
+    r = FakeRedis()
     store = RedisSessionStore(r)
-    state = _state("x").with_turn("hi", window=3)
+    state = _state("x").with_turn("hi", window=3).with_risks(frozenset({RiskKind.EMERGENCY}))
     await store.put(state)
-    assert 0 < r.ttl["ausculta:session:x"] <= 7200
+    for key in ("ausculta:s2:x", "ausculta:s2:x:risks", "ausculta:s2:x:history"):
+        assert 0 < await r.ttl(key) <= 7200
     assert await store.get("x") == state
     assert await store.get("missing") is None
-    r.data["ausculta:session:y"] = _state("y").to_json()  # str values (decode_responses=True clients)
-    assert (await store.get("y")).session_id == "y"  # type: ignore[union-attr]
     assert await store.ping() is True
-    assert await RedisSessionStore(_FakeRedis(fail_ping=True)).ping() is False
+    r.fail = ConnectionError("down")
+    assert await store.ping() is False
 
 
 # ---- texts ---------------------------------------------------------------------------------------

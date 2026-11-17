@@ -28,7 +28,7 @@ from core.schemas.chat import RetrievalQuery, RetrievalResult, RetrievedPassage
 from core.text import guess_language
 from rag.active import ActiveState
 from rag.confidence import Signals, decide, lexical_coverage, sparse_agreement
-from rag.embedding import QueryEmbedder, QueryVectors, embed_model_id, normalize_query
+from rag.embedding import QueryEmbedder, QueryVectors, embedding_backend, normalize_query
 from rag.expansion import Sibling, expand_window, fetch_siblings
 from rag.paths import DRUG_SYNONYMS_PATH, DataPaths
 from rag.rerank import DecisionReranker, Reranker, RerankItem
@@ -41,6 +41,8 @@ log = structlog.get_logger(__name__)
 
 MAX_QUERY_CHARS = 1000
 DEFAULT_CONFIG = RetrievalConfig()
+HEALTH_PROBE = "health information"  # stems to non-stopword terms in the English analyser
+HEALTH_TIMEOUT_S = 3.0
 _QDRANT_ERRORS = (UnexpectedResponse, ResponseHandlingException, httpx.HTTPError, OSError, ValueError)
 
 
@@ -140,15 +142,33 @@ class HybridRetriever:
         return self._version()
 
     async def health(self) -> bool:
+        """Readiness (review P3): a real BM25 encode and a one-result sparse search on the served collection,
+        so missing analyser assets (read-only container, no /data volume), an unreachable Qdrant, a missing
+        alias or an empty collection all report not ready. Never raises; bounded by HEALTH_TIMEOUT_S."""
         try:
-            await self._client.get_collection(self._collection)
-        except Exception:
+            async with asyncio.timeout(HEALTH_TIMEOUT_S):
+                vec = await asyncio.to_thread(self._sparse.encode_query, HEALTH_PROBE, "en")
+                if vec.empty:
+                    return False
+                await self._client.query_points(
+                    self._collection,
+                    query=vec.to_qdrant(),
+                    using=self._sparse.vector_name("en"),
+                    limit=1,
+                    with_payload=False,
+                )
+                points = (await self._client.count(self._collection, exact=False)).count
+        except Exception as exc:
+            log.warning("retriever_not_ready", error=type(exc).__name__)
             return False
-        return True
+        return points > 0
 
     async def warmup(self) -> None:
-        """Load the BM25 analysers off the event loop (first load scans the Unicode tables)."""
+        """Load the BM25 analysers (first load scans the Unicode tables, ~200 ms) and the query-embedding
+        model (local backend: ~1.2 GB, seconds) off the event loop, before the first request (review P12).
+        Errors propagate: the caller decides whether a cold start is acceptable."""
         await asyncio.to_thread(self._sparse.warmup)
+        await self._qe.warmup()
 
     async def aclose(self) -> None:
         await self._client.close()
@@ -344,14 +364,19 @@ class HybridRetriever:
 
 
 def build_retriever(settings: Settings, llm: LLMProvider) -> Retriever:
-    """Composition root for the engine: queries the alias, follows promotions via manifests/active.json."""
+    """Composition root for the engine: queries the alias, follows promotions via manifests/active.json.
+
+    Query vectors come from the deployment's embedding backend (AUSCULTA_EMBED_BACKEND, default the local
+    EmbeddingGemma model, ADR 0003), built here with app.llm.factory.build_embedding_provider; `llm` serves
+    reranking (and query embedding only when the backend is "gemini")."""
     paths = DataPaths.from_settings(settings)
     key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
     state = ActiveState(paths)
+    embedding = embedding_backend(settings, llm=llm)
     return HybridRetriever(
         client=AsyncQdrantClient(url=settings.qdrant_url, api_key=key, timeout=5),
         collection=settings.qdrant_alias,
-        query_embedder=QueryEmbedder(llm, model_id=embed_model_id(settings.llm_backend)),
+        query_embedder=embedding.query_embedder(),
         sparse=SparseEncoder(paths.fastembed_dir),
         reranker=DecisionReranker(llm),
         config=state.config,

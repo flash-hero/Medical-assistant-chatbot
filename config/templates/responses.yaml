@@ -1,25 +1,32 @@
 # Fixed (non-model) responses, front-desk labels, appointment-form labels and API error messages, in EN/FR/AR.
 # Placeholders are filled only from the verified hospital profile:
 #   {emergency_number} {crisis_number} {handoff_label} {handoff_number} {main_label} {main_number} {turns_left}
+# Without a profile, {emergency_number} and {crisis_number} become `call_fallback`, and a sentence that uses a
+# {handoff_*} or {main_*} placeholder is left out. Keep each handoff / switchboard mention in its own sentence.
 # STATUS: draft wording; review with the hospital and native speakers before pilot use.
 version: 1
+# Written to follow each template's call verb: "call ...", "appelez le ...", "au ...", "اتصل بالرقم ...".
+call_fallback:
+  en: "your local emergency number"
+  fr: "numéro d'urgence local"
+  ar: "المحلي للطوارئ"
 responses:
   refusal_injection:
     en: "I can't help with that request. I can share general health information from trusted sources or help you with questions about the hospital."
     fr: "Je ne peux pas répondre à cette demande. Je peux vous donner des informations générales de santé issues de sources fiables ou répondre à vos questions sur l'hôpital."
     ar: "لا أستطيع المساعدة في هذا الطلب. يمكنني مشاركة معلومات صحية عامة من مصادر موثوقة أو مساعدتك في أسئلة تتعلق بالمستشفى."
   refusal_harmful:
-    en: "I can't help with that. If you are thinking about harming yourself or someone else, please call {emergency_number} or talk to someone at {crisis_number} now."
-    fr: "Je ne peux pas vous aider pour cela. Si vous pensez à vous faire du mal ou à faire du mal à quelqu'un, appelez le {emergency_number} ou parlez à quelqu'un au {crisis_number} maintenant."
-    ar: "لا أستطيع المساعدة في ذلك. إذا كنت تفكر في إيذاء نفسك أو شخص آخر، اتصل بالرقم {emergency_number} أو تحدث إلى شخص على الرقم {crisis_number} الآن."
+    en: "I can't help with that. If you are thinking about harming yourself or someone else, please call {emergency_number} now. You can also talk to someone at {crisis_number}."
+    fr: "Je ne peux pas vous aider pour cela. Si vous pensez à vous faire du mal ou à faire du mal à quelqu'un, appelez le {emergency_number} maintenant. Vous pouvez aussi parler à quelqu'un au {crisis_number}."
+    ar: "لا أستطيع المساعدة في ذلك. إذا كنت تفكر في إيذاء نفسك أو شخص آخر، اتصل الآن بالرقم {emergency_number}. يمكنك أيضًا التحدث إلى شخص على الرقم {crisis_number}."
   refusal_abusive:
     en: "I'm here to help with health information and hospital questions. Let's keep the conversation respectful."
     fr: "Je suis là pour vous aider avec des informations de santé et des questions sur l'hôpital. Restons respectueux."
     ar: "أنا هنا للمساعدة في المعلومات الصحية وأسئلة المستشفى. لنحافظ على الاحترام في المحادثة."
   refusal_blocked:
-    en: "I can't answer that message. If you are in danger, call {emergency_number}. For other questions, you can rephrase or contact {handoff_label}: {handoff_number}."
-    fr: "Je ne peux pas répondre à ce message. Si vous êtes en danger, appelez le {emergency_number}. Pour d'autres questions, vous pouvez reformuler ou contacter {handoff_label} : {handoff_number}."
-    ar: "لا أستطيع الرد على هذه الرسالة. إذا كنت في خطر، اتصل بالرقم {emergency_number}. لأسئلة أخرى، يمكنك إعادة الصياغة أو التواصل مع {handoff_label}: {handoff_number}."
+    en: "I can't answer that message. If you are in danger, call {emergency_number}. If you are thinking about harming yourself, you can talk to someone at {crisis_number}. For other questions, you can rephrase your message. You can also contact {handoff_label}: {handoff_number}."
+    fr: "Je ne peux pas répondre à ce message. Si vous êtes en danger, appelez le {emergency_number}. Si vous pensez à vous faire du mal, vous pouvez parler à quelqu'un au {crisis_number}. Pour d'autres questions, vous pouvez reformuler votre message. Vous pouvez aussi contacter {handoff_label} : {handoff_number}."
+    ar: "لا أستطيع الرد على هذه الرسالة. إذا كنت في خطر، اتصل بالرقم {emergency_number}. إذا كنت تفكر في إيذاء نفسك، يمكنك التحدث إلى شخص على الرقم {crisis_number}. لأسئلة أخرى، يمكنك إعادة صياغة رسالتك. يمكنك أيضًا التواصل مع {handoff_label}: {handoff_number}."
   session_locked:
     en: "This conversation has been paused because several messages could not be processed safely. For help, contact {handoff_label}: {handoff_number}. In an emergency, call {emergency_number}."
     fr: "Cette conversation a été suspendue car plusieurs messages n'ont pas pu être traités en toute sécurité. Pour obtenir de l'aide, contactez {handoff_label} : {handoff_number}. En cas d'urgence, appelez le {emergency_number}."
@@ -68,6 +75,15 @@ responses:
     en: "Appointment requests are not available right now. Please call {main_number}."
     fr: "Les demandes de rendez-vous ne sont pas disponibles pour le moment. Appelez le {main_number}."
     ar: "طلبات المواعيد غير متاحة حاليًا. يرجى الاتصال بالرقم {main_number}."
+  safety_followup_no_contacts:
+    en: "I'm an automated assistant and can't send help. If you or someone else may be in danger, call {emergency_number} now. If you can, reach out to someone you trust and stay with them."
+    fr: "Je suis un assistant automatique et je ne peux pas envoyer d'aide. Si vous ou quelqu'un d'autre êtes peut-être en danger, appelez le {emergency_number} maintenant. Si vous le pouvez, contactez une personne de confiance et restez avec elle."
+    ar: "أنا مساعد آلي ولا أستطيع إرسال المساعدة. إذا كنت أنت أو شخص آخر في خطر محتمل، اتصل الآن بالرقم {emergency_number}. إن استطعت، تواصل مع شخص تثق به وابقَ معه."
+  # Jurisdiction of a drug-label citation, appended to its publisher (review C7).
+  label_jurisdiction_us: {en: "US FDA label", fr: "notice FDA (États-Unis)", ar: "نشرة دواء أمريكية (FDA)"}
+  label_jurisdiction_fr: {en: "French label (ANSM)", fr: "notice française (ANSM)", ar: "نشرة دواء فرنسية (ANSM)"}
+  label_jurisdiction_eu: {en: "EU label (EMA)", fr: "notice européenne (EMA)", ar: "نشرة دواء أوروبية (EMA)"}
+  label_jurisdiction_unknown: {en: "drug label, country not stated", fr: "notice, pays non précisé", ar: "نشرة دواء، البلد غير محدد"}
   appointment_confirmed:
     en: "Your request {request_id} has been sent to the hospital team. They will contact you to confirm a date. This is a request, not a confirmed appointment."
     fr: "Votre demande {request_id} a été transmise à l'équipe de l'hôpital. Elle vous contactera pour fixer une date. Il s'agit d'une demande, pas d'un rendez-vous confirmé."
@@ -129,7 +145,7 @@ errors:
   session_exhausted: {en: "This conversation has reached its message limit. Please start a new conversation.", fr: "Cette conversation a atteint sa limite de messages. Veuillez en commencer une nouvelle.", ar: "وصلت هذه المحادثة إلى الحد الأقصى للرسائل. يرجى بدء محادثة جديدة."}
   overloaded: {en: "The assistant is very busy. Please try again in a few seconds. In an emergency, call your local emergency number.", fr: "L'assistant est très sollicité. Réessayez dans quelques secondes. En cas d'urgence, appelez le numéro d'urgence local.", ar: "المساعد مشغول جدًا. يرجى المحاولة بعد بضع ثوانٍ. في حالة الطوارئ، اتصل برقم الطوارئ المحلي."}
   service_paused: {en: "The assistant is paused for maintenance. In an emergency, call your local emergency number.", fr: "L'assistant est en pause pour maintenance. En cas d'urgence, appelez le numéro d'urgence local.", ar: "المساعد متوقف مؤقتًا للصيانة. في حالة الطوارئ، اتصل برقم الطوارئ المحلي."}
-  dependency_unavailable: {en: "A service is temporarily unavailable. Please try again later.", fr: "Un service est temporairement indisponible. Réessayez plus tard.", ar: "إحدى الخدمات غير متاحة مؤقتًا. يرجى المحاولة لاحقًا."}
+  dependency_unavailable: {en: "A service is temporarily unavailable. Please try again later. In an emergency, call your local emergency number.", fr: "Un service est temporairement indisponible. Réessayez plus tard. En cas d'urgence, appelez le numéro d'urgence local.", ar: "إحدى الخدمات غير متاحة مؤقتًا. يرجى المحاولة لاحقًا. في حالة الطوارئ، اتصل برقم الطوارئ المحلي."}
   turn_in_progress: {en: "Your previous message is still being answered.", fr: "Votre message précédent est encore en cours de traitement.", ar: "ما زالت رسالتك السابقة قيد المعالجة."}
   payload_too_large: {en: "Your message is too long.", fr: "Votre message est trop long.", ar: "رسالتك طويلة جدًا."}
   upstream_error: {en: "The assistant could not answer right now. Please try again.", fr: "L'assistant n'a pas pu répondre pour le moment. Réessayez.", ar: "لم يتمكن المساعد من الرد الآن. يرجى المحاولة مرة أخرى."}

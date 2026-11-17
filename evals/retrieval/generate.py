@@ -24,6 +24,7 @@ import structlog
 from core.errors import UpstreamError, UpstreamRateLimited
 from core.models import ModelRole, model_for
 from core.ports import GenerationRequest, LLMProvider
+from core.schemas.chat import Locale
 from core.schemas.document import Chunk
 from core.text import sanitize
 from evals.retrieval.gold import GoldQuery, answer_ids
@@ -32,7 +33,7 @@ from rag.tokens import truncate_to_tokens
 log = structlog.get_logger(__name__)
 Sleep = Callable[[float], Awaitable[None]]
 
-LANGS = ("en", "fr", "ar")
+LANGS: tuple[Locale, ...] = ("en", "fr", "ar")
 MAX_QUESTION_CHARS = 300
 PASSAGE_TOKENS = 350
 
@@ -149,7 +150,7 @@ class GoldGenerator:
                 await self.sleep(exc.retry_after_s or self.rate_limit_wait_s)
         raise GenerationStopped("rate limit did not clear")
 
-    def _gold(self, qid: str, lang: str, question: str, **kw: Any) -> GoldQuery:
+    def _gold(self, qid: str, lang: Locale, question: str, **kw: Any) -> GoldQuery:
         return GoldQuery(
             qid=qid,
             language=lang,

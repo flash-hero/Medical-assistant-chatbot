@@ -10,17 +10,18 @@ import asyncio
 import logging
 import sys
 from collections.abc import Sequence
+from dataclasses import replace
 
 import structlog
 from qdrant_client import AsyncQdrantClient
 
 from core.config import Settings, get_settings
-from core.errors import AusculaError
+from core.errors import AusculaError, UpstreamError
 from core.ports import LLMProvider
 from rag.build import BuildRequest, IndexBuilder
 from rag.cli_eval import Handler
 from rag.embed_cache import EmbeddingCache
-from rag.embedding import DocumentEmbedder, embed_model_id
+from rag.embedding import EmbeddingBackend, embedding_backend
 from rag.errors import EmbeddingQuotaExhausted, GateFailed
 from rag.offline import CacheOnlyLLM
 from rag.paths import DataPaths
@@ -73,6 +74,16 @@ async def close_llm(llm: LLMProvider) -> None:
         await closer()
 
 
+def embedding_for(
+    settings: Settings, *, llm: LLMProvider | None = None, cache_only: bool = False
+) -> EmbeddingBackend:
+    """The deployment's embedding backend (AUSCULTA_EMBED_BACKEND, default local EmbeddingGemma). With
+    `cache_only` its provider refuses every call like a spent quota, so only cached vectors are used."""
+    if cache_only:
+        return replace(embedding_backend(settings, provider=CacheOnlyLLM()), quota_limited=True)
+    return embedding_backend(settings, llm=llm)
+
+
 # ---- build -------------------------------------------------------------------------------------------
 async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
     if settings.session_secret is None:
@@ -81,7 +92,8 @@ async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
     sources = tuple(s.strip() for s in args.sources.split(",") if s.strip())
     req = BuildRequest(args.corpus_version, sources, limit=args.limit, batch_size=args.batch_size)
     paths = DataPaths.from_settings(settings)
-    llm = CacheOnlyLLM() if args.cache_only else llm_provider(settings)
+    embedding = embedding_for(settings, cache_only=args.cache_only)
+    out(f"Embedding model: {embedding.model_id} ({embedding.name} backend)")
     client = qdrant_client(settings)
     try:
         with EmbeddingCache(paths.embed_cache_db) as cache:
@@ -89,12 +101,11 @@ async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
                 paths=paths,
                 registry=load_registry(),
                 client=client,
-                embedder=DocumentEmbedder(
-                    llm, cache, model_id=embed_model_id(settings.llm_backend), batch_size=args.batch_size
-                ),
+                embedder=embedding.document_embedder(cache, batch_size=args.batch_size),
                 sparse=SparseEncoder(paths.fastembed_dir),
                 secret=settings.session_secret.get_secret_value(),
                 alias=settings.qdrant_alias,
+                dim=embedding.dim,
             )
             report = await builder.build(req)
     except EmbeddingQuotaExhausted as exc:
@@ -104,13 +115,18 @@ async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
             out(f"Embedding quota exhausted ({exc.scope}); progress is saved in {paths.embed_cache_db}.")
         out(f"Resume later with (repeats zero embeddings):\n  {req.resume_command()}")
         return EXIT_QUOTA
+    except UpstreamError as exc:  # local inference failed (no quota involved): progress is cached too
+        out(f"Embedding failed [{exc.code}]: {exc}; progress is saved in {paths.embed_cache_db}.")
+        out(f"Re-run (repeats zero embeddings):\n  {req.resume_command()}")
+        log.error("command_failed", command="build", code=exc.code, error=str(exc))
+        return EXIT_ERROR
     finally:
         await client.close()
-        await close_llm(llm)
+        await embedding.aclose()
     out(f"Indexed {report.chunks} chunks from {report.documents} documents into {report.collection}")
     skipped = {source: dict(reasons) for source, reasons in report.skipped.items()}
     out(f"  per source: {dict(report.per_source_chunks)}  skipped: {skipped}")
-    out(f"  embedded {report.embedded} (api calls {report.api_calls}), cache hits {report.cache_hits}")
+    out(f"  embedded {report.embedded} (embedding calls {report.api_calls}), cache hits {report.cache_hits}")
     out(f"  manifest: {report.manifest_path}  elapsed {report.elapsed_s:.0f}s")
     out(f"Next: python -m rag eval --collection {report.collection}")
     return EXIT_OK

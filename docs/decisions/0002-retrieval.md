@@ -130,3 +130,49 @@ of answerable hybrid queries; without the English rewrite it abstains on 100% of
   covers the French sources (BDPM, HAS) and have a reviewer sample it.
 - Re-run the rerank ablation if a paid tier or a different reranker becomes available; the decision rule is
   unchanged (+3 nDCG@8 points).
+
+## Update 2026-11-16 (late): local query and document embeddings (ADR 0003)
+
+The free tier allows 1,000 embedded texts per day and billing cannot be enabled, so ADR 0003 moved BOTH
+document and query embeddings to `google/embeddinggemma-300m` (ONNX, CPU, 768-d, same prompt format). Every
+number above was measured with `gemini-embedding-2` vectors and is now historical: the seed collection must be
+rebuilt, re-evaluated and recalibrated with the local model before anything is promoted (commands in
+`docs/progress/rag.md`). What changed in the retrieval track:
+
+- **One embedding backend per deployment.** `rag.embedding.embedding_backend(settings)` builds the provider
+  with `app.llm.factory.build_embedding_provider` (`AUSCULTA_EMBED_BACKEND`, default `local`);
+  `build_retriever(settings, llm)` keeps its signature and uses it for queries, while `llm` only serves
+  reranking. `rag build`, `rag eval` and `rag plan` use the same backend.
+- **Quota logic only for Gemini.** Per-minute waits and the daily-quota stop (exit 3) apply only to the
+  `gemini` backend. Local inference has no throttle; a local failure stops the build with exit 1 and the
+  same command resumes from the embedding cache (every 90-chunk batch is committed).
+- **Embedding-cache namespace = `<model id>@<text format>`** (review P19), e.g.
+  `google/embeddinggemma-300m@fmt1`. Vectors of different models never mix, and changing the document
+  template, the query prefix or the query normalisation must bump `EMBED_TEXT_FORMAT` (a test pins the
+  current strings). The 1,011 Gemini document vectors and 599 Gemini query vectors stay in the SQLite caches
+  under the old bare namespace `gemini-embedding-2`; nothing reads them now.
+- **Manifests record the namespace** (`embed_model`). `rag eval` (online) and `rag promote` refuse a
+  collection whose vectors come from another model than the deployment's queries (comparing two vector
+  spaces gives meaningless rankings), and so does the API startup check below.
+- **Manifest signature v1** (review S8/P6, `rag/signing.py`, `rag/verify.py`): HMAC-SHA256 with a key
+  derived by HKDF-SHA256 from `AUSCULTA_SESSION_SECRET` (info `ausculta-manifest-v1`) over every manifest
+  field plus a digest of every served payload field of every stored chunk (text, url, title, reuse_mode,
+  trust_tier, attribution, language, content_type, ids, header, reviewed_on, checksum). Verification
+  recomputes each checksum from the stored text, checks point ids and the count, then the HMAC; it runs at
+  promote, rollback and (to be wired by the API) startup: `await rag.verify.verify_live_corpus(settings)`.
+  Manifests signed before this change (seed1, val50) no longer verify; they are Gemini collections anyway.
+- **Readiness and warmup** (reviews P3, P12): `HybridRetriever.health()` runs a real BM25 encode, a
+  one-result sparse search and a non-empty count on the served collection; `warmup()` loads the BM25
+  analysers and the embedding model before the first request.
+- **Plan ETA**: `rag plan` uses 2.7 chunks/s (162/min, spike S7) for the local backend: about 19 h for the
+  ~188k chunks of the 15 ready sources, no API cost or quota.
+
+Offline evidence (no Qdrant server, no model): the seed's 720 chunks re-indexed in local-mode Qdrant with
+the production payloads and BM25 reproduce the sparse-only row above exactly for recall (R@8 0.927 / 0.948 /
+0.927, R@20 0.958 / 0.948 / 0.938 EN / FR / AR), MRR and nDCG@8 within 0.006 (tie order), and the new
+signature verifies on those real payloads (`tests/rag/test_rag_dense_check.py`).
+
+Open points added: re-measure dense vs hybrid (the decision rule above) and the abstention gate with local
+vectors on the seed first (the gate's false-abstention margin was already thin: 0.090 vs 0.10), then on the
+full build; if Arabic ranking falls short (ADR 0003: nDCG@8 0.936 dense-only), consider
+`Qwen/Qwen3-Embedding-0.6B` in a follow-up spike.
