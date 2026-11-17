@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import authenticate, get_container
 from app.api.errors import request_locale
+from app.api.idempotency import body_hash, run_idempotent
 from app.api.schemas import AppointmentBody, AppointmentCreated, FeedbackBody
 from app.guardrails.pii import redact
 from app.pipeline.forms import bookable_departments
@@ -32,23 +33,31 @@ async def create_appointment(body: AppointmentBody, request: Request) -> Appoint
         raise NotFound("appointment requests are not available")
     if body.department_id not in bookable_departments(profile):
         raise InvalidInput("unknown department", detail={"field": "department_id"})
-    await c.rate.check_appointment(auth.session.session_id, auth.ip)
-    data = AppointmentInput(
-        session_id=auth.session.session_id,
-        department_id=body.department_id,
-        full_name=body.full_name,
-        phone=body.phone,
-        email=body.email,
-        preferred_dates=body.preferred_dates,
-        reason=body.reason,
-    )
-    try:
-        code = await c.storage.appointments.create(data, audit={"department": body.department_id})
-    except SQLAlchemyError as exc:
-        raise DependencyUnavailable("database unavailable") from exc
+    sid = auth.session.session_id
     locale = request_locale(request) if "locale" in request.query_params else auth.session.locale
-    message = c.texts.response("appointment_confirmed", locale, profile, request_id=code)
-    return AppointmentCreated(request_id=code, message=message)
+
+    async def create() -> dict[str, str]:
+        # Inside the idempotent section: a replayed retry neither re-counts the rate limit nor adds a row.
+        await c.rate.check_appointment(sid, auth.ip)
+        data = AppointmentInput(
+            session_id=sid,
+            department_id=body.department_id,
+            full_name=body.full_name,
+            phone=body.phone,
+            email=body.email,
+            preferred_dates=body.preferred_dates,
+            reason=body.reason,
+        )
+        try:
+            code = await c.storage.appointments.create(data, audit={"department": body.department_id})
+        except SQLAlchemyError as exc:
+            raise DependencyUnavailable("database unavailable") from exc
+        message = c.texts.response("appointment_confirmed", locale, profile, request_id=code)
+        return {"request_id": code, "message": message}
+
+    key = request.headers.get("idempotency-key")
+    result = await run_idempotent(c.idempotency, sid, key, body_hash(body.model_dump(mode="json")), create)
+    return AppointmentCreated(**result)
 
 
 @router.post("/feedback", status_code=204)

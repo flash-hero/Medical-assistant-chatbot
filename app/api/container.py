@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.corpus import CorpusVerifier, VerifiedRetriever
 from app.api.gate import MemoryTurnGate, RedisTurnGate, TurnGate
+from app.api.idempotency import IdempotencyStore, MemoryIdempotencyStore, RedisIdempotencyStore
 from app.api.tokens import SessionTokenSigner
 from app.config_files import ConfigFileError
 from app.guardrails.ingress import process_ingress
@@ -91,6 +92,7 @@ class Container:
     redis: Any = None
     purge_interval_s: float = PURGE_INTERVAL_S
     corpus_verifier: CorpusVerifier | None = None
+    idempotency: IdempotencyStore | None = None
     started: bool = field(default=False)
     _purge_task: asyncio.Task[None] | None = field(default=None, repr=False)
     _corpus_task: asyncio.Task[None] | None = field(default=None, repr=False)
@@ -313,6 +315,9 @@ def build_container(settings: Settings, overrides: Overrides | None = None) -> C
         redis=redis_client,
         purge_interval_s=ov.purge_interval_s,
         corpus_verifier=verifier,
+        idempotency=RedisIdempotencyStore(redis_client)
+        if redis_client is not None
+        else MemoryIdempotencyStore(),
     )
 
 
