@@ -37,7 +37,8 @@ async def test_single_flight_per_session_and_release(gate) -> None:
     await gate.finish(a, "t1", ("f1", "f2"))
     assert await gate.replay("s1", "c1") == ("f1", "f2")
     assert await gate.replay("s1", "other") is None
-    assert gate.owns("t1", "s1") and not gate.owns("t1", "s2")
+    assert gate.owns("t1", "s1")
+    assert not gate.owns("t1", "s2")
     await gate.begin(_claim(ctid="c4"))  # the session is free again
 
 

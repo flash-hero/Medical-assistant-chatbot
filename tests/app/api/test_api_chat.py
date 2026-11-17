@@ -391,13 +391,14 @@ async def test_session_rate_limit_is_429_with_retry_after(api_factory) -> None:
 
 
 @pytest.mark.parametrize("how", ["env", "file"])
-async def test_kill_switch_pauses_every_turn(api_factory, tmp_path, how) -> None:
+async def test_kill_switch_pauses_model_turns(api_factory, tmp_path, how) -> None:
+    """Emergency / self-harm turns are NOT paused (review C9): see test_api_review_fixes.py."""
     env = {"AUSCULTA_KILL_SWITCH": True} if how == "env" else {}
     if how == "file":
         (tmp_path / "KILL_SWITCH").write_text("paused by on-call\n", encoding="utf-8")
     async with api_factory(**env) as api:
         token = await api.token()
-        for message in (FEVER, EMERGENCY):
+        for message in (FEVER, "hello"):
             res = await api.chat(token, message)
             err = _error(res, 503, "service_paused")
             assert res.response.headers["retry-after"] == "300"

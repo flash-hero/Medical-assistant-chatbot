@@ -197,7 +197,7 @@ class TurnEngine:
         )
 
     def busy_answer(self, req: TurnRequest, trace: TurnTrace, *, replaces: bool) -> AnswerEvent:
-        """The fixed "busy" answer that ends a turn which could not finish (deadline, failure after deltas)."""
+        """The fixed "busy" answer ending a turn that could not finish (deadline, failure after deltas)."""
         recorded = trace.record.language
         lang = cast("Locale", recorded) if recorded in ("en", "fr", "ar") else req.locale
         intent = Intent(trace.record.intent) if trace.record.intent else heuristic_intent(req.message.text)

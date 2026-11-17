@@ -2,17 +2,17 @@
 
   - one running model turn per session (a second concurrent one gets 409 turn_in_progress)
   - at most `ip_cap` running model turns per client key (IPv4 address or IPv6 /64), else 429 (review S1)
-  - a completed turn's SSE frames are kept for `ttl_s`, keyed by (session_id, client_turn_id), so a client retry
-    replays the answer instead of running (and paying for) the turn again
+  - a completed turn's SSE frames are kept for `ttl_s`, keyed by (session_id, client_turn_id), so a client
+    retry replays the answer instead of running (and paying for) the turn again
 
 Model-free safety turns (emergency / self-harm precheck) take a non-exclusive claim: they never wait for, or
 are refused by, the session lock or the IP cap (review C9).
 
-MemoryTurnGate holds all of this in process memory (dev, single worker). RedisTurnGate shares it between workers
-(review P2/S5): the session lock is `SET NX EX` released by a compare-and-delete script, the IP count is
-INCR/DECR with a TTL, and the replay frames are a JSON string with a TTL. Lock and counter TTLs bound what a
-crashed worker can leave behind. Every gate also remembers, in process, which session owns which turn (a fast
-path for feedback; the database is the fallback).
+MemoryTurnGate holds all of this in process memory (dev, single worker). RedisTurnGate shares it between
+workers (review P2/S5): the session lock is `SET NX EX` released by a compare-and-delete script, the IP
+count is INCR/DECR with a TTL, and the replay frames are a JSON string with a TTL. Lock and counter TTLs
+bound what a crashed worker can leave behind. Every gate also remembers, in process, which session owns
+which turn (a fast path for feedback; the database is the fallback).
 """
 
 from __future__ import annotations
@@ -73,7 +73,9 @@ class TurnGate(Protocol):
 
 def _concurrent() -> RateLimited:
     return RateLimited(
-        "too many concurrent turns from this client", retry_after_s=CONCURRENT_RETRY_AFTER_S, scope="concurrent"
+        "too many concurrent turns from this client",
+        retry_after_s=CONCURRENT_RETRY_AFTER_S,
+        scope="concurrent",
     )
 
 
@@ -103,6 +105,8 @@ class _LocalClaims:
         return True
 
     def _own(self, turn_id: str, session_id: str) -> None:
+        if not turn_id:  # a claim given back before its turn started
+            return
         self._turn_owner[turn_id] = session_id
         while len(self._turn_owner) > OWNER_MAX:
             self._turn_owner.popitem(last=False)

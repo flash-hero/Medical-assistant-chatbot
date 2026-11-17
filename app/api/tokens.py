@@ -6,6 +6,7 @@ The payload holds only the session id, expiry and a version; nothing personal. L
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -55,15 +56,16 @@ class SessionTokenSigner:
         return f"{payload}.{self._sign(payload)}"
 
     def verify(self, token: str) -> TokenClaims:
-        if not token or len(token) > _MAX_TOKEN_CHARS or token.count(".") != 1:
+        """Claims of a valid token; every malformed input (non-ASCII included) is Unauthorized (P10/S9)."""
+        if not token or not token.isascii() or len(token) > _MAX_TOKEN_CHARS or token.count(".") != 1:
             raise Unauthorized("malformed token")
         payload, signature = token.split(".")
-        if not hmac.compare_digest(signature, self._sign(payload)):
+        if not hmac.compare_digest(signature.encode("ascii"), self._sign(payload).encode("ascii")):
             raise Unauthorized("bad signature")
         try:
             body = json.loads(_unb64(payload))
             sid, exp, version = str(body["sid"]), int(body["exp"]), int(body["v"])
-        except (ValueError, KeyError, TypeError) as exc:
+        except (ValueError, KeyError, TypeError, binascii.Error) as exc:
             raise Unauthorized("malformed token") from exc
         expires = datetime.fromtimestamp(exp, UTC)
         if version != _VERSION or expires <= self._clock():

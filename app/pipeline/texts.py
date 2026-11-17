@@ -89,7 +89,7 @@ class Texts:
         return self.render_safety(self.safety[kind].followup, locale, profile)
 
     def values(self, profile: HospitalProfile | None, locale: str, **extra: object) -> dict[str, str]:
-        """Placeholder values. Profile-only keys are absent without a profile (their sentences are dropped)."""
+        """Placeholder values; profile-only keys are absent without a profile (sentences dropped)."""
         fallback = self.call_fallback.get(locale) or self.call_fallback["en"]
         vals = dict.fromkeys(("emergency_number", "crisis_number"), fallback)
         if profile is not None:

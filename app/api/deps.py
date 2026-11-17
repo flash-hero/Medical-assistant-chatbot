@@ -42,11 +42,13 @@ def client_ip(request: Request, trusted_proxies: int) -> str:
 
 
 def bearer_token(request: Request) -> str:
+    """The bearer token; anything that is not plain ASCII is a 401, never a 500 (review P10/S9)."""
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        raise Unauthorized("missing bearer token")
-    return token.strip()
+    token = token.strip()
+    if scheme.lower() != "bearer" or not token or not token.isascii():
+        raise Unauthorized("missing or malformed bearer token")
+    return token
 
 
 @dataclass(frozen=True)
@@ -55,16 +57,21 @@ class Authed:
     ip: str
 
 
+async def load_session(c: Container, session_id: str) -> SessionState:
+    """The stored session state; 401 when it expired or was forgotten."""
+    state = await c.sessions.get(session_id)
+    if state is None:
+        raise Unauthorized("session expired")
+    return state
+
+
 async def authenticate(request: Request, c: Container) -> Authed:
     """Verify the token, rate-limit by IP and session, and load the session state (401 when gone)."""
     claims = c.signer.verify(bearer_token(request))
     ip = client_ip(request, c.settings.trusted_proxy_count)
     await c.rate.check_ip(ip)
     await c.rate.check_session(claims.session_id)
-    state = await c.sessions.get(claims.session_id)
-    if state is None:
-        raise Unauthorized("session expired")
-    return Authed(session=state, ip=ip)
+    return Authed(session=await load_session(c, claims.session_id), ip=ip)
 
 
 def seconds_to_utc_midnight(now: datetime | None = None) -> float:

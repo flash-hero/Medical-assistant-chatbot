@@ -1,5 +1,5 @@
-"""Unit tests of the API building blocks: tokens, client IP, turn registry, slot guard, SSE response,
-middleware and the composition root."""
+"""Unit tests of the API building blocks: tokens, client IP, slot guard, SSE response, middleware and the
+composition root (the turn gates have their own module, test_api_gate.py)."""
 
 from __future__ import annotations
 
@@ -11,17 +11,19 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
 from app.api import container as container_mod
 from app.api.container import Overrides, _session_secret, build_retriever_or_none
 from app.api.deps import bearer_token, client_ip, seconds_to_utc_midnight
-from app.api.errors import TurnInProgress, request_locale
+from app.api.errors import request_locale
+from app.api.gate import MemoryTurnGate, TurnClaim
 from app.api.middleware import BodySizeLimitMiddleware
 from app.api.sse import SSEResponse
 from app.api.tokens import SessionTokenSigner
-from app.api.turns import SlotGuard, TurnRegistry, _release_abandoned
+from app.api.turns import SlotGuard, _release_abandoned
 from app.config_files import ConfigFileError
 from core.errors import Unauthorized
 from evals.fakes.asgi_driver import drive
@@ -133,39 +135,7 @@ def test_seconds_to_utc_midnight() -> None:
     assert 0 < seconds_to_utc_midnight() <= 86400
 
 
-# ---- turn registry, slot guard ---------------------------------------------------------------------
-def test_registry_single_flight_replay_and_ownership() -> None:
-    clock = [0.0]
-    reg = TurnRegistry(ttl_s=10, max_entries=2, clock=lambda: clock[0])
-    reg.begin("s1", "c1")
-    with pytest.raises(TurnInProgress):
-        reg.begin("s1", "c2")
-    reg.begin("s2", "c1")
-    assert reg.running == 2
-    reg.finish("s1", "c1", "t1", ("frame",))
-    assert reg.replay("s1", "c1") == ("frame",)
-    assert reg.owns("t1", "s1")
-    assert not reg.owns("t1", "s2")
-    reg.abandon("s2", "other")  # wrong client turn: claim kept
-    assert reg.running == 1
-    reg.abandon("s2", "c1")
-    assert reg.running == 0
-    clock[0] = 11
-    assert reg.replay("s1", "c1") is None  # expired
-
-
-def test_registry_bounds_replay_entries() -> None:
-    reg = TurnRegistry(ttl_s=100, max_entries=2, clock=lambda: 0.0)
-    for i in range(4):
-        reg.begin(f"s{i}", "c")
-        reg.finish(f"s{i}", "c", f"t{i}", (f"f{i}",))
-    assert reg.replay("s0", "c") is None
-    assert reg.replay("s3", "c") == ("f3",)
-    reg.finish("s9", "c", "t9", None)  # cancelled turns are not replayable
-    assert reg.replay("s9", "c") is None
-    assert reg.owns("t9", "s9")
-
-
+# ---- slot guard ------------------------------------------------------------------------------------
 def test_slot_guard_releases_once() -> None:
     released: list[int] = []
     guard = SlotGuard(lambda: released.append(1))
@@ -175,16 +145,18 @@ def test_slot_guard_releases_once() -> None:
     assert guard.released
 
 
-def test_abandoned_stream_finalizer_frees_slot_and_claim() -> None:
+async def test_abandoned_stream_finalizer_frees_slot_and_claim() -> None:
     released: list[int] = []
-    reg = TurnRegistry()
-    reg.begin("s", "c")
+    gate = MemoryTurnGate()
+    claim = TurnClaim("s", "c", "203.0.113.7")
+    await gate.begin(claim)
     guard = SlotGuard(lambda: released.append(1))
-    _release_abandoned(guard, reg, "s", "c")
-    _release_abandoned(guard, reg, "s", "c")
-    _release_abandoned(None, reg, "s", "c")
+    _release_abandoned(guard, gate, claim)
+    _release_abandoned(guard, gate, claim)
+    _release_abandoned(None, gate, claim)
     assert released == [1]
-    assert reg.running == 0
+    assert gate.running == 0
+    await gate.begin(TurnClaim("s", "c2", "203.0.113.7"))  # the session lock was released
 
 
 # ---- SSE response and middleware -------------------------------------------------------------------
@@ -263,8 +235,19 @@ def test_session_secret_rules(settings_factory) -> None:
     assert _session_secret(settings_factory()) == b"test-session-secret-0123456789abcdef-0123456789"
     with pytest.raises(ConfigFileError, match="at least 32"):
         _session_secret(settings_factory(AUSCULTA_SESSION_SECRET="short"))
+    # Settings now refuse a prod configuration without a secret (core/config.py, review P11/S14) ...
+    prod = {
+        "AUSCULTA_ENV": "prod",
+        "AUSCULTA_ALLOW_FAKE": True,
+        "REDIS_URL": "redis://127.0.0.1:6390/0",
+        "DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/db",
+    }
+    with pytest.raises(ValidationError, match="AUSCULTA_SESSION_SECRET must be set"):
+        settings_factory(AUSCULTA_SESSION_SECRET=None, **prod)
+    # ... and the composition root still refuses one that bypassed validation (defence in depth).
+    unvalidated = settings_factory(**prod).model_copy(update={"session_secret": None})
     with pytest.raises(ConfigFileError, match="required"):
-        _session_secret(settings_factory(AUSCULTA_SESSION_SECRET=None, AUSCULTA_ENV="prod"))
+        _session_secret(unvalidated)
     ephemeral = _session_secret(settings_factory(AUSCULTA_SESSION_SECRET=None, AUSCULTA_ENV="dev"))
     assert len(ephemeral) == 32
 
@@ -325,6 +308,7 @@ def test_redis_url_selects_redis_backed_stores(settings_factory) -> None:
     )
     assert type(c.sessions).__name__ == "RedisSessionStore"
     assert type(c.spend).__name__ == "RedisSpendMeter"
+    assert type(c.registry).__name__ == "RedisTurnGate"
 
 
 async def test_container_lifecycle_and_degraded_paths(api_factory, monkeypatch) -> None:
@@ -353,10 +337,11 @@ async def test_startup_survives_a_purge_failure(api_factory, monkeypatch) -> Non
     async with api_factory() as api:
         c = api.container
 
-        async def broken():
+        async def broken(*_a):
             raise RuntimeError("db locked")
 
         monkeypatch.setattr(c.storage.appointments, "purge_expired", broken)
+        await c.purge_once()  # logged, never raised
         c.started = False
         await c.startup()
         assert c.started

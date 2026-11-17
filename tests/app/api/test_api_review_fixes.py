@@ -343,15 +343,21 @@ async def test_s7_three_appointment_requests_per_session(api) -> None:
 
 
 async def test_s7_appointment_caps_per_ip_and_global(api_factory) -> None:
-    async with api_factory(rate_rules=_rules(appointments_per_ip="2/day", appointments_global="3/day")) as api:
+    async with api_factory(
+        rate_rules=_rules(appointments_per_ip="2/day", appointments_global="3/day")
+    ) as api:
         for _ in range(2):
-            r = await api.client.post(f"{API}/appointments", json=APPOINTMENT, headers=_auth(await api.token()))
+            r = await api.client.post(
+                f"{API}/appointments", json=APPOINTMENT, headers=_auth(await api.token())
+            )
             assert r.status_code == 201
         r = await api.client.post(f"{API}/appointments", json=APPOINTMENT, headers=_auth(await api.token()))
         assert r.status_code == 429, "per-IP daily cap"
         other = api.client_for("198.51.100.20")
         tok = (await other.post(f"{API}/session", json={"locale": "en"})).json()["session_token"]
-        assert (await other.post(f"{API}/appointments", json=APPOINTMENT, headers=_auth(tok))).status_code == 201
+        assert (
+            await other.post(f"{API}/appointments", json=APPOINTMENT, headers=_auth(tok))
+        ).status_code == 201
         third = api.client_for("198.51.100.21")
         tok = (await third.post(f"{API}/session", json={"locale": "en"})).json()["session_token"]
         r = await third.post(f"{API}/appointments", json=APPOINTMENT, headers=_auth(tok))
@@ -392,7 +398,9 @@ async def test_s18_appointment_email_is_sanitised(api) -> None:
 @pytest.mark.parametrize("email", ["<script>@x.org", 'a"b@example.org', "a@b<c>.org", "​@example.org"])
 async def test_s18_markup_in_email_is_rejected(api, email) -> None:
     token = await api.token()
-    r = await api.client.post(f"{API}/appointments", json={**APPOINTMENT, "email": email}, headers=_auth(token))
+    r = await api.client.post(
+        f"{API}/appointments", json={**APPOINTMENT, "email": email}, headers=_auth(token)
+    )
     assert r.status_code == 422
 
 
@@ -405,3 +413,33 @@ async def test_c10_demo_profile_is_not_served_when_demo_mode_is_off(api_factory)
         res = await api.chat(body["session_token"], SELF_HARM)
         res.assert_contract()
         assert res.first("safety").contacts == ()
+
+
+# ---- C15 at the stream level, cleanup robustness ---------------------------------------------------------
+async def test_c15_engine_crash_after_a_delta_is_replaced_at_the_stream_level(api, monkeypatch) -> None:
+    real = api.container.engine.run
+
+    async def crashing(req, trace):
+        async for ev in real(req, trace):
+            yield ev
+            if ev.type == "delta":
+                raise RuntimeError("engine bug after a delta")
+
+    monkeypatch.setattr(api.container.engine, "run", crashing)
+    res = await api.chat(await api.token(), FEVER)
+    res.assert_contract()
+    assert res.types[-3:] == ["answer", "error", "done"]
+    answer = res.first("answer")
+    assert answer.replaces_stream is True
+    assert answer.mode == "template"
+    assert api.container.registry.running == 0
+
+
+async def test_gate_failure_during_cleanup_does_not_break_the_turn(api, monkeypatch) -> None:
+    async def broken(*_a, **_k):
+        raise RuntimeError("gate store gone")
+
+    monkeypatch.setattr(api.container.registry, "finish", broken)
+    res = await api.chat(await api.token(), "hello")
+    res.assert_contract()
+    assert res.first("answer").mode == "template"

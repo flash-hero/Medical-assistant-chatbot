@@ -3,6 +3,7 @@
 Envelope: {"error": {"code": "<stable code>", "message": "<localised, user-safe>",
            "retry_after_s": <number|null>}}
 429 and 503 also carry a Retry-After header (integer seconds). Internal details never reach the client.
+An outage of Redis, the rate-limit storage or the database is 503 dependency_unavailable, never a 500 (P16).
 """
 
 from __future__ import annotations
@@ -14,6 +15,9 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from limits.errors import StorageError
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.pipeline.texts import Texts
@@ -88,6 +92,16 @@ def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -
         code = _HTTP_CODES.get(status, "invalid_input" if status < 500 else "internal_error")
         return envelope(texts_of(request), code, status, request_locale(request))
 
+    async def dependency(request: Request, exc: Exception) -> JSONResponse:
+        log.warning("dependency_failed", error=type(exc).__name__, path=request.url.path)
+        return envelope(
+            texts_of(request),
+            "dependency_unavailable",
+            503,
+            request_locale(request),
+            DEFAULT_RETRY_AFTER_S[503],
+        )
+
     async def unexpected(request: Request, exc: Exception) -> JSONResponse:
         log.error("unhandled_error", error=type(exc).__name__, path=request.url.path)
         return envelope(texts_of(request), "internal_error", 500, request_locale(request))
@@ -95,4 +109,6 @@ def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -
     app.add_exception_handler(AusculaError, domain)
     app.add_exception_handler(RequestValidationError, validation)
     app.add_exception_handler(StarletteHTTPException, http)
+    for kind in (RedisError, StorageError, SQLAlchemyError):
+        app.add_exception_handler(kind, dependency)
     app.add_exception_handler(Exception, unexpected)

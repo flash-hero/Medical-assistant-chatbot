@@ -10,11 +10,21 @@ release gates are `evals/gates.yaml`. Nothing here needs the contents of `.env`:
 | API | `uvicorn app.main:create_app --factory` (one process) | everything |
 | Qdrant 1.20.1 | native binary, `sh scripts/dev/qdrant.sh`, `http://127.0.0.1:6333`, alias `ausculta_corpus` | medical answers (`/ready` = 503 without it) |
 | Relational DB | SQLite `C:/dev/ausculta-data/ausculta.db` (WAL) ; Postgres via `DATABASE_URL` in compose | sessions, turns, appointments, feedback |
-| Redis (optional) | none in dev (`REDIS_URL` unset: in-memory sessions, limits and spend meter) | multi-instance deployments |
+| Redis | none in dev (`REDIS_URL` unset: in-memory sessions, turn gate, limits and spend meter); required in staging/prod | sessions, turn lock, replay, limits, spend shared by every worker |
 | Gemini API | `GEMINI_API_KEY` from `.env` | every model-backed turn |
 
-With `REDIS_URL` unset the session store, rate limits and daily spend meter live in the process: a restart
-forgets them, and two API processes would not share them. Run one process per host in that mode.
+With `REDIS_URL` unset the session store, the turn gate (one running turn per session, per-client concurrent
+turns, replay of a retried `client_turn_id`), the rate limits and the daily spend meter live in the process: a
+restart forgets them, and two API processes would not share them. Run one process per host in that mode.
+
+With `REDIS_URL` set every worker shares them (review P2/S5). Keys: `ausculta:s2:{session}` (hash, plus
+`:risks` set and `:history` list, session TTL 2 h, at most 3 redacted user turns), `ausculta:turn:lock:*`
+(`SET NX EX 120`, released by compare-and-delete), `ausculta:turn:inflight:*` (per-client running turns, TTL
+120 s), `ausculta:turn:replay:*` (SSE frames of a completed turn, at most 64 KiB, TTL 10 min, answer text only,
+never the user's message), `ausculta:spend:*` and the `LIMITS*` keys of the rate limiter. Redis runs with
+`noeviction`: alert at 70 % of `maxmemory` (`used_memory`), because a full Redis turns every request into
+`503 dependency_unavailable`. Admission control (`AUSCULTA_LLM_CONCURRENCY`) stays per process: the global
+model concurrency is workers x that value.
 
 ## 2. Start and stop (dev)
 
@@ -29,10 +39,22 @@ sh scripts/dev/qdrant.sh            # run in the background; storage under C:/de
 Offline / no-quota mode: `AUSCULTA_LLM_BACKEND=fake` uses the scripted fake model and synthetic passages (no
 API call, no Qdrant). Use it for UI work and demos of the flow, never for content review.
 
-Startup does, in order: create the schema (SQLite or dev/test only), purge expired appointment requests,
-warm the safety precheck (lexicons, regex caches, thread pool) so the first emergency turn is not slower than
-later ones. Stop with Ctrl+C: in-flight turns are cancelled, upstream model streams are closed, the DB pool
-and HTTP clients are released.
+Startup does, in order: create the schema (SQLite or dev/test only), warm the safety precheck (lexicons,
+regex caches, thread pool) so the first emergency turn is not slower than later ones, warm the retriever (BM25
+analysers and the local query-embedding model; a failure is logged as `retriever_warmup_failed` and only makes
+the first answer slower), then start the retention purge task (section 7) and the corpus check: the
+collection behind `QDRANT_ALIAS` is verified against its signed manifest (`rag.verify.verify_live_corpus`:
+checksums, point ids, count, HMAC, embedding model). Until it passes, medical questions get the "temporarily
+unavailable" template and `/ready` reports `"retriever": false`; emergency, self-harm and front-desk turns
+work from the first second. Logs: `corpus_verified` (collection, corpus_version, chunks) or
+`corpus_unverified` (reason). A failed check is final for that process: fix the collection (`rag rollback`
+to the last good one) and restart. Stop with Ctrl+C: in-flight turns
+are cancelled, upstream model streams are closed, the purge task stops, the DB pool, HTTP clients and the Redis
+client are released.
+
+A demo hospital profile (`is_demo: true`) is only served with `AUSCULTA_DEMO_MODE=true` and
+`AUSCULTA_ENV` dev or test. Anywhere else it is refused at startup (log `hospital_profile_demo_refused`, error
+level) and the API runs without a profile (section 6.4), so fictional phone numbers never reach real users.
 
 `AUSCULTA_SESSION_SECRET` (>= 32 chars) is required in staging/prod. Without it (dev/test only) a random
 secret is generated and every session token becomes invalid on restart (log event `session_secret_ephemeral`).
@@ -61,10 +83,11 @@ rm C:/dev/ausculta-data/KILL_SWITCH             # resume
 # with a restart: AUSCULTA_KILL_SWITCH=true
 ```
 
-While paused every `POST /chat` gets `503 service_paused` with `Retry-After: 300` and the localised text
-"The assistant is paused for maintenance. In an emergency, call your local emergency number." This includes
-emergency messages: the page must keep showing the emergency number from `/hospital`, which stays up, as do
-sessions, appointment requests, feedback and the ops endpoints. Confirm with `/ready` (`"paused": true`).
+While paused every model `POST /chat` gets `503 service_paused` with `Retry-After: 300` and the localised
+text "The assistant is paused for maintenance. In an emergency, call your local emergency number." Messages
+that the deterministic precheck classifies as an emergency or self-harm are NOT paused: they are answered from
+the safety templates with no model call (review C9). `/hospital`, sessions, appointment requests, feedback and
+the ops endpoints stay up. Confirm with `/ready` (`"paused": true`).
 
 When to pull it: unsafe or wrong answers reported (feedback `reason=unsafe`), a prompt-injection campaign, a
 data or licence problem in the corpus, an API key leak, or spend running away.
@@ -74,18 +97,31 @@ data or licence problem in the corpus, an API key leak, or spend running away.
 | Limit | Setting (default) | Client sees |
 |---|---|---|
 | Daily spend cap (UTC day) | `AUSCULTA_DAILY_SPEND_CAP_USD` (5.0) | model-backed turns `503 service_paused`, `Retry-After` = seconds to 00:00 UTC |
-| Requests per IP / minute | `AUSCULTA_RATE_IP_MIN` (20) | `429 rate_limited` + `Retry-After` |
+| Requests per client / minute | `AUSCULTA_RATE_IP_MIN` (20) | `429 rate_limited` + `Retry-After` |
+| Sessions created per client / minute | half of `AUSCULTA_RATE_IP_MIN` (10) | `429 rate_limited` |
+| Sessions created, all clients / minute | `app/limits/rate.py` `SESSION_CREATE_GLOBAL_PER_MIN` (300) | `429 rate_limited` |
 | Requests per session / minute | `AUSCULTA_RATE_SESSION_MIN` (10) | `429 rate_limited` |
 | Turns per session (2 h token) | `AUSCULTA_MAX_TURNS` (20) | `429 session_exhausted` |
-| Concurrent model-backed turns | `AUSCULTA_LLM_CONCURRENCY` (8) | waits in the queue |
+| Running model turns per client | `app/api/gate.py` `IP_CONCURRENT_TURNS` (2) | `429 rate_limited` + `Retry-After: 5` |
+| Per-turn deadline | `app/pipeline/engine.py` `TURN_DEADLINE_S` (45 s) | the "busy" template (turn degraded `deadline`) |
+| Concurrent model-backed turns | `AUSCULTA_LLM_CONCURRENCY` (8, per process) | waits in the queue |
 | Queue length / max wait | `AUSCULTA_QUEUE_MAX` (32) / `AUSCULTA_QUEUE_WAIT_S` (5) | `503 overloaded` + `Retry-After` |
 | One running turn per session | fixed | `409 turn_in_progress` |
+| Appointment requests | 3 per session, 10 per client per day, 500 per day in total (`app/limits/rate.py`) | `429 rate_limited` |
+| Feedback | 40 per session, 200 per client per day, 5,000 per day in total | `429 rate_limited` |
+| Safety turns (emergency / self-harm) | 60 per client / minute, separate bucket | `429 rate_limited` |
 | Message length | `AUSCULTA_MAX_MESSAGE_CHARS` (2000) | `422 invalid_input` |
 | Request body | 32 KiB | `413 payload_too_large` |
 
-Emergency and self-harm turns detected by the deterministic precheck call no model: they skip the spend
-cap and the admission queue and are answered from templates even when every model is down or the queue is
-full (gate `engine.emergency_latency_ms`). Behind a reverse proxy set `AUSCULTA_TRUSTED_PROXY_COUNT` to the
+A "client" is an IPv4 address, or an IPv6 /64 (one subscriber usually holds a whole /64; IPv4-mapped IPv6 is
+the IPv4 address). The caps without a Settings field are code constants for now. Add the edge limit too:
+Caddy `rate_limit` per remote IP on `/api/v1/session` and `/api/v1/chat`, so floods are dropped before Python.
+
+Emergency and self-harm turns detected by the deterministic precheck call no model. The precheck runs before
+every limit (review C9): those turns skip the kill switch, the ordinary rate limits, the turn budget, the
+one-turn-per-session lock, the per-client concurrency cap, the spend cap and the admission queue, and are
+answered from templates even when every model is down or the queue is full (gate
+`engine.emergency_latency_ms`). Their only limit is the separate safety bucket above. Behind a reverse proxy set `AUSCULTA_TRUSTED_PROXY_COUNT` to the
 number of proxies that append to `X-Forwarded-For` (Caddy alone: 1); leave it at 0 when the API is reached
 directly, otherwise clients can spoof their address and dodge the IP limit.
 
@@ -117,22 +153,31 @@ back to "call your local emergency number". Fix `config/hospital/<file>.yaml` (o
 `AUSCULTA_HOSPITAL_PROFILE`), re-verify it with the hospital, update `verified_by` / `expires_on`, restart.
 The demo profile (`config/hospital/demo.yaml`) is fictional and flagged `is_demo`.
 
-### 6.5 Database unavailable
-`/ready` reports `"database": false`; `POST /session` returns `503 dependency_unavailable`. For SQLite check
-disk space and that no other process holds `ausculta.db` open for writing; restart the API.
+### 6.5 Database or Redis unavailable
+`/ready` reports `"database": false` (or `"sessions"` / `"rate_limiter": false` for Redis). Requests that need
+the missing store get `503 dependency_unavailable` with `Retry-After` (log `dependency_failed`), never a 500;
+that includes safety turns, because the session cannot be loaded: the web page keeps the emergency number
+from `/hospital` on screen. For SQLite check disk space and that no other process holds `ausculta.db` open for
+writing; restart the API. For Redis check `maxmemory` (noeviction) and the connection; the API reconnects by
+itself.
 
 ### 6.6 Abuse from one client
-Lower `AUSCULTA_RATE_IP_MIN` and restart, block at the proxy, or pull the kill switch. Logs carry the
-session id and error codes, never message text.
+Lower `AUSCULTA_RATE_IP_MIN` and restart, block at the proxy (a whole IPv6 /64), or pull the kill switch.
+Logs carry the session id and error codes, never message text.
 
 ### 6.7 Suspected key leak
 Kill switch on, rotate the key in Google AI Studio, update `.env` (never commit it), restart, kill switch off.
 
 ## 7. Data and privacy
 - Chat messages are never logged. Logs are structured (JSON outside dev/test) and carry ids, codes and timings.
-- Appointment requests are never sent to the model, are stored for staff with a 30-day retention, and expired
-  ones are purged at every API start (log `appointments_purged`). Restart at least daily in production or run
-  the purge from a scheduled job.
+- Appointment requests are never sent to the model and are stored for staff with a 30-day retention. Each
+  request and its audit event are written in one transaction; a request-code collision is retried.
+- Retention (review S6/P7), applied by a purge task that runs at startup and then every hour in every worker
+  (idempotent; log `retention_purged` with per-table counts, `retention_purge_failed` on error):
+  appointment requests and contacts 30 days, sessions and turn records 90 days, feedback 180 days, audit
+  events 365 days (`app/storage/repositories.py` `RETENTION`; engineering defaults, to be confirmed by the
+  DPIA).
+- Redis holds at most the last 3 redacted user turns of a session, for the 2-hour session lifetime.
 - Turn records hold the release tuple (app version, corpus version, prompt hash, model ids), intent, risk
   kinds, answer mode, degradations, per-stage latencies and audit entries, not the message text; they are what
   an audit of a reported answer starts from.

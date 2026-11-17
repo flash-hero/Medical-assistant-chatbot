@@ -13,7 +13,8 @@ from core.text import sanitize
 
 HARD_MESSAGE_CAP = 8000  # absolute cap; the configured AUSCULTA_MAX_MESSAGE_CHARS is checked in the route
 _PHONE = re.compile(r"^\+?[0-9][0-9 ()\-.]{5,24}$")
-_EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,}$")
+# No whitespace, quotes, angle brackets or backticks: the address is shown to staff (review S18).
+_EMAIL = re.compile(r"^[^@\s<>\"'`]{1,64}@[^@\s<>\"'`]{1,189}\.[^@\s<>\"'`]{2,}$")
 
 
 class _Body(BaseModel):
@@ -75,6 +76,7 @@ class AppointmentBody(_Body):
     def _email(cls, value: str | None) -> str | None:
         if value in (None, ""):
             return None
+        value = _clean(value)  # invisible / bidi / smuggling characters removed before the format check
         if not _EMAIL.match(value):
             raise ValueError("invalid e-mail address")
         return value

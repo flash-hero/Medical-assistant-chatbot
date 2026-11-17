@@ -81,7 +81,7 @@ def storage_uri(settings: Settings) -> str:
 
 
 def client_key(ip: str) -> str:
-    """Rate-limit identity of a client address: the IPv4 address (also for IPv4-mapped IPv6) or the IPv6 /64."""
+    """Rate-limit identity of a client: the IPv4 address (also for IPv4-mapped IPv6) or the IPv6 /64."""
     try:
         addr = ipaddress.ip_address(ip.strip())
     except ValueError:

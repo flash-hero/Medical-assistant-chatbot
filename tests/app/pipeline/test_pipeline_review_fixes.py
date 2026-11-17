@@ -1,5 +1,6 @@
 """Regression tests for the P3 review findings owned by the pipeline (docs/reviews/2026-11-16-p3-review.md):
-C6 verify-then-release triggers, C7 drug-label answers, C8 provider blocks, C10 demo profile outside demo mode,
+C6 verify-then-release triggers, C7 drug-label answers, C8 provider blocks, C10 demo profile outside demo
+mode,
 C11 no-profile wording, C13 cancel during the guard call, C14 language fallback, C15 failure after deltas,
 P5 per-turn deadline, S17 history window."""
 
@@ -93,7 +94,9 @@ async def test_c6_population_below_threshold_still_streams(harness_factory) -> N
         ("ما هي أعراض الحمى عند الرضيع؟", "ar"),
     ],
 )
-async def test_c6_population_words_force_verification_without_the_classifier(harness, message, locale) -> None:
+async def test_c6_population_words_force_verification_without_the_classifier(
+    harness, message, locale
+) -> None:
     out = await harness.turn(message, locale=locale)
     _ok(out)
     assert "delta" not in out.types, "population mention must be verify-then-release"
@@ -231,9 +234,10 @@ async def test_c8_answer_block_refusal_names_the_crisis_line(harness_factory, en
 # ---- C10: demo profile only in demo mode -----------------------------------------------------------
 def test_c10_demo_profile_is_refused_outside_demo_mode(engine_config) -> None:
     state = engine_config.profile_state
-    assert enforce_demo_policy(state, demo_mode=True, env="test") is state
-    for demo_mode, env in ((False, "test"), (True, "staging"), (True, "prod"), (False, "dev")):
-        refused = enforce_demo_policy(state, demo_mode=demo_mode, env=env)
+    for env in ("dev", "test", "staging", "prod"):  # demo mode on: served everywhere, with the demo banner
+        assert enforce_demo_policy(state, demo_mode=True, env=env) is state
+    for env in ("dev", "test", "staging", "prod"):  # demo mode off: fictional data is never served as real
+        refused = enforce_demo_policy(state, demo_mode=False, env=env)
         assert refused.profile is None
         assert "demo" in (refused.error or "")
     real = ProfileState(profile=state.profile.model_copy(update={"is_demo": False}))
@@ -257,7 +261,12 @@ async def test_c10_engine_does_not_serve_demo_contacts_when_demo_mode_is_off(
 GARBLED = {"fr": ("le le ", "au le ", "le numéro le numéro"), "ar": ("بالرقم رقم", "الرقم رقم")}
 HANDOFF_HINTS = {  # sentences that only make sense with a hospital profile (handoff / switchboard)
     "en": ("Hospital staff", "For hospital questions", "contact your local", "Switchboard"),
-    "fr": ("Le personnel de l'hôpital", "Pour les questions sur l'hôpital", "contactez le numéro", "Standard"),
+    "fr": (
+        "Le personnel de l'hôpital",
+        "Pour les questions sur l'hôpital",
+        "contactez le numéro",
+        "Standard",
+    ),
     "ar": ("طاقم المستشفى", "لأسئلة المستشفى", "المقسم"),
 }
 
@@ -289,7 +298,9 @@ def test_c11_fallback_reads_as_a_call_phrase(engine_config, locale) -> None:
     assert expected[locale] in msg
 
 
-async def test_c11_followup_without_profile_does_not_point_at_missing_contacts(harness_factory, engine_config):
+async def test_c11_followup_without_profile_does_not_point_at_missing_contacts(
+    harness_factory, engine_config
+):
     cfg = replace(engine_config, profile_state=ProfileState(profile=None, error="missing"))
     h = harness_factory(config=cfg)
     for message, locale, shown in (
@@ -357,8 +368,10 @@ async def test_c13_cancel_during_guard_call_keeps_the_session_update(harness_fac
     llm = scripted_provider()
     llm.latency_s = 3600.0  # the guard decide call never returns
     state, seen = await _cancel_during_guard(harness_factory(llm=llm), message)
-    assert "status" in seen and "answer" not in seen
-    assert state is not None and check(state), state
+    assert "status" in seen
+    assert "answer" not in seen
+    assert state is not None
+    assert check(state), state
 
 
 async def test_c13_precheck_strike_is_counted_once(harness) -> None:
@@ -416,7 +429,9 @@ class CrashAfterChunks(FakeLLMProvider):
         raise RuntimeError("bug after deltas")
 
 
-async def test_c15_exception_after_deltas_emits_a_replacing_busy_answer(harness_factory, engine_config) -> None:
+async def test_c15_exception_after_deltas_emits_a_replacing_busy_answer(
+    harness_factory, engine_config
+) -> None:
     llm = CrashAfterChunks(responder=role_responder(), decider=guard_decider())
     out = await harness_factory(llm=llm).turn(FEVER)
     _ok(out)
@@ -470,7 +485,7 @@ async def test_p5_deadline_after_deltas_replaces_the_stream(harness_factory, eng
 
 # ---- S17: history window ---------------------------------------------------------------------------
 async def test_s17_session_keeps_at_most_three_user_turns(harness) -> None:
-    assert harness.settings.history_window_turns > 3  # the configured default is larger
+    assert harness.settings.history_window_turns == 3  # default now matches the engine cap (review S17)
     session = await harness.new_session()
     for i in range(5):
         out = await harness.turn(f"hello number {i}", session=session)

@@ -3,7 +3,7 @@
 Config files are loaded once at startup (`load_engine_config`); a malformed file raises ConfigFileError
 there, never during a turn. The hospital profile is the exception: a missing, invalid or expired profile
 only disables receptionist features (ProfileState.error), it never stops the app. A demo profile is only
-served in demo mode outside staging/prod (review C10, `enforce_demo_policy`).
+served while demo mode is on (review C10, `enforce_demo_policy`).
 
 The guard's population threshold is capped at POPULATION_THRESHOLD (review C6): a pregnancy / child /
 older-adult probability at or above it makes the answer verify-then-release."""

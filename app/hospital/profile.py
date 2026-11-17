@@ -38,11 +38,13 @@ class ProfileState:
 
 def enforce_demo_policy(state: ProfileState, *, demo_mode: bool, env: str) -> ProfileState:
     profile = state.profile
-    if profile is None or not profile.is_demo or (demo_mode and env not in ("staging", "prod")):
+    # Fictional demo data may be served only while demo mode is on (the UI then shows the demo banner), in any
+    # environment, so a public demo keeps its contacts; it is never served as real data (review C10).
+    if profile is None or not profile.is_demo or demo_mode:
         return state
     log.error("hospital_profile_demo_refused", profile=profile.id, demo_mode=demo_mode, env=env)
     return ProfileState(
-        profile=None, error="demo hospital profile refused: only served in demo mode outside staging/prod"
+        profile=None, error="demo hospital profile refused: fictional data is only served in demo mode"
     )
 
 
