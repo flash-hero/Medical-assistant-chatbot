@@ -135,7 +135,18 @@ _UNITS: dict[str, tuple[str, ...]] = {
 }
 # rate denominators: canonical -> spellings ("/kg", "per day", "par jour", "لكل كغ")
 _DENOMINATORS: dict[str, tuple[str, ...]] = {
-    "kg": ("kilograms", "kilogram", "kilogrammes", "kilogramme", "kilos", "kilo", "kg", "كيلوغرام", "كغ", "كلغ"),
+    "kg": (
+        "kilograms",
+        "kilogram",
+        "kilogrammes",
+        "kilogramme",
+        "kilos",
+        "kilo",
+        "kg",
+        "كيلوغرام",
+        "كغ",
+        "كلغ",
+    ),
     "d": ("24 hours", "24 heures", "24 h", "24h", "days", "day", "jours", "jour", "اليوم", "يوم"),
     "m2": ("square metres", "square meters", "square metre", "square meter", "mètre carré", "m2"),
     "h": ("hours", "hour", "heures", "heure", "ساعة"),
@@ -245,9 +256,7 @@ def _scan(text: str) -> tuple[list[Quantity], list[tuple[int, int]], str]:
     return found, spans, norm
 
 
-_UNIT_AFTER = re.compile(
-    rf"(?:\s*(?:-|–|to|à|a|إلى|الى)\s*{_NUM})?\s?(?:{_UNIT_ALT})(?!\w)", re.IGNORECASE
-)
+_UNIT_AFTER = re.compile(rf"(?:\s*(?:-|–|to|à|a|إلى|الى)\s*{_NUM})?\s?(?:{_UNIT_ALT})(?!\w)", re.IGNORECASE)
 
 
 def unit_follows(text: str, pos: int) -> bool:

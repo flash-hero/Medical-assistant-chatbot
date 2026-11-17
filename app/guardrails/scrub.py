@@ -33,8 +33,11 @@ _DOMAIN = re.compile(
     re.IGNORECASE,
 )
 _SPACE_MISSING_WORDS = frozenset(
-    "the it is so an and but for you we he she le la les un une il on en de du des et if in at to as or no "
-    "my me be do us".split()
+    re.findall(
+        r"\S+",
+        "the it is so an and but for you we he she le la les un une il on en de du des et if in at to "
+        "as or no my me be do us",
+    )
 )
 _DOT_WORD_TLDS = (
     r"com|org|net|io|xyz|ru|cn|info|biz|ly|fr|ma|dz|tn|uk|top|app|dev|site|online|link|click|health|gov|edu|"

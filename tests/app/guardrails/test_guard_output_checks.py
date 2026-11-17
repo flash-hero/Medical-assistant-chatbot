@@ -173,7 +173,7 @@ def test_empty_canary_and_policy_are_ignored() -> None:
     assert not c.fatal
 
 
-# ---- review C4 / S4: short emergency numbers, Unicode and single-spaced digits ------------------------------
+# ---- review C4 / S4: short emergency numbers, Unicode and single-spaced digits -----------------------------
 @pytest.fixture
 def ctx_hospital() -> CheckContext:
     return CheckContext(
@@ -243,7 +243,7 @@ def test_clinical_numbers_near_emergency_words_are_kept(ctx_hospital: CheckConte
     assert "markup_or_number_removed" not in c.violations
 
 
-# ---- review S11 / C16: bare domains, defanged domains ---------------------------------------------------------
+# ---- review S11 / C16: bare domains, defanged domains ------------------------------------------------------
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
@@ -276,3 +276,9 @@ def test_bare_and_defanged_domains_are_removed(raw: str, expected: str) -> None:
 )
 def test_decimals_and_abbreviations_are_not_domains(raw: str) -> None:
     assert strip_markup(raw) == raw
+
+
+def test_dosing_verb_with_unparsed_number_is_reported_and_dropped(ctx: CheckContext) -> None:
+    c = check_sentence("Take 2 every 4 hours [1].", ctx)
+    assert not c.kept
+    assert "numeric_unparsed" in c.violations

@@ -127,3 +127,47 @@ def test_bad_section_type_raises() -> None:
 def test_bad_language_list_raises() -> None:
     with pytest.raises(ConfigFileError):
         build_cue_set({"negation": {"en": "no"}}, plain_form)
+
+
+# ---- review C1: historical cues are scoped to their sub-clause; present-time cues override them ------------
+SCOPED_RAW: dict[str, object] = {
+    "historical": {"en": ["last year", "diagnosed with"], "fr": ["l annee derniere"], "ar": ["العام الماضي"]},
+    "present": {"en": ["right now"], "fr": ["en ce moment"], "ar": ["الان"]},
+}
+
+
+@pytest.fixture
+def scoped() -> CueSet:
+    return build_cue_set(SCOPED_RAW, plain_form)
+
+
+def _at(cues: CueSet, text: str, hit: str) -> bool:
+    clause = plain_form(text)
+    return cues.historical_at(clause, clause.index(plain_form(hit)))
+
+
+@pytest.mark.parametrize(
+    ("text", "hit", "historical"),
+    [
+        ("he was diagnosed with epilepsy and is having a seizure", "seizure", False),  # new sub-clause, now
+        ("i had a seizure last year and im fine", "seizure", True),  # the cue's own sub-clause
+        ("i had a seizure and was diagnosed with epilepsy", "seizure", True),  # past continuation
+        ("i was diagnosed with asthma and i cant breathe", "breathe", False),  # present sub-clause
+        ("my son who was diagnosed with epilepsy is having a seizure", "seizure", False),  # progressive
+        ("she is recovering from a stroke she had last year", "stroke", True),  # recovery is not now
+        ("a history of epilepsy and seizures last year", "seizures", True),  # "and" between nouns
+        ("une crise l annee derniere et il convulse", "convulse", False),
+        ("une crise l annee derniere mais tout va bien", "crise", True),
+        ("il convulse en ce moment depuis l annee derniere", "convulse", False),
+        ("نوبة العام الماضي وهو الان يتشنج", "يتشنج", False),
+    ],
+)
+def test_historical_scope(scoped: CueSet, text: str, hit: str, historical: bool) -> None:
+    assert _at(scoped, text, hit) is historical
+
+
+def test_present_cues_are_optional() -> None:
+    bare = build_cue_set({"historical": {"en": ["last year"]}}, plain_form)
+    assert bare.present is None
+    assert bare.is_present("he is bleeding")  # the English progressive needs no configured cue
+    assert not bare.is_present("last year")

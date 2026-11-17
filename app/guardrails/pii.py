@@ -3,8 +3,20 @@
 Replaced with placeholders: e-mails [EMAIL], IBANs [IBAN], payment cards (Luhn-valid) [CARD], exact dates of
 birth [DOB] (age statements such as "I am 45" are kept), national-ID / medical-record-like numbers [ID], phone
 numbers [PHONE] (international +212/+213/+216/+33/+1 and national 0X / Tunisian 8-digit formats) and
-self-introduced names
-[NAME] ("my name is", "je m'appelle", "اسمي", "ana smiti").
+self-introduced names [NAME] ("my name is", "je m'appelle", "اسمي", "ana smiti", "I'm Sarah Connor",
+"je suis Marie Dupont", "أنا سارة").
+
+Before matching, Arabic-Indic, Persian and fullwidth digits become ASCII digits (in the returned text too) and
+single-spaced digit runs of 9+ digits are collapsed ("0 6 1 2 3 4 5 6 7 8" -> "0612345678").
+
+"I'm / I am / je suis + Name" needs a capitalised token that is not a self-description ("I am Diabetic",
+"I'm French", "Je suis Enceinte" are kept); Title-Case messages skip this trigger so that
+"I'm Going To End It" reaches the risk lexicon intact. Arabic has no capitals: "أنا + name" only fires for
+common first names.
+
+Residual risk (documented, not handled): spelled-out or obfuscated numbers ("zero six one two...",
+"06 twelve 34", "O6l2..."), lowercase introductions ("i'm sarah"), Arabic or Arabizi names outside the short
+first-name list, names given without any introduction.
 """
 
 from __future__ import annotations
@@ -15,6 +27,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from types import MappingProxyType
+
+from app.guardrails.numbers import ascii_digits
 
 _EMAIL = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,4})?\b")
@@ -63,11 +77,12 @@ _PHONES = (
     re.compile(r"(?<![\w+])(?:\+|00)\d{1,3}[\s.\-]?(?:\(0\)[\s.\-]?)?\d(?:[\s.\-]?\d){6,12}(?!\d)"),
     re.compile(r"(?<![\d+])0[1-9](?:[\s.\-]?\d{2}){4}(?!\d)"),  # FR / MA / DZ national, incl. 06 / 07 mobiles
     re.compile(r"(?<![\d+])0[5-7]\d{8}(?!\d)"),
-    re.compile(r"(?<![\d+])\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}(?!\d)"),  # North American
+    re.compile(r"(?<![\d+])(?:1[\s.\-])?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}(?!\d)"),  # North American
     re.compile(r"(?<![\d+.,])[24579]\d(?:[\s.]?\d{3}){2}(?![\d.,])"),  # Tunisian 8-digit
 )
 PHONE_PATTERNS: tuple[re.Pattern[str], ...] = _PHONES  # reused by output checks (phone allow-list)
 _LONG_DIGITS = re.compile(r"(?<!\d)\d{9,}(?!\d)")
+_SPACED_DIGITS = re.compile(r"(?<![\d.,])\d(?:[ .\-]\d){8,}(?![\d.,])")  # "0 6 1 2 3 4 5 6 7 8"
 
 _NAME_TRIGGER = re.compile(
     r"(?:\bmy\s+name\s+is|\bmy\s+name's|\bi\s+am\s+called|\bi'm\s+called|"
@@ -117,6 +132,41 @@ _NAME_STOP = frozenset(
     ]
 )
 _MAX_NAME_TOKENS = 3
+
+
+def _words(*lines: str) -> frozenset[str]:
+    """A word set written as a few lines of space-separated words."""
+    return frozenset(w for line in lines for w in line.split())
+
+
+# "I'm Sarah", "I am John Smith", "je suis Marie Dupont": case-sensitive, the name must be capitalised.
+_SELF_INTRO = re.compile(r"(?<![\w'’])(?:I['’]m|I\s+am|Im|i['’]m|i\s+am|[Jj]e\s+suis)\s+(?=[^\W\d_])")
+_INTRO_STOP = _words(
+    "diabetic pregnant allergic asthmatic epileptic anemic anaemic hypertensive diabétique diabetique",
+    "enceinte allergique asthmatique épileptique epileptique anémique muslim christian jewish",
+    "catholic french english british american canadian moroccan algerian tunisian arab arabic african",
+    "european spanish italian german belgian swiss français française francais francaise marocain",
+    "marocaine algérien algérienne algerien algerienne tunisien tunisienne belge suisse anglais",
+    "anglaise musulman musulmane chrétien chrétienne juif juive not very so really sorry fine ok okay",
+    "here there just also still currently always never worried scared afraid sick ill tired feeling",
+    "having taking on in at a an the type over under about back home alone new from with going gonna",
+    "done ready thinking trying unable sure unsure confused dizzy fasting male female man woman",
+    "mother father mom mum dad parent nurse doctor student teacher retired vegan vegetarian",
+    "overweight positive negative hiv covid pas très tres malade inquiet inquiète inquiete fatigué",
+    "fatiguée fatigue désolé désolée desole en un une le la les de du sous sur dans à au aux bien mal",
+    "seul seule ici toujours encore déjà deja vraiment trop plus moins mère père maman papa infirmier",
+    "infirmière médecin étudiant étudiante retraité retraitée",
+)
+# Arabic has no capitals: "أنا + first name" only for common first names ("عبد الله" style compounds too).
+_AR_FIRST_NAMES = (
+    "محمد|أحمد|احمد|علي|عمر|يوسف|ياسين|حمزة|مهدي|أيوب|ايوب|إبراهيم|ابراهيم|خالد|كريم|سعيد|رشيد|مصطفى|حسن|"
+    "حسين|إسماعيل|اسماعيل|أمين|امين|إلياس|الياس|أنس|انس|زكرياء|زكريا|بلال|سفيان|عادل|نبيل|هشام|طارق|يونس|"
+    "إدريس|ادريس|فاطمة|فاطمه|خديجة|خديجه|عائشة|عائشه|مريم|سارة|ساره|زينب|هدى|سلمى|إيمان|ايمان|أسماء|اسماء|"
+    "سميرة|سميره|نادية|ناديه|ليلى|سناء|حنان|كوثر|وفاء|أمينة|امينة|هاجر|رجاء|سعاد|لطيفة|نعيمة|سكينة|غزلان|"
+    r"عبد\s*ال\w+"
+)
+_AR_INTRO = re.compile(rf"(?<!\w)(?:أنا|انا)\s+(?P<name>{_AR_FIRST_NAMES})(?!\w)")
+_TITLE_CASE_SHARE = 0.6  # a message with this share of capitalised words is typed in Title Case
 
 
 @dataclass(frozen=True)
@@ -187,18 +237,51 @@ class _Redactor:
     def names(self, text: str) -> str:
         out: list[str] = []
         pos = 0
-        for m in _NAME_TRIGGER.finditer(text):
-            if m.start() < pos:
+        for start, end in sorted(_name_spans(text)):
+            if start < pos:
                 continue
-            end = _name_span_end(text, m.end())
-            if end == m.end():
-                continue
-            out.append(text[pos : m.end()])
+            out.append(text[pos:start])
             out.append("[NAME]")
             self.counts["NAME"] += 1
             pos = end
         out.append(text[pos:])
         return "".join(out)
+
+
+def _name_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of every name found after an introduction trigger."""
+    spans = [(m.end(), _name_span_end(text, m.end())) for m in _NAME_TRIGGER.finditer(text)]
+    if not _title_cased(text):
+        spans += [(m.end(), _intro_span_end(text, m.end())) for m in _SELF_INTRO.finditer(text)]
+    spans += [m.span("name") for m in _AR_INTRO.finditer(text)]
+    return [(a, b) for a, b in spans if b > a]
+
+
+def _title_cased(text: str) -> bool:
+    """Most cased words start with a capital ("I'm Going To End It"): capitals say nothing about names."""
+    cased = [w for w in _NAME_TOKEN.findall(text) if w[0].isupper() or w[0].islower()]
+    return len(cased) > 3 and sum(w[0].isupper() for w in cased) / len(cased) >= _TITLE_CASE_SHARE
+
+
+def _is_capitalised(token: str) -> bool:
+    return token[0].isupper() and any(c.islower() for c in token)
+
+
+def _intro_span_end(text: str, start: int) -> int:
+    """End of up to _MAX_NAME_TOKENS capitalised tokens right after "I'm" / "je suis" (none when the first one
+    is a self-description such as "Diabetic" or "French")."""
+    end = start
+    for taken, tok in enumerate(_NAME_TOKEN.finditer(text, start)):
+        word = tok.group(0)
+        gap = text[end : tok.start()]
+        if gap.strip() or (taken and "\n" in gap):
+            break
+        if not _is_capitalised(word) or word.casefold() in _NAME_STOP or word.casefold() in _INTRO_STOP:
+            break
+        end = tok.end()
+        if taken + 1 >= _MAX_NAME_TOKENS:
+            break
+    return end
 
 
 def _name_span_end(text: str, start: int) -> int:
@@ -222,7 +305,8 @@ def _name_span_end(text: str, start: int) -> int:
 def redact(text: str, *, today: date | None = None) -> Redaction:
     """Return the redacted text and a count per placeholder type. Pure function, never logs."""
     r = _Redactor(today or date.today())
-    t = r.sub(_EMAIL, text, "EMAIL", lambda m: True)
+    t = _SPACED_DIGITS.sub(lambda m: re.sub(r"\D", "", m.group(0)), ascii_digits(text))
+    t = r.sub(_EMAIL, t, "EMAIL", lambda m: True)
     t = r.sub(_IBAN, t, "IBAN", lambda m: _iban_ok(m.group(0)))
     t = r.sub(_CARD, t, "CARD", lambda m: _luhn_ok(re.sub(r"\D", "", m.group(0))))
     t = r.sub_group(_DOB_CONTEXT, t, "DOB", "date")

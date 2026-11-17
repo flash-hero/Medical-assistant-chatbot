@@ -8,6 +8,7 @@
 #   informational: a hit is ignored when the clause is a general question BEFORE the hit and has no personal cue
 #   personal:      first/second/third-person words that make a clause about a real person now
 #   clause_breaks: words that start a new clause (punctuation already splits clauses)
+#   present:       present-time cues that override a historical cue in the same sub-clause
 version: draft-unreviewed
 review:
   status: draft-unreviewed
@@ -52,6 +53,18 @@ historical:
        "ملي كنت صغيره", "كي كنت صغير", "في سنه \\d{4}", "عام \\d{4}"]
   arabizi: ["chhar li fat", "chhar lifat", "chher li fat", "l3am li fat", "l3am lifat", "3am lfayt", "hadi snin",
             "chakhsouh", "chakhsouha", "chakhsouni", "diagnostiquer", "melli kont sghir", "ki kont sghir"]
+# Present-time cues (review C1): a hit whose sub-clause holds one of these is about now, even when the clause
+# also holds a historical cue ("my son who was diagnosed with epilepsy is seizing right now"). English present
+# progressive ("is having", "is turning blue") is detected in code (app/guardrails/lexicon_cues.py).
+present:
+  en: ["right now", "currently", "at the moment", "at present", "as we speak", "this very moment", "today",
+       "tonight", "this morning", "this evening", "this afternoon", "still", "again"]
+  fr: ["en ce moment", "actuellement", "a l instant", "en train de", "aujourd hui", "ce soir", "ce matin",
+       "cet apres midi", "encore", "de nouveau", "a nouveau"]
+  ar: ["الان", "حاليا", "في هذه اللحظه", "هذه اللحظه", "اليوم", "هذه الليله", "هاد الليله", "هاد الساعه",
+       "لا يزال", "لا تزال", "ما زال", "ما زالت", "مازال", "مازالت", "راه", "راها", "راهو", "راني", "راهي",
+       "من جديد", "مره اخرى"]
+  arabizi: ["daba", "db", "tawa", "drk", "lyoum", "mazal", "rah", "raha", "rahi", "rani"]
 informational:
   en: ["what is", "what are", "what s", "whats", "what causes", "symptoms of", "signs of", "warning signs",
        "causes of", "difference between", "how to recognize", "how to recognise", "how do you know if",

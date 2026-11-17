@@ -173,10 +173,10 @@ _WORD_VALUE: dict[str, tuple[int, str]] = {
     **{w: (v, "fr") for w, v in _FR_SMALL.items()},
     **{w: (v, "ar") for w, v in _AR_SMALL.items()},
     **{w: (v, "ar") for w, v in _AR_HUNDREDS.items()},
-    **{w: (1, "en") for w in ("one",)},
-    **{w: (1, "fr") for w in ("un", "une")},
-    **{w: (1, "ar") for w in ("واحد", "واحدة", "أحد", "احد")},
-    **{w: (2, "ar") for w in ("اثنا", "اثني")},
+    **dict.fromkeys(("one",), (1, "en")),
+    **dict.fromkeys(("un", "une"), (1, "fr")),
+    **dict.fromkeys(("واحد", "واحدة", "أحد", "احد"), (1, "ar")),
+    **dict.fromkeys(("اثنا", "اثني"), (2, "ar")),
 }
 _NUMBER_WORD = "|".join(
     sorted((re.escape(w) for w in (*_WORD_VALUE, *_HUNDRED, *_THOUSAND)), key=len, reverse=True)

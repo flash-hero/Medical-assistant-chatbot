@@ -13,6 +13,7 @@ Metrics file: `C:\dev\ausculta-data\reports\engine-guardrails.metrics.json`.
 | 4 | Lexicon tuning (recall >= 90%, hard-negative FP <= 10%, held-out 20%) | partial | emergency / self_harm tuned: tune 100% everywhere; held-out emergency 100/100/75%, self_harm 46/58/83% (en/fr/ar); harm_to_others, abuse_disclosure, injection never tuned |
 | 5 | Fixes requested by engine-api: (a) combination test, (b) follow-up flagged as emergency | done | +38 tests; see below |
 | 6 | Final metrics on the final lexicon (`engine-guardrails.metrics.json`, source `lexicon_only`) | done | 94 records; tune and held-out separate; gates below |
+| 7 | P3 review fixes (C1, C2, C3/S13, C4/S4, C5, C12, S3, S11/C16, S16, P9) | done, pending commit | run 6: 883 tests pass; `app/guardrails` line 99.2% (1691/1704), branch-combined 99%; metrics rewritten (unchanged); see "Review fixes (run 6)" |
 
 ## Eval sets (deliverable 2)
 
@@ -114,7 +115,7 @@ no items) before I switched to tune-only output; no tuning decision used it.
 ## Final metrics (run 5, final lexicon)
 
 `python -m evals.safety.lexicon_eval --show-failures none` wrote 94 records (source `lexicon_only`) to
-`C:\devusculta-dataeports\engine-guardrails.metrics.json`. The lexicon files were not changed in run 5
+`C:\dev\ausculta-data\reports\engine-guardrails.metrics.json`. The lexicon files were not changed in run 5
 (`git diff config/safety` empty). Disclosure: the evaluator's summary always prints the held-out rows; it was run
 once at the start of run 5 (to check the state) and once to write the records; no tuning happened after either.
 
@@ -176,6 +177,51 @@ Also fixed: `python -m evals.safety.lexicon_eval` crashed with UnicodeEncodeErro
 when an Arabic failure line was printed, before the metric records were written. `console_safe()` now escapes
 unencodable characters (regression test in `test_safety_eval_lexicon.py`, +2).
 
+## Review fixes (run 6, `docs/reviews/2026-11-16-p3-review.md`)
+
+TDD: every finding got failing tests first, with the review's exact repro inputs (RED confirmed), then the fix.
+Public signatures imported by `app/pipeline` and `app/api` are unchanged (`check_sentence`, `check_answer`,
+`CheckContext`, `GroundednessVerifier.verify`, `redact`, `process_ingress`, `LexiconMatcher`, ...).
+
+| ID | Change | Tests |
+|---|---|---|
+| C1 | `lexicon_cues.CueSet.historical_at`: a historical cue covers its own sub-clause (breaks: while / mais / بينما..., and "and / et / و" only when a clause follows: pronoun, auxiliary, time word; "epilepsy and seizures" does not split). A present-time cue (new `present:` section in `context_cues.yaml`) or an English present progressive in the hit's sub-clause overrides it; a sub-clause without its own cue stays historical only when it is in the past tense ("I had a seizure and was diagnosed ... last year"). `lexicon._judge` calls it. | `test_guard_lexicon_review.py` (9 live + 5 still-historical), `test_guard_lexicon_cues.py::test_historical_scope` (11) |
+| C2 | `claims.py`: no `^` anchors; "you have X" without a hedge still needs the sentence start or a lead-in about the user ("based on what you describe", "in your case"); FR/AR hedged and lead-in forms; number words via the shared normaliser; "vous devriez prendre", "يجب أن تأخذ"; stop-treatment without a determiner ("stop taking aspirin", "arrêtez l'aspirine", "توقف عن تناول الأسبرين"). Citation markers no longer count as dose numbers (pre-existing false positive: "You can take paracetamol with or without food [1]"). | `test_guard_claims.py` (+20 repro, +19 safe sentences, +3) |
+| C3 / S13 | New `numbers.py` (Unicode digits, ZWSP/format chars, U+066B/U+066C, EN/FR/AR number words incl. compounds and Arabic duals, simple fractions, "twice"). `numeric.py`: `NxM` / `×` (amount + multiplier grounded as a count), rate units kept (`mg/kg`, `g/d`, `mg/m2`, `ml/h`, "per day", "par jour", "لكل كغ", "in 24 hours"; a bare unit is grounded by a time rate, never by /kg or /m2), units teaspoon/tablespoon/spoon/drop/puff/spray/cc/sachet/mEq/mmol/ampoule/suppository/glass, "mgs"; fail closed (`UNPARSED`, violation `numeric_unparsed`) when a dosing verb meets an unparsed number-like token. | `test_guard_numeric.py` (+52), `test_guard_numbers.py` (21) |
+| C4 / S4 | New `scrub.py`: any 2+ digit run after a call verb (call, dial, appelez, composez, اتصل...) or within reach of an emergency word (emergency, urgence, طوارئ, poison, crisis...) is removed unless allow-listed; judged on an ASCII-digit copy of the same length (Arabic-Indic, fullwidth); single-spaced / dashed runs; quantities ("39 °C", "24 hours"), times, ratios and citation markers are kept; "1-800-222-1222" removed whole (also the North American PII pattern takes the "1-" prefix). | `test_guard_output_checks.py` (+24) |
+| C5 | `claims.py` category `triage`: reassurance / no-care verdicts, severity verdicts about the user's state, immediate urgency directives (EN/FR/AR); guarded only by a conditional anywhere in the sentence (the "when to seek care" guidance stays), not by negation. Probable-diagnosis forms ("this is probably appendicitis", "could be a heart attack", FR/AR). General statements with a non-pronoun subject ("Sepsis is a medical emergency", "Chest pain can be a sign of a heart attack") are kept. | `test_guard_claims.py` (+34) |
+| C12 | `self_harm.yaml`: the negation is part of the phrase ("don't see the point in living", "ma bghitch..." / "ما بغيتش نعيش" spaced and glued, FR "ne vois pas l'intérêt de vivre", MSA "لا أرى فائدة من العيش"); exclusions for "going on a / the / holiday". The circumfix handling itself was correct: the gap was that no phrase held it, and a phrase starting after the negation would be negated. | `test_guard_lexicon_review.py` (10 + 3 near misses) |
+| S3 | `pii.py`: Unicode digits to ASCII first (also in the returned text), single-spaced / dashed digit runs of 9+ collapsed, "I'm / I am / je suis + Capitalised Name" (self-description stop list, Title-Case messages skipped so "I'm Going To End It" reaches the lexicon), "أنا + common first name". Residual risk documented in the module docstring: spelled-out / obfuscated numbers, lowercase introductions, names outside the short Arabic list. | `test_guard_pii_ingress.py` (+27) |
+| S11 / C16 | `scrub.strip_domains`: any label.tld with a 2-3 letter TLD or a known longer one, paths kept with it ("bit.ly/abc"); defanged "[.]", "(.)", "[dot]", "dot com"; one-letter parts (e.g., i.e., U.S.), decimals and "fever.The" are kept. | `test_guard_output_checks.py` (+16) |
+| S16 | `groundedness.py`: passages and sentences go through `app.pipeline.prompts.neutralise` (importable without a cycle: it imports only `app.config_files` and `core`) before the VERIFY call and the fallback. | `test_guard_groundedness.py` (+2) |
+| P9 | `groundedness.py`: sentences over 600 characters are split at clause boundaries (punctuation, then conjunctions) into pieces of <= 600; supported only when every piece is; no usable boundary -> unsupported without a model call. | `test_guard_groundedness.py` (+3) |
+
+Checks: 883 tests in `tests/app/guardrails` (603 before) pass; `app/guardrails` line 99.2% (1691/1704),
+branch-combined 99%; ruff check / format and mypy strict clean on `app/guardrails`, `evals/safety` and
+`tests/app/guardrails` (the test directory had 25 pre-existing mypy errors in the PII and evaluator tests, now
+annotated). `tests/app/pipeline` + `tests/app/api` 360 passed, `tests/app/storage` + `tests/evals` 28 passed.
+Worst case on a 2,000-character sentence: claims 16 ms, numeric 12 ms, `check_sentence` 20 ms, `redact` 5 ms.
+
+Lexicon metrics (run 6, `--show-failures none`, written to the metrics file, 94 records): tuning used the tune
+split only (a scratch tune-only lister); the held-out rows were looked at once, after the last lexicon change.
+Every tune and held-out number is identical to run 5 (table above): C1 and C12 change no eval-set outcome, in
+either direction (no new hard-negative false positive; the held-out self-harm misses are other phrasings).
+
+| lang | split | emergency | self_harm | hard-neg FP |
+|---|---|---|---|---|
+| en | tune | 49/49 | 48/48 | 0/52 |
+| en | heldout | 12/12 | 6/13 | 2/13 |
+| fr | tune | 49/49 | 49/49 | 0/52 |
+| fr | heldout | 12/12 | 7/12 | 0/13 |
+| ar | tune | 51/51 | 49/49 | 0/54 |
+| ar | heldout | 9/12 | 10/12 | 0/14 |
+
+Behaviour changes the pipeline owner should know: answers now lose sentences that state a triage verdict or a
+probable diagnosis; number words and rate units are grounded like digits (a paraphrase "two weeks" for a source
+"14 days" is dropped, as "2 weeks" already was); a dosing sentence with a stray number is dropped
+(`numeric_unparsed`); new audit categories `forbidden_triage` and `numeric_unparsed`; ingress text now carries
+ASCII digits where the user typed Arabic-Indic or fullwidth ones.
+
 ## Log
 
 - 2026-11-16: resumed. Found 15 guardrail modules on disk (from the cut-off run), only pii/ingress tested.
@@ -193,10 +239,17 @@ unencodable characters (regression test in `test_safety_eval_lexicon.py`, +2).
   `app/guardrails` line coverage 99.0% (1342/1355; branch-combined 98.4%), `evals/safety` 99%; ruff check and
   format clean; mypy clean on `app/guardrails` and `evals/safety`; tests/app/pipeline + tests/app/api 261 passed.
 
+- 2026-11-17 (run 6): P3 review fixes C1, C2, C3/S13, C4/S4, C5, C12, S3, S11/C16, S16, P9 (see "Review fixes
+  (run 6)"); new modules `numbers.py`, `scrub.py`; 883 guardrail tests; metrics rewritten (unchanged); review
+  file Status set to "fixed (pending commit)" for these IDs.
+
 ## Next step
 
 Track complete. For the lead: review/commit. Open items: move `LATEST_MESSAGE_SCOPE` / `POPULATION_SCOPE` into a
 `config/prompts/guard.v2.yaml` and bump `PROMPT_VERSION` (the prompt hash does not cover code-level text); re-run
 the engine-api live session (emergency then "What are the visiting hours?") to confirm (b) on the real model;
 measure safety recall through the full pipeline (lexicon OR classifier) for the `safety.*` gates; harm_to_others,
-abuse_disclosure and injection lexicons were never tuned.
+abuse_disclosure and injection lexicons were never tuned. From run 6: a clinician / native-speaker review of the
+new triage and probable-diagnosis patterns, the `present:` cues and the C12 phrasings (all `draft-unreviewed`);
+S3 residual risks (spelled-out or obfuscated numbers, lowercase or Arabic names outside the list) need a
+model-side or UI-side mitigation if they matter for the pilot.

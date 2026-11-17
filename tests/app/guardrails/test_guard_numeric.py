@@ -56,7 +56,7 @@ def test_quantity_without_any_source_is_ungrounded() -> None:
     assert ungrounded_quantities("about 5 days", []) == (Quantity("5", "d"),)
 
 
-# ---- review C3 / S13: number words, separators, NxM, rate units, more units, fail closed ----------------------
+# ---- review C3 / S13: number words, separators, NxM, rate units, more units, fail closed -------------------
 @pytest.mark.parametrize(
     ("text", "expected"),
     [

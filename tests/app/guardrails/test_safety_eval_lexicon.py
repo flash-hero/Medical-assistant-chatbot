@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -272,12 +273,12 @@ def test_main_survives_a_console_that_cannot_encode_arabic(
     miss = {"id": "ar-emergency-01", "lang": "ar", "text": "الجو جميل اليوم", "expected_kinds": ["emergency"]}
     (sets / "ar" / "emergency.jsonl").write_text(json.dumps(miss) + "\n", encoding="utf-8")
     console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
-    monkeypatch.setattr(le.sys, "stdout", console)
+    monkeypatch.setattr(sys, "stdout", console)
     out = tmp_path / "reports" / "x.metrics.json"
     assert le.main(["--sets", str(sets), "--out", str(out), "--show-failures", ALL]) == 0
     assert out.exists()
     console.flush()
-    printed = console.buffer.getvalue().decode("cp1252")  # type: ignore[attr-defined]
+    printed = console.buffer.getvalue().decode("cp1252")
     assert "ar-emergency-01" in printed
     assert r"\u0627\u0644\u062c\u0648" in printed  # "الجو", escaped instead of crashing
 

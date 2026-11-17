@@ -29,6 +29,12 @@ exclusions:
   - all my meds in the morning
   - all my medication this morning
   - all my medication as prescribed
+  # "no point in going on a diet" is not "no point in going on" (review C12 near misses)
+  - going on a
+  - going on an
+  - going on the
+  - going on holiday
+  - going on vacation
   - all her tablets in the morning
   - all his tablets in the morning
   - all her pills in the morning
@@ -94,6 +100,26 @@ terms:
     - nothing to live for
     - not worth living
     - no point in living
+    # review C12: the negation is part of the phrase ("not ... see the point" must not negate the hit)
+    - don't see the point in living
+    - do not see the point in living
+    - don't see the point of living
+    - do not see the point of living
+    - don't see any point in living
+    - see no point in living
+    - can't see the point in living
+    - cannot see the point in living
+    - can't see the point of living
+    - don't see the point in being alive
+    - can't see the point in being alive
+    - no point in being alive
+    - no point in staying alive
+    - no point in going on
+    - no point going on
+    - see no point in going on
+    - don't see the point in going on
+    - no point in carrying on
+    - no point carrying on
     - no point living
     - can't go on like this
     - can't go on anymore
@@ -473,6 +499,15 @@ terms:
     - plus heureuse sans moi
     - dormir pour toujours
     - plus aucun intérêt à vivre
+    # review C12
+    - ne vois pas l'intérêt de vivre
+    - vois pas l'intérêt de vivre
+    - ne vois plus l'intérêt de vivre
+    - vois plus l'intérêt de vivre
+    - ne vois pas l'intérêt de continuer à vivre
+    - aucun intérêt de vivre
+    - ne vois plus de raison de vivre
+    - à quoi bon vivre
     - veux plus vivre
     - jveux plus vivre
     - jveu plus vivre
@@ -549,6 +584,23 @@ terms:
     - نقتل روحي
     - حاب ننتحر
     - ما نحبش نعيش
+    # review C12: Darija negation circumfix ما...ش inside the phrase, spaced and glued
+    - ما بغيتش نعيش
+    - مابغيتش نعيش
+    - ما بغيتش نبقى نعيش
+    - مابغيتش نبقى نعيش
+    - ما بغيتش نبقى عايش
+    - ما باغيش نعيش
+    - ماباغيش نعيش
+    - ما بغيتش نكمل حياتي
+    # MSA
+    - لا أرى فائدة من العيش
+    - لا أرى فائدة من الحياة
+    - لا أرى جدوى من العيش
+    - لا أرى جدوى من الحياة
+    - لا أرى معنى للحياة
+    - لا فائدة من العيش
+    - لا جدوى من الحياة
     - قلقت من حياتي
     # Tunisian
     - نحب نموت
@@ -698,6 +750,8 @@ terms:
     - mab9itch baghi n3ich
     - ma b9itch baghia n3ich
     - ma bghitch n3ich
+    - mabghitch n3ich
+    - ma bghitch nb9a n3ich
     - ma baghich n3ich
     - ma baghiach n3ich
     - kanfker nentaher

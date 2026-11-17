@@ -46,7 +46,9 @@ _AR_CONDITION = (
     r"(?:(?:ب|ل)?(?:ال)?(?:نوبة|جلطة|سكتة|التهاب|عدوى|مرض|متلازمة|سرطان|ورم|كسر|التواء|ارتجاج|حساسية|"
     r"صداع نصفي|انفلونزا|إنفلونزا|زكام|فيروس|قرحة|ربو|سكري|ذبحة|تسمم|احتشاء|أزمة|ازمة))"
 )
-_LIKELY_EN = r"(?:probably|likely|most likely|almost certainly|very likely|definitely|certainly|surely|clearly)"
+_LIKELY_EN = (
+    r"(?:probably|likely|most likely|almost certainly|very likely|definitely|certainly|surely|clearly)"
+)
 _LIKELY_FR = r"(?:probablement|sûrement|surement|certainement|sans doute|vraisemblablement|très probablement)"
 _LIKELY_AR = r"(?:على الأرجح|على الارجح|غالبا|ربما|من المحتمل|أغلب الظن|اغلب الظن|من الأرجح|من الارجح)"
 _NOT_A_CONDITION = (
@@ -82,7 +84,8 @@ _FR_DRUG = (
 )
 
 _DIAGNOSIS = (
-    rf"\byou {_LIKELY_EN} (?:have|'ve got|are suffering from|are having|suffer from|have got)\b {_YOU_HAVE_EXCL}",
+    rf"\byou {_LIKELY_EN} (?:have|'ve got|are suffering from|are having|suffer from|have got)\b "
+    rf"{_YOU_HAVE_EXCL}",
     rf"\byou (?:seem|appear) to (?:have|be suffering from|be having)\b {_YOU_HAVE_EXCL}",
     rf"{_EN_LEAD}you (?:may |might |could )?(?:have|'ve got|are suffering from|are having) {_YOU_HAVE_EXCL}",
     rf"\b(?:it|this|that|these|those|what you describe)(?: really)? (?:sounds?|looks?|seems?) "

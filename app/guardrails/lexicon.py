@@ -316,7 +316,11 @@ class LexiconMatcher:
         status: HitStatus = "active"
         if self._cues.is_negated(clause[:start].split(), entry.lang):
             status = "negated"
-        elif rules.suppress_historical and self._is_historical(clause, historical):
+        elif (
+            rules.suppress_historical
+            and self._is_historical(clause, historical)
+            and self._cues.historical_at(clause, start)
+        ):
             status = "historical"
         elif entry.condition and self._cues.is_informational(clause, start):
             status = "informational"

@@ -134,7 +134,7 @@ def test_arabic_claim_verbs_are_whole_words(sentence: str) -> None:
     assert find_forbidden_claims(sentence) == ()
 
 
-# ---- review C2: claims anywhere in the sentence, FR/AR/number-word dosing, stop-treatment without determiner ----
+# ---- review C2: claims anywhere, FR/AR/number-word dosing, stop-treatment without a determiner
 @pytest.mark.parametrize(
     ("sentence", "category"),
     [

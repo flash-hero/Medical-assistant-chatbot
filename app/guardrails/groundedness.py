@@ -1,14 +1,20 @@
 """Sentence-level groundedness: one VERIFY decide call with one noul question per answer sentence
 ("is this sentence supported by the passages?"). Unsupported sentences are removed; the caller abstains when
-too
-little remains. Falls back to a GUARD_FALLBACK JSON classifier; when both fail the result is `available=False`
-(verify-then-release answers must then abstain).
+too little remains. Falls back to a GUARD_FALLBACK JSON classifier; when both fail the result is
+`available=False` (verify-then-release answers must then abstain).
+
+- Passages and sentences are neutralised (app/pipeline/prompts.neutralise) before they reach the verifier, so
+  a passage cannot close or fake the nonce-delimited <passage> blocks.
+- A sentence longer than 600 characters is split at clause boundaries and every piece is verified (the
+  sentence is supported only when all its pieces are); a long sentence with no usable boundary is marked
+  unsupported without a model call. Nothing is ever truncated before verification.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import re
 import secrets
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -17,12 +23,21 @@ from typing import Any
 import structlog
 
 from app.guardrails.safety_config import GroundednessConfig
+from app.pipeline.prompts import neutralise
 from core.errors import UpstreamError
 from core.models import ModelRole
 from core.ports import DecisionQuestion, GenerationRequest, LLMProvider
 
 log = structlog.get_logger(__name__)
 _MAX_SENTENCE_CHARS = 600
+# Clause boundaries, strongest first: punctuation (incl. Arabic comma / semicolon) or a spaced dash, then a
+# coordinating or relative word (kept at the start of the next piece).
+_PUNCT_BREAK = re.compile(r"(?<=[,;:،؛])\s+|\s+(?=[-–—]\s)")
+_WORD_BREAK = re.compile(
+    r"\s+(?=(?:and|or|but|which|while|because|whereas|although|so that|et|ou|mais|qui|car|donc|alors que|"
+    r"tandis que|parce que|bien que|أو|لكن|بينما|لأن|حيث|الذي|التي)\s)|\s+(?=و\S)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -46,14 +61,40 @@ class GroundednessResult:
 
 def _passages_block(passages: Sequence[str], nonce: str) -> str:
     parts = [
-        f'<passage n="{i}" nonce="{nonce}">\n{p}\n</passage nonce="{nonce}">'
+        f'<passage n="{i}" nonce="{nonce}">\n{neutralise(p)}\n</passage nonce="{nonce}">'
         for i, p in enumerate(passages, 1)
     ]
     return "\n".join(parts)
 
 
 def _escape(sentence: str) -> str:
+    # pieces are <= _MAX_SENTENCE_CHARS already (see _pieces); the cut is only a last-resort bound
     return sentence.replace("«", '"').replace("»", '"')[:_MAX_SENTENCE_CHARS]
+
+
+def _pack(parts: Sequence[str]) -> list[str]:
+    """Join consecutive parts into pieces of at most _MAX_SENTENCE_CHARS characters."""
+    pieces: list[str] = []
+    for part in parts:
+        if pieces and len(pieces[-1]) + 1 + len(part) <= _MAX_SENTENCE_CHARS:
+            pieces[-1] = f"{pieces[-1]} {part}"
+        else:
+            pieces.append(part)
+    return pieces
+
+
+def _pieces(sentence: str) -> list[str] | None:
+    """The sentence itself when short enough, else its clause-sized pieces; None when a clause is still
+    longer than _MAX_SENTENCE_CHARS (the sentence is then unsupported)."""
+    if len(sentence) <= _MAX_SENTENCE_CHARS:
+        return [sentence]
+    parts: list[str] = []
+    for part in _PUNCT_BREAK.split(sentence):
+        sub = [part] if len(part) <= _MAX_SENTENCE_CHARS else _WORD_BREAK.split(part)
+        if any(len(s) > _MAX_SENTENCE_CHARS for s in sub):
+            return None
+        parts.extend(s for s in sub if s.strip())
+    return _pack(parts)
 
 
 class GroundednessVerifier:
@@ -68,20 +109,37 @@ class GroundednessVerifier:
     async def verify(self, sentences: Sequence[str], passages: Sequence[str]) -> GroundednessResult:
         if not sentences:
             return GroundednessResult(supported=(), available=True)
+        supported = [True] * len(sentences)
+        pieces: list[str] = []
+        owners: list[int] = []
+        for i, sentence in enumerate(sentences):
+            split = _pieces(neutralise(sentence))
+            if split is None:
+                supported[i] = False
+                continue
+            pieces.extend(split)
+            owners.extend([i] * len(split))
+        if not pieces:
+            return GroundednessResult(supported=tuple(supported), available=True)
+        result = await self._verify_pieces(pieces, passages)
+        if not result.available or result.blocked:
+            return GroundednessResult(
+                supported=tuple(False for _ in sentences), available=result.available, blocked=result.blocked
+            )
+        for owner, ok in zip(owners, result.supported, strict=True):
+            supported[owner] = supported[owner] and ok
+        return GroundednessResult(supported=tuple(supported), available=True, model_id=result.model_id)
+
+    async def _verify_pieces(self, pieces: Sequence[str], passages: Sequence[str]) -> GroundednessResult:
         nonce = secrets.token_hex(6)
         context = f"{self._prompts.preamble}\n{_passages_block(passages, nonce)}"
         flags: list[bool] = []
         model_id = ""
         step = self._cfg.max_sentences_per_call
-        for start in range(0, len(sentences), step):
-            batch = sentences[start : start + step]
-            result = await self._verify_batch(batch, context)
+        for start in range(0, len(pieces), step):
+            result = await self._verify_batch(pieces[start : start + step], context)
             if not result.available or result.blocked:
-                return GroundednessResult(
-                    supported=tuple(False for _ in sentences),
-                    available=result.available,
-                    blocked=result.blocked,
-                )
+                return result
             flags.extend(result.supported)
             model_id = result.model_id
         return GroundednessResult(supported=tuple(flags), available=True, model_id=model_id)
