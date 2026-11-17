@@ -3,10 +3,8 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { Mark } from "@/components/brand/Mark";
-import { ContactLink } from "@/components/chat/ContactLink";
 import { isLocale } from "@/i18n/routing";
-import { getHospital, type PublicHospital } from "@/lib/api/client";
-import type { PhoneContact } from "@/lib/api/hospital";
+import { telHref, type PhoneContact, type PublicHospital } from "@/lib/api/hospital";
 
 interface LocaleErrorProps {
   readonly error: Error & { readonly digest?: string };
@@ -19,6 +17,25 @@ function emergencyContacts(hospital: PublicHospital | null, emergencyLabel: stri
   const emergency = hospital.emergency ? [{ ...hospital.emergency, label: hospital.emergency.label || emergencyLabel }] : [];
   const handoff = hospital.handoff ? [hospital.handoff] : [];
   return [...emergency, ...hospital.crisisLines, ...handoff];
+}
+
+/**
+ * Tap-to-call, like components/chat/ContactLink but without the icon module: this boundary ships with
+ * every page, so it stays small. The name comes from the content and contains the visible text.
+ */
+function CallLink({ contact, callLabel, primary }: { readonly contact: PhoneContact; readonly callLabel: string; readonly primary: boolean }) {
+  return (
+    <a href={telHref(contact.number)} className={`btn ${primary ? "btn-danger" : "btn-quiet"} min-h-12 justify-start gap-3 whitespace-normal px-4 text-start`}>
+      <span className="grid">
+        <span className="sr-only">{callLabel}</span>
+        <span aria-hidden="true">{contact.label}</span>
+        <span className="sr-only">, </span>
+        <span className="text-lg font-bold tabular-nums" dir="ltr">
+          {contact.number}
+        </span>
+      </span>
+    </a>
+  );
 }
 
 /**
@@ -35,7 +52,10 @@ export default function LocaleError({ retry }: LocaleErrorProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    getHospital(locale, controller.signal)
+    // Loaded only once an error is on screen: the API client stays out of every page's first-load
+    // JavaScript (this boundary is part of the layout, so a static import is duplicated on each route).
+    import("@/lib/api/client")
+      .then(({ getHospital }) => getHospital(locale, controller.signal))
       .then(setHospital)
       .catch(() => undefined); // the generic emergency instruction stays
     return () => controller.abort();
@@ -55,7 +75,7 @@ export default function LocaleError({ retry }: LocaleErrorProps) {
           <ul className="grid gap-2">
             {contacts.map((contact, i) => (
               <li key={`${i}-${contact.number}`} className="grid">
-                <ContactLink contact={contact} callLabel={t("call", { label: contact.label })} tone={i === 0 ? "danger" : "quiet"} />
+                <CallLink contact={contact} callLabel={t("call", { label: contact.label })} primary={i === 0} />
               </li>
             ))}
           </ul>

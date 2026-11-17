@@ -148,10 +148,21 @@ French source.
 | T17 | `asHttpUrl` refuses user info (`https://trusted@evil/`). | validate "T17" |
 | T18 | Questions-left: seeded from the session, -1 on `meta`, server value on `done`, 0 on `session_exhausted`; a blocked send says why (connecting / busy / no questions left / too long) in a live region; sources page `lang`/`dir` from the text (French names and attribution lines); spell-check, autocorrect and Grammarly off on every health text field. | reducer "T18", chat-ui "T18", text-language "T18"; E2E site (spellcheck attribute) |
 
-Checks (code + Vitest only, while memory was reserved for another track): typecheck 0, eslint 0/0,
-Vitest **282/282** (was 168; coverage statements 94.6%, branches 90.5%). New E2E: chat-contract.spec.ts
-(3 tests x 3 locales) and one T1 test per locale in chat-answers. Production build, the Playwright matrix,
-`npm run measure:js` and the bundle check are pending the lead's go-ahead.
+Checks (memory shared with an index build, so chromium-desktop only for now, 1 worker):
+typecheck 0, eslint 0/0, Vitest **282/282** (was 168; coverage statements 94.6%, branches 90.5%).
+`API_ORIGIN=http://127.0.0.1:4010 next build`: 0 warnings. E2E chromium-desktop on the final build
+(2026-11-17, 1 worker, retries 0): **67/67 passed** (was 55: + chat-contract.spec.ts 3 tests x 3 locales,
++ one T1 test per locale), CSP violations 0 over 67 tests, axe serious/critical 0 over 33 axe runs.
+Report: test-results/measure/e2e-report-run6-chromium-desktop.json (test-results/e2e-report.json is still
+the 16 Nov full-matrix report). The full matrix (firefox, webkit, mobile) waits for the lead's go-ahead.
+
+Chat route JS (`npm run measure:js`): /en|fr|ar/chat **183.7 kB gzip** (14 scripts, 596.4 kB raw), budget
+200; /en 209.2 kB (not gated). The first build measured 190.1 kB: the new `[locale]/error.tsx` boundary is
+part of the layout and Turbopack duplicated its imports (API client + event parser, icon module via
+ContactLink) into a separate chunk. Fixed: the boundary loads the API client with `import()` only once an
+error is shown, and draws its call links without the icon module (error chunk 9 kB -> about 2.6 kB gzip).
+The rest of the growth over run 5 (177.5) is the T1-T18 code itself. Lighthouse not re-run: the empty
+chat page's layout is unchanged (the composer's new status line is `empty:sr-only`).
 
 Open (not web): the API does not read `Idempotency-Key` yet (POST /appointments); the client sends it.
 
@@ -164,7 +175,7 @@ Open (not web): the API does not read `Idempotency-Key` yet (POST /appointments)
 
 ## Next step
 
-Run 6: production build, full Playwright matrix (1 worker), `npm run measure:js`, then update the
-numbers above and the review's Status column. Earlier note: UI track complete. For the lead: review and commit the run 5 changes (web/src/lib/chat/demo-mode.ts,
+Run 6: full Playwright matrix (chromium, firefox, webkit; desktop and mobile; 1 worker) once the lead
+says memory is free, then update the numbers above and the review's Status column. Earlier note: UI track complete. For the lead: review and commit the run 5 changes (web/src/lib/chat/demo-mode.ts,
 web/tests/unit/demo-mode.test.ts, web/src/components/chat/{Composer,ChatApp}.tsx,
 web/src/components/chat/hooks/useChatController.ts, web/src/lib/site.ts, this file).
