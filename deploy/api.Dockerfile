@@ -11,7 +11,12 @@ COPY rag ./rag
 COPY evals/__init__.py ./evals/__init__.py
 COPY evals/fakes ./evals/fakes
 COPY data_pipeline/__init__.py ./data_pipeline/__init__.py
-RUN uv venv /opt/venv && uv pip install --python /opt/venv/bin/python --no-cache .
+COPY deploy/requirements.lock ./deploy/requirements.lock
+# Pinned, hash-checked dependencies (regenerate: uv pip compile pyproject.toml --python-version 3.11
+#   --python-platform x86_64-unknown-linux-gnu --generate-hashes -o deploy/requirements.lock)
+RUN uv venv /opt/venv \
+ && uv pip install --python /opt/venv/bin/python --no-cache --require-hashes -r deploy/requirements.lock \
+ && uv pip install --python /opt/venv/bin/python --no-cache --no-deps .
 
 FROM python:3.11-slim-bookworm AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
@@ -22,7 +27,12 @@ COPY --from=build /opt/venv /opt/venv
 WORKDIR /srv
 COPY --chown=app:app config ./config
 COPY --chown=app:app data_pipeline/sources/registry.yaml ./data_pipeline/sources/registry.yaml
+COPY --chown=app:app deploy/prefetch_models.py ./deploy/prefetch_models.py
 USER app
+# Bake the embedding model (~1.2 GB) and BM25 analysers into /data so the API starts without internet access;
+# Docker copies them into the api_data volume on first use. AUSCULTA_ENV=dev only for this build step (the
+# production settings guard needs Redis/Postgres, which do not exist at build time).
+RUN AUSCULTA_ENV=dev AUSCULTA_EMBED_BACKEND=local python deploy/prefetch_models.py
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2).status == 200 else 1)"

@@ -66,7 +66,7 @@ jobs:
       - name: Tests (unit, contract, services) with coverage
         run: .venv/bin/pytest -m "not live" --cov --cov-report=term --cov-report=xml --cov-fail-under=80
       - name: Dependency audit
-        run: .venv/bin/pip-audit --strict --progress-spinner off
+        run: .venv/bin/pip-audit --strict --progress-spinner off -r deploy/requirements.lock
 
   web:
     runs-on: ubuntu-latest
