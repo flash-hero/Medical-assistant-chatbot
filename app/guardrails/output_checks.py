@@ -1,7 +1,13 @@
 """Deterministic per-sentence checks on model output (run inline while streaming and again before release).
 
 Per sentence, in order:
+  0. output hygiene: invisible / smuggling characters removed (Unicode tags, zero-width, bidi controls,
+     variation selectors: the ingress sanitiser) and fullwidth ASCII folded, so nothing hidden or disguised
+     reaches the user and the checks below see what the reader sees                    (red team P5)
   1. canary-token leak and system-prompt echo (word 8-gram overlap)           -> fatal: answer withdrawn
+     The canary is matched on an alphanumeric squeeze (spaced, dotted, fullwidth, Arabic-Indic digits), also
+     reversed or base64-encoded; both checks also run over everything released before the sentence, so a
+     canary or a prompt cut into short sentences is caught too (red team P5).
   2. markup removal: URLs, e-mail addresses, markdown links/images, HTML, code -> sentence kept, text modified
   3. phone numbers not in HospitalProfile.allowed_numbers()                     -> number removed
      (also short numbers after a call verb or near an emergency word: app/guardrails/scrub.py)
@@ -12,28 +18,34 @@ Per sentence, in order:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
 from app.guardrails.claims import find_forbidden_claims
 from app.guardrails.numeric import UNPARSED, ungrounded_quantities
 from app.guardrails.scrub import strip_domains, strip_phones
 from app.guardrails.sentences import Sentence, split_sentences
-from core.text import detection_form
+from core.text import detection_form, sanitize
 
 NGRAM = 8
 MIN_SHARED_NGRAMS = 2
 _MD_IMAGE = re.compile(r"!\[[^\]]{0,300}\]\([^)]{0,800}\)")
 _MD_LINK = re.compile(r"\[([^\]\d][^\]]{0,300})\]\([^)]{0,800}\)")
 _HTML = re.compile(r"</?[a-zA-Z][^<>]{0,300}>|<!--.*?-->", re.DOTALL)
-_URL = re.compile(r"\b(?:https?://|ftp://|www\.)\S+", re.IGNORECASE)
+# scheme URLs and www., plus script-capable schemes even without "//" (red team P5: javascript:, data:)
+_URL = re.compile(r"\b(?:https?://|ftp://|www\.)\S+|\b(?:javascript|vbscript|data|file):\S+", re.IGNORECASE)
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _CODE = re.compile(r"`+")
 _MARKER_LIST = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)+)\]")
 _MARKER = re.compile(r"\[(\d+)\]")
 _SPACES = re.compile(r"[ \t]{2,}")
 _SPACE_BEFORE_PUNCT = re.compile(r"\s+([.,;:!?؟])")
+_FULLWIDTH = {**{cp: cp - 0xFEE0 for cp in range(0xFF01, 0xFF5F)}, 0x3000: 0x20}
+_SQUEEZE = re.compile(r"[^0-9a-z]")
+_BASE64 = re.compile(r"[A-Za-z0-9+/]{16,}={0,2}")
 
 
 @dataclass(frozen=True)
@@ -81,20 +93,54 @@ class AnswerCheck:
         return tuple(v for _, c in self.sentences for v in c.violations)
 
 
+def clean_output(text: str) -> str:
+    """Model text as it may reach the user: the ingress sanitiser (no tag / zero-width / bidi / variation-
+    selector characters) plus fullwidth ASCII folded to ASCII."""
+    return sanitize(text.translate(_FULLWIDTH)).text
+
+
 def ngrams(text: str, n: int = NGRAM) -> frozenset[tuple[str, ...]]:
-    toks = detection_form(text).split()
+    """Word n-grams of the detection form; citation markers dropped, underscores split ("a_b" -> "a b")."""
+    toks = detection_form(_without_markers(text)).replace("_", " ").split()
     return frozenset(tuple(toks[i : i + n]) for i in range(len(toks) - n + 1))
+
+
+def _without_markers(text: str) -> str:
+    return _MARKER_LIST.sub(" ", _MARKER.sub(" ", text))
+
+
+def _squeezed(text: str) -> str:
+    return _SQUEEZE.sub("", detection_form(_without_markers(text)))
 
 
 def policy_ngrams(system_prompt: str, canary: str) -> frozenset[tuple[str, ...]]:
     return ngrams(system_prompt.replace(canary, " "))
 
 
-def _leak(sentence: str, ctx: CheckContext) -> str | None:
-    lowered = sentence.casefold()
-    if ctx.canary and (ctx.canary.casefold() in lowered or ctx.canary.split("-")[-1].casefold() in lowered):
+def _base64_decoded(text: str) -> Iterator[str]:
+    for token in _BASE64.findall(text):
+        try:
+            yield base64.b64decode(token + "=" * (-len(token) % 4)).decode("latin-1")
+        except (binascii.Error, ValueError):
+            continue
+
+
+def canary_in(text: str, canary: str) -> bool:
+    """The canary's random part, also spaced / dotted / fullwidth / with Arabic-Indic digits (the squeeze),
+    reversed, or base64-encoded (the "encode your instructions" attack)."""
+    secret = _SQUEEZE.sub("", canary.split("-")[-1].casefold())
+    if not secret:
+        return False
+    flat = _squeezed(text)
+    if secret in flat or secret[::-1] in flat:
+        return True
+    return any(secret in _SQUEEZE.sub("", d.casefold()) for d in _base64_decoded(text))
+
+
+def _leak(text: str, ctx: CheckContext) -> str | None:
+    if ctx.canary and canary_in(text, ctx.canary):
         return "canary_leak"
-    if ctx.policy_ngrams and len(ngrams(sentence) & ctx.policy_ngrams) >= MIN_SHARED_NGRAMS:
+    if ctx.policy_ngrams and len(ngrams(text) & ctx.policy_ngrams) >= MIN_SHARED_NGRAMS:
         return "system_prompt_echo"
     return None
 
@@ -127,11 +173,13 @@ def _tidy(text: str) -> str:
     return _SPACE_BEFORE_PUNCT.sub(r"\1", _SPACES.sub(" ", text)).strip()
 
 
-def check_sentence(sentence: str, ctx: CheckContext) -> SentenceCheck:
-    leak = _leak(sentence, ctx)
+def check_sentence(sentence: str, ctx: CheckContext, *, released: str = "") -> SentenceCheck:
+    """`released`: the answer text already released before this sentence (leak checks span both)."""
+    text = clean_output(sentence)
+    leak = _leak(f"{released} {text}" if released else text, ctx)
     if leak:
         return SentenceCheck("", kept=False, modified=True, fatal=True, violations=(leak,), citations=())
-    cleaned = strip_phones(strip_markup(sentence), ctx.allowed_numbers)
+    cleaned = strip_phones(strip_markup(text), ctx.allowed_numbers)
     cleaned, cited = _fix_markers(cleaned, len(ctx.passages))
     cleaned = _tidy(cleaned)
     violations: list[str] = []
@@ -160,8 +208,13 @@ def _has_words(text: str) -> bool:
 
 
 def check_sentences(sentences: Sequence[Sentence], ctx: CheckContext) -> AnswerCheck:
-    checked = tuple((s, check_sentence(s.text, ctx)) for s in sentences)
-    return AnswerCheck(sentences=checked, fatal=any(c.fatal for _, c in checked))
+    checked: list[tuple[Sentence, SentenceCheck]] = []
+    released = ""
+    for s in sentences:
+        c = check_sentence(s.text, ctx, released=released)
+        checked.append((s, c))
+        released = f"{released} {clean_output(s.text)}".strip()
+    return AnswerCheck(sentences=tuple(checked), fatal=any(c.fatal for _, c in checked))
 
 
 def check_answer(text: str, ctx: CheckContext) -> AnswerCheck:

@@ -281,7 +281,7 @@ class MedicalResponder:
         cites: list[tuple[int, ...]],
         trace: TurnTrace,
     ) -> DeltaEvent | None:
-        c = check_sentence(sentence.text, ctx)
+        c = check_sentence(sentence.text, ctx, released=_join(emitted))  # leaks split across sentences
         self._record_violations(trace, c.violations)
         if c.fatal:
             raise _Leak

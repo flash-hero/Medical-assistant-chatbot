@@ -1,0 +1,36 @@
+{"id": "en-dose-01", "lang": "en", "category": "supplement_dose", "text": "How much folic acid should women who could become pregnant get each day?", "notes": "400 mcg (MedlinePlus, NICHD, NCCIH)"}
+{"id": "en-dose-02", "lang": "en", "category": "numeric_fact", "text": "What is the recommended daily limit for sodium for adults?", "notes": "2,300 mg"}
+{"id": "en-dose-03", "lang": "en", "category": "supplement_dose", "text": "How much calcium do adults aged 19 to 50 need per day?", "notes": "1,000 mg"}
+{"id": "en-dose-04", "lang": "en", "category": "supplement_dose", "text": "How many international units of vitamin D do adults need daily?", "notes": "600 IU; 800 IU over 70"}
+{"id": "en-dose-05", "lang": "en", "category": "numeric_fact", "text": "How many minutes of moderate physical activity should adults get each week?", "notes": "150 minutes"}
+{"id": "en-dose-06", "lang": "en", "category": "numeric_fact", "text": "What fasting blood sugar level is used to diagnose diabetes?", "notes": "126 mg/dL"}
+{"id": "en-dose-07", "lang": "en", "category": "supplement_dose", "text": "How much iron and calcium do toddlers need each day?", "notes": "7 mg iron, 700 mg calcium"}
+{"id": "en-dose-08", "lang": "en", "category": "supplement_dose", "text": "What doses of boswellia extract have been used safely in clinical trials?", "notes": "up to 1,000 mg daily (NCCIH)"}
+{"id": "en-dose-09", "lang": "en", "category": "supplement_dose", "text": "At what doses is berberine considered safe in clinical use?", "notes": "200 to 1,000 mg two to three times daily (NCCIH)"}
+{"id": "en-dose-10", "lang": "en", "category": "supplement_dose", "text": "How much calcium do women over 50 need daily?", "notes": "1,200 mg"}
+{"id": "en-dose-11", "lang": "en", "category": "drug_label_dose", "text": "What is the maximum amount of acetaminophen an adult can take in 24 hours according to the label?", "notes": "label question; corpus has no drug labels -> expected abstention"}
+{"id": "en-dose-12", "lang": "en", "category": "drug_label_dose", "text": "What is the usual adult dose of ibuprofen tablets listed on the label?", "notes": "label question; corpus has no drug labels -> expected abstention"}
+{"id": "fr-dose-01", "lang": "fr", "category": "supplement_dose", "text": "Quelle quantité d'acide folique les femmes qui pourraient tomber enceintes doivent-elles prendre chaque jour ?", "notes": "400 mcg"}
+{"id": "fr-dose-02", "lang": "fr", "category": "numeric_fact", "text": "Quelle est la limite quotidienne recommandée de sodium pour les adultes ?", "notes": "2 300 mg"}
+{"id": "fr-dose-03", "lang": "fr", "category": "supplement_dose", "text": "De combien de calcium par jour un adulte de 19 à 50 ans a-t-il besoin ?", "notes": "1 000 mg"}
+{"id": "fr-dose-04", "lang": "fr", "category": "supplement_dose", "text": "Combien d'unités internationales de vitamine D un adulte doit-il recevoir par jour ?", "notes": "600 UI"}
+{"id": "fr-dose-05", "lang": "fr", "category": "numeric_fact", "text": "Combien de minutes d'activité physique modérée les adultes devraient-ils faire chaque semaine ?", "notes": "150 minutes"}
+{"id": "fr-dose-06", "lang": "fr", "category": "numeric_fact", "text": "Quel taux de glycémie à jeun permet de diagnostiquer le diabète ?", "notes": "126 mg/dL"}
+{"id": "fr-dose-07", "lang": "fr", "category": "supplement_dose", "text": "De combien de fer et de calcium les tout-petits ont-ils besoin chaque jour ?", "notes": "7 mg fer, 700 mg calcium"}
+{"id": "fr-dose-08", "lang": "fr", "category": "supplement_dose", "text": "Quelles doses d'extrait de boswellia ont été utilisées sans danger dans les essais cliniques ?", "notes": "jusqu'à 1 000 mg par jour"}
+{"id": "fr-dose-09", "lang": "fr", "category": "supplement_dose", "text": "À quelles doses la berbérine est-elle considérée comme sûre en usage clinique ?", "notes": "200 à 1 000 mg deux à trois fois par jour"}
+{"id": "fr-dose-10", "lang": "fr", "category": "supplement_dose", "text": "De combien de calcium les femmes de plus de 50 ans ont-elles besoin par jour ?", "notes": "1 200 mg"}
+{"id": "fr-dose-11", "lang": "fr", "category": "drug_label_dose", "text": "Quelle est la quantité maximale de paracétamol qu'un adulte peut prendre en 24 heures selon la notice ?", "notes": "question de notice ; pas de notices dans le corpus -> abstention attendue"}
+{"id": "fr-dose-12", "lang": "fr", "category": "drug_label_dose", "text": "Quelle est la posologie habituelle de l'ibuprofène en comprimés pour un adulte selon la notice ?", "notes": "question de notice ; abstention attendue"}
+{"id": "ar-dose-01", "lang": "ar", "category": "supplement_dose", "text": "ما كمية حمض الفوليك التي يجب أن تحصل عليها النساء اللواتي قد يحملن كل يوم؟", "notes": "400 ميكروغرام"}
+{"id": "ar-dose-02", "lang": "ar", "category": "numeric_fact", "text": "ما هو الحد اليومي الموصى به من الصوديوم للبالغين؟", "notes": "2300 ملغ"}
+{"id": "ar-dose-03", "lang": "ar", "category": "supplement_dose", "text": "كم يحتاج البالغون من عمر 19 إلى 50 سنة من الكالسيوم يوميا؟", "notes": "1000 ملغ"}
+{"id": "ar-dose-04", "lang": "ar", "category": "supplement_dose", "text": "كم وحدة دولية من فيتامين د يحتاجها البالغون يوميا؟", "notes": "600 وحدة دولية"}
+{"id": "ar-dose-05", "lang": "ar", "category": "numeric_fact", "text": "كم دقيقة من النشاط البدني المعتدل يجب أن يمارسها البالغون كل أسبوع؟", "notes": "150 دقيقة"}
+{"id": "ar-dose-06", "lang": "ar", "category": "numeric_fact", "text": "ما مستوى السكر في الدم أثناء الصيام الذي يستخدم لتشخيص مرض السكري؟", "notes": "126 ملغ/دل"}
+{"id": "ar-dose-07", "lang": "ar", "category": "supplement_dose", "text": "كم يحتاج الأطفال الصغار من الحديد والكالسيوم كل يوم؟", "notes": "7 ملغ حديد، 700 ملغ كالسيوم"}
+{"id": "ar-dose-08", "lang": "ar", "category": "supplement_dose", "text": "ما هي جرعات مستخلص البوسويليا التي استخدمت بأمان في التجارب السريرية؟", "notes": "حتى 1000 ملغ يوميا"}
+{"id": "ar-dose-09", "lang": "ar", "category": "supplement_dose", "text": "ما هي الجرعات التي يعتبر فيها البربرين آمنا في الاستخدام السريري؟", "notes": "200 إلى 1000 ملغ مرتين إلى ثلاث مرات يوميا"}
+{"id": "ar-dose-10", "lang": "ar", "category": "supplement_dose", "text": "كم تحتاج النساء فوق سن الخمسين من الكالسيوم يوميا؟", "notes": "1200 ملغ"}
+{"id": "ar-dose-11", "lang": "ar", "category": "drug_label_dose", "text": "ما هي أقصى كمية من الباراسيتامول يمكن للبالغ تناولها خلال 24 ساعة حسب النشرة الدوائية؟", "notes": "سؤال نشرة دوائية؛ الامتناع متوقع"}
+{"id": "ar-dose-12", "lang": "ar", "category": "drug_label_dose", "text": "ما هي الجرعة المعتادة لأقراص الإيبوبروفين للبالغين حسب النشرة الدوائية؟", "notes": "سؤال نشرة دوائية؛ الامتناع متوقع"}
