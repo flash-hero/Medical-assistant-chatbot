@@ -148,13 +148,27 @@ French source.
 | T17 | `asHttpUrl` refuses user info (`https://trusted@evil/`). | validate "T17" |
 | T18 | Questions-left: seeded from the session, -1 on `meta`, server value on `done`, 0 on `session_exhausted`; a blocked send says why (connecting / busy / no questions left / too long) in a live region; sources page `lang`/`dir` from the text (French names and attribution lines); spell-check, autocorrect and Grammarly off on every health text field. | reducer "T18", chat-ui "T18", text-language "T18"; E2E site (spellcheck attribute) |
 
-Checks (memory shared with an index build, so chromium-desktop only for now, 1 worker):
-typecheck 0, eslint 0/0, Vitest **282/282** (was 168; coverage statements 94.6%, branches 90.5%).
-`API_ORIGIN=http://127.0.0.1:4010 next build`: 0 warnings. E2E chromium-desktop on the final build
-(2026-11-17, 1 worker, retries 0): **67/67 passed** (was 55: + chat-contract.spec.ts 3 tests x 3 locales,
-+ one T1 test per locale), CSP violations 0 over 67 tests, axe serious/critical 0 over 33 axe runs.
-Report: test-results/measure/e2e-report-run6-chromium-desktop.json (test-results/e2e-report.json is still
-the 16 Nov full-matrix report). The full matrix (firefox, webkit, mobile) waits for the lead's go-ahead.
+Checks: typecheck 0, eslint 0/0, Vitest **282/282** (was 168; coverage statements 94.6%, branches
+90.5%). `API_ORIGIN=http://127.0.0.1:4010 next build` (2026-11-17 19:58, code of 76bc9f9): 0 warnings.
+E2E chromium-desktop alone first (1 worker, while memory was shared with the index build): 67/67.
+
+Full matrix (2026-11-18, 1 worker, retries 0, report test-results/e2e-report.json):
+- First run: 396 passed, **2 failed**, 4 skipped. Both failures were "the chat empty state is accessible
+  in both themes" on chromium-desktop (en, fr): axe `color-contrast` on the four example-question
+  buttons in dark mode. Cause: Tailwind `transition-colors` (150 ms) still runs under reduced motion,
+  and axe measured right after `emulateMedia({ colorScheme: "dark" })`, on mid-fade colours (text and
+  background both grey). Not a defect a reader can see. Proof: with the fix removed, 4 of 30 repeated
+  runs failed; with it, 30 of 30 passed. Fix (test support only): `e2e/support/axe.ts` waits, up to 3 s,
+  until no CSS transition is running before each axe run. First report kept as
+  test-results/measure/e2e-report-run6-full-first.json.
+- Re-run on the same build: **398/398 passed, 0 failed, 0 flaky, 4 skipped** (keyboard flow on the 2
+  emulated-mobile projects, by design) in 14.5 min. chromium 132/132, firefox 134/134, webkit 132/132
+  (+12 tests per project: chat-contract.spec.ts 3 x 3 locales, one T1 test per locale); CSP violations
+  0 over 398 tests; axe serious/critical 0 over 198 axe runs.
+- `npm run measure:metrics` wrote 18 records to C:/dev/ausculta-data/reports/ui.metrics.json;
+  `python -m evals.run --only ui. --allow-missing`: ui.e2e_pass_rate 1 (n=398), ui.axe_serious 0 (n=198),
+  ui.lighthouse_a11y 100 (n=12, run 5 measurement), ui.csp_violations 0 (n=398), ui.chat_js_gzip_kb 183.7
+  (n=3): **PASS 5, FAIL 0, PROVISIONAL 0, MISSING 0**.
 
 Chat route JS (`npm run measure:js`): /en|fr|ar/chat **183.7 kB gzip** (14 scripts, 596.4 kB raw), budget
 200; /en 209.2 kB (not gated). The first build measured 190.1 kB: the new `[locale]/error.tsx` boundary is
@@ -172,10 +186,10 @@ Open (not web): the API does not read `Idempotency-Key` yet (POST /appointments)
   crashed"). Worked around in the landing test (run 4). It happened once more, in the appointment-form
   test on the 12:08Z run, and not in the final run. It is a Playwright/Firefox problem, not app behaviour.
 - SEO 54 is by design (noindex). Set SITE_URL in deployment so canonical/hreflang use the real host.
+- axe after a theme switch measured mid-transition colours (run 6, 2 false positives): fixed in the
+  axe helper by waiting for CSS transitions to end. Any new axe call gets this for free.
 
 ## Next step
 
-Run 6: full Playwright matrix (chromium, firefox, webkit; desktop and mobile; 1 worker) once the lead
-says memory is free, then update the numbers above and the review's Status column. Earlier note: UI track complete. For the lead: review and commit the run 5 changes (web/src/lib/chat/demo-mode.ts,
-web/tests/unit/demo-mode.test.ts, web/src/components/chat/{Composer,ChatApp}.tsx,
-web/src/components/chat/hooks/useChatController.ts, web/src/lib/site.ts, this file).
+Review findings T1-T18 are closed and every UI gate passes (run 6). Uncommitted: this file and the
+review's Status column. Open outside web: the API side of `Idempotency-Key` (lead follow-up).
