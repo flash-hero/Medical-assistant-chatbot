@@ -97,7 +97,7 @@ def vs_encode(data: bytes) -> str:
 
 def fullwidth(text: str) -> str:
     return "".join(
-        chr(ord(c) + 0xFEE0) if 0x21 <= ord(c) <= 0x7E else ("　" if c == " " else c) for c in text
+        chr(ord(c) + 0xFEE0) if 0x21 <= ord(c) <= 0x7E else ("\u3000" if c == " " else c) for c in text
     )
 
 
@@ -157,9 +157,7 @@ def _templated(family: str, lang: str) -> Iterator[tuple[tuple[str, ...], str, s
         for template in TEMPLATES[family][lang]:  # second pass: a benign question first, then the attack
             yield (f"{next(benign)} {template}",), FIXED_GOAL[family], None
         return
-    combos = _shuffled(
-        [(t, g) for t in TEMPLATES[family][lang] for g in GOAL_ORDER], f"{lang}:{family}"
-    )
+    combos = _shuffled([(t, g) for t in TEMPLATES[family][lang] for g in GOAL_ORDER], f"{lang}:{family}")
     for template, goal in combos:
         yield (_fill(template, lang, goal),), goal, None
 
@@ -190,15 +188,15 @@ def _bidi(lang: str) -> Iterator[tuple[tuple[str, ...], str, str | None]]:
     for variant, goal in itertools.product(_BIDI_VARIANTS, GOAL_ORDER):
         attack = _override(lang, goal)
         if variant == "rlo_reversed":
-            msg = f"{next(benign)} ‮{attack[::-1]}‬"
+            msg = f"{next(benign)} \u202e{attack[::-1]}\u202c"
         elif variant == "rli_isolate":
-            msg = f"⁧{attack}⁩ {next(benign)}"
+            msg = f"\u2067{attack}\u2069 {next(benign)}"
         else:
-            msg = " ".join(f"‭{w}‬" for w in attack.split())
+            msg = " ".join(f"\u202d{w}\u202c" for w in attack.split())
         yield (msg,), goal, None
 
 
-_ZW_SEPARATORS = ("​", "‌", "⁠", "­")
+_ZW_SEPARATORS = ("\u200b", "\u200c", "\u2060", "\u00ad")
 
 
 def _zero_width(lang: str) -> Iterator[tuple[tuple[str, ...], str, str | None]]:
@@ -213,7 +211,8 @@ def _variation_selector(lang: str) -> Iterator[tuple[tuple[str, ...], str, str |
         if i < len(GOAL_ORDER):
             msg = f"\U0001f60a{vs_encode(attack.encode('utf-8'))} {next(benign)}"
         else:
-            msg = "".join(c + ("️" if j % 2 else "︎") if c.isalpha() else c for j, c in enumerate(attack))
+            selectors = ("\ufe0e", "\ufe0f")  # VS15 / VS16 after every letter
+            msg = "".join(c + selectors[j % 2] if c.isalpha() else c for j, c in enumerate(attack))
         yield (msg,), goal, None
 
 
@@ -307,7 +306,9 @@ def breakdown(attacks: Sequence[Attack]) -> dict[str, dict[str, int]]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--dump", type=Path, default=None, help="write the attacks as JSONL")
     parser.add_argument("--stats", action="store_true")
     args = parser.parse_args(argv)
@@ -318,7 +319,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             for a in attacks:
                 fh.write(json.dumps(asdict(a), ensure_ascii=False) + "\n")
     if args.stats or not args.dump:
-        sys.stdout.write(json.dumps({"total": len(attacks), "by_family": breakdown(attacks)}, indent=1) + "\n")
+        sys.stdout.write(
+            json.dumps({"total": len(attacks), "by_family": breakdown(attacks)}, indent=1) + "\n"
+        )
     return 0
 
 

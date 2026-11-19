@@ -51,8 +51,9 @@ def _benign_answers(questions: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, q in questions.items():
         if q["type"] == "noul":
-            out[key] = SimpleNamespace(type="noul", noul=0.01 if key.startswith(("risk_", "pop_")) else 0.99,
-                                       confidence=0.95)
+            out[key] = SimpleNamespace(
+                type="noul", noul=0.01 if key.startswith(("risk_", "pop_")) else 0.99, confidence=0.95
+            )
         else:
             options = list(q.get("criteria") or {})
             choice = next((o for o in ("medical_info", "en") if o in options), options[0])
@@ -92,12 +93,14 @@ class FakeDecisions:
             raise self.error
         feedback = SimpleNamespace(block_reason=self.block) if self.block else None
         answers = {} if self.block else _benign_answers(kwargs["questions"])
-        return SimpleNamespace(answers=answers, usage=SimpleNamespace(total_input_tokens=200), prompt_feedback=feedback)
+        return SimpleNamespace(
+            answers=answers, usage=SimpleNamespace(total_input_tokens=200), prompt_feedback=feedback
+        )
 
 
 def provider(models: FakeModels, decisions: FakeDecisions, meter: MemorySpendMeter) -> GeminiProvider:
     client = SimpleNamespace(aio=SimpleNamespace(models=models, decisions=decisions))
-    settings = Settings(_env_file=None, GEMINI_API_KEY="unused-test-key", GEMINI_TIER="free")  # type: ignore[call-arg]  # secret-scan: allow
+    settings = Settings(_env_file=None, GEMINI_API_KEY="unused-test-key", GEMINI_TIER="free")  # type: ignore[call-arg,arg-type]  # secret-scan: allow
     policy = RetryPolicy(attempts=3, base_delay_s=0.01, max_delay_s=0.05)
     return GeminiProvider(settings, spend=meter, client=client, policy=policy)  # type: ignore[arg-type]
 
@@ -116,14 +119,19 @@ async def _turn_from(api: ChaosApp, ip: str, message: str) -> Turn:
 
 
 @pytest.mark.parametrize("details", [PER_MINUTE, LONG_RETRY], ids=["retry-and-backoff", "long-retry-after"])
-async def test_429_storm_gives_busy_answers_fast_and_settles_spend(chaos_app, details) -> None:
+async def test_429_storm_gives_busy_answers_fast_and_settles_spend(chaos_app: Any, details: Any) -> None:
     meter = MemorySpendMeter(cap_usd=5.0)
-    models, decisions = FakeModels(error=FakeAPIError(429, details)), FakeDecisions(error=FakeAPIError(429, details))
+    models, decisions = (
+        FakeModels(error=FakeAPIError(429, details)),
+        FakeDecisions(error=FakeAPIError(429, details)),
+    )
     async with chaos_app(llm=provider(models, decisions, meter)) as api:
         profile = api.container.profile()
         busy = api.container.texts.response("busy", "en", profile)
         t0 = time.perf_counter()
-        turns = await asyncio.gather(*(_turn_from(api, f"198.51.100.{i + 10}", FEVER) for i in range(STORM_TURNS)))
+        turns = await asyncio.gather(
+            *(_turn_from(api, f"198.51.100.{i + 10}", FEVER) for i in range(STORM_TURNS))
+        )
         elapsed = time.perf_counter() - t0
         for turn in turns:
             turn.assert_contract()
@@ -140,7 +148,7 @@ async def test_429_storm_gives_busy_answers_fast_and_settles_spend(chaos_app, de
         assert any(e.type == "safety" and e.kind == "emergency" for e in emergency.events)
 
 
-async def test_day_scope_429_is_not_retried(chaos_app) -> None:
+async def test_day_scope_429_is_not_retried(chaos_app: Any) -> None:
     meter = MemorySpendMeter(cap_usd=5.0)
     day = FakeAPIError(429, "Quota exceeded for metric generate_content_requests_per_day, limit: 0")
     models, decisions = FakeModels(error=day), FakeDecisions(error=day)
@@ -158,13 +166,14 @@ def _assert_blocked_refusal(api: ChaosApp, turn: Turn) -> None:
     turn.assert_contract()
     answer = turn.answer()
     profile = api.container.profile()
+    assert profile is not None
     assert answer.mode == "refusal"
     assert answer.text == api.container.texts.response("refusal_blocked", "en", profile)
     assert profile.emergency.number in answer.text
     assert any(c.number in answer.text for c in profile.crisis_lines)
 
 
-async def test_provider_blocks_the_guard_input(chaos_app) -> None:
+async def test_provider_blocks_the_guard_input(chaos_app: Any) -> None:
     meter = MemorySpendMeter(cap_usd=5.0)
     llm = provider(FakeModels(), FakeDecisions(block="SAFETY"), meter)
     async with chaos_app(llm=llm) as api:
@@ -172,7 +181,7 @@ async def test_provider_blocks_the_guard_input(chaos_app) -> None:
         assert api.container.admission.held == 0
 
 
-async def test_provider_blocks_the_streamed_answer(chaos_app) -> None:
+async def test_provider_blocks_the_streamed_answer(chaos_app: Any) -> None:
     meter = MemorySpendMeter(cap_usd=5.0)
     chunks = [_chunk("A fever is a body temperature of 38 °C or higher [1]. "), _chunk("", "SAFETY")]
     models = FakeModels(chunks=chunks)
@@ -183,7 +192,7 @@ async def test_provider_blocks_the_streamed_answer(chaos_app) -> None:
         assert await meter.spent_today() >= 0.0  # settled (estimated input tokens), never left reserved
 
 
-async def test_provider_rejects_the_prompt_as_prohibited(chaos_app) -> None:
+async def test_provider_rejects_the_prompt_as_prohibited(chaos_app: Any) -> None:
     meter = MemorySpendMeter(cap_usd=5.0)
     models = FakeModels(error=FakeAPIError(400, "{'error': {'status': 'prohibited_content'}}"))
     async with chaos_app(llm=provider(models, FakeDecisions(), meter)) as api:

@@ -43,7 +43,9 @@ def chaos_app(tmp_path: Path, chaos_config: Any) -> Callable[..., Any]:
         app = create_app(chaos_settings(tmp_path, **env), overrides=overrides)
         async with app.router.lifespan_context(app):
             transport = httpx.ASGITransport(app=app, client=("203.0.113.50", 50000))
-            async with httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=60) as http:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver", timeout=60
+            ) as http:
                 yield ChaosApp(app, app.state.container, http)
 
     return factory

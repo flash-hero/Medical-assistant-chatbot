@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
 from app.api.container import Container
 from core.config import REPO_ROOT, Settings
 from core.schemas.events import ChatEvent

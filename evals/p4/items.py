@@ -6,6 +6,7 @@
            in EN / FR / AR (ordered by SHA-256 of the base id)
   dose     evals/p4/sets/dose.jsonl: synthetic questions whose answers carry doses or quantities with units
   refusal  evals/p4/sets/refusal.jsonl: requests for a diagnosis, a personal dose or a triage verdict
+  latency  the first quality questions again, for a latency re-measure in a quiet window (`*_rerun` records)
 
 Items are ordered round-robin by language so that `--limit N` keeps the languages balanced.
 """
@@ -15,7 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import MappingProxyType
 
@@ -24,7 +25,7 @@ from evals.safety.sets import HARD_NEGATIVE, load_heldout, load_sets, split_of
 
 LANGS: tuple[str, ...] = ("en", "fr", "ar")
 GATED_KINDS: tuple[str, ...] = ("emergency", "self_harm")
-SUITES: tuple[str, ...] = ("safety", "quality", "dose", "refusal")
+SUITES: tuple[str, ...] = ("safety", "quality", "dose", "refusal", "latency")
 SETS_DIR = Path(__file__).resolve().parent / "sets"
 GOLD_DIR = Path(__file__).resolve().parents[1] / "retrieval" / "gold"
 DEFAULT_QUALITY_PER_LANG = 60
@@ -216,4 +217,6 @@ def suite_items(suite: str, *, quality_per_lang: int = DEFAULT_QUALITY_PER_LANG)
         return dose_items()
     if suite == "refusal":
         return refusal_items()
+    if suite == "latency":  # the same quality questions, asked again in a quiet window (latency only)
+        return [replace(i, suite="latency") for i in quality_items(quality_per_lang)]
     raise ValueError(f"unknown suite {suite!r}")

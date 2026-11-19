@@ -1,6 +1,6 @@
 """P4 integration evaluation on the real pipeline (real Gemini provider, live corpus, real guardrails).
 
-  python -m evals.p4 run --suite safety|quality|dose|refusal|judge [--limit N] [--per-lang N] [--pace S]
+  python -m evals.p4 run --suite safety|quality|dose|refusal|judge|judge-refusal [--limit N] [--per-lang N]
   python -m evals.p4 report      # recompute {data_root}/reports/p4.metrics.json from the cache
   python -m evals.p4 status      # cache counts and model calls used so far
   python -m evals.p4 failures    # failing items per metric (ids, excerpts)
@@ -23,15 +23,38 @@ from core.config import Settings, get_settings
 from evals.p4.items import DEFAULT_QUALITY_PER_LANG, SUITES, suite_items
 from evals.p4.metrics import is_answered
 from evals.p4.provider import CountingProvider, CountingRetryPolicy
-from evals.p4.runner import RunOptions, RunSummary, run_items, run_judge, write_metrics
+from evals.p4.runner import (
+    RunOptions,
+    RunSummary,
+    run_items,
+    run_judge,
+    run_refusal_judge,
+    write_metrics,
+)
 from evals.p4.store import Store
 
 DEFAULT_MAX_GENERATE = 400
 DEFAULT_MAX_DECIDE = 1500
-DEFAULT_PACE_S = {"safety": 0.5, "quality": 5.0, "dose": 5.0, "refusal": 5.0, "judge": 5.0}
-RESERVE = {"safety": (1, 3), "quality": (4, 4), "dose": (4, 4), "refusal": (4, 4), "judge": (2, 0)}
+DEFAULT_PACE_S = {
+    "latency": 5.0,
+    "safety": 0.5,
+    "quality": 5.0,
+    "dose": 5.0,
+    "refusal": 5.0,
+    "judge": 5.0,
+    "judge-refusal": 5.0,
+}
+RESERVE = {
+    "latency": (4, 4),
+    "safety": (1, 3),
+    "quality": (4, 4),
+    "dose": (4, 4),
+    "refusal": (4, 4),
+    "judge": (2, 0),
+    "judge-refusal": (2, 0),
+}
 MIN_FREE_GB = 3.0
-EMBEDDING_SUITES = frozenset({"quality", "dose", "refusal"})
+EMBEDDING_SUITES = frozenset({"quality", "dose", "refusal", "latency"})
 
 
 class _MemStatus(ctypes.Structure):
@@ -115,6 +138,8 @@ async def _run_judge(settings: Settings, store: Store, args: argparse.Namespace)
     )
     llm = CountingProvider(inner, tier=settings.gemini_tier, max_generate=gen_left, max_decide=dec_left)
     try:
+        if args.suite == "judge-refusal":
+            return await run_refusal_judge(llm, store, _options(args), tier=settings.gemini_tier, log=_out)
         return await run_judge(llm, store, _options(args), tier=settings.gemini_tier, log=_out)
     finally:
         await llm.aclose()
@@ -128,7 +153,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         if free is not None and free < args.min_free_gb:
             _out(f"refusing to start: {free:.1f} GB free RAM < {args.min_free_gb} GB (embedding model)")
             return 3
-    runner = _run_judge if args.suite == "judge" else _run_suite
+    runner = _run_judge if args.suite.startswith("judge") else _run_suite
     summary = asyncio.run(runner(settings, store, args))
     store.add_run(summary.to_dict())
     write_metrics(store, free_tier=settings.is_free_tier)
@@ -184,7 +209,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="run one suite (resumable)")
-    run.add_argument("--suite", required=True, choices=[*SUITES, "judge"])
+    run.add_argument("--suite", required=True, choices=[*SUITES, "judge", "judge-refusal"])
     run.add_argument(
         "--limit", type=int, default=None, help="first N items of the suite (round-robin by lang)"
     )

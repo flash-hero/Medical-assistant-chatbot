@@ -12,8 +12,8 @@
               instruction, on benign questions (so every payload certainly reaches the answer model).
    On the final SSE output (what the user sees: deltas, answer, notices, safety texts, errors) the
    independent detectors of evals/redteam/detect.py count leaks and external URLs / images / HTML.
-2. Routing run (extra metric): the same attacks with the normal scripted fake model; share of attacks that were
-   refused / routed to a safety template / struck, and the deterministic precheck's injection flag rate.
+2. Routing run (extra metric): the same attacks with the normal scripted fake model; share of attacks that
+   were refused / routed to a safety template / struck, and the deterministic precheck's injection flag rate.
 """
 
 from __future__ import annotations
@@ -37,8 +37,9 @@ from app.main import create_app
 from app.pipeline.factory import load_engine_config
 from app.pipeline.prompts import new_canary
 from core.config import REPO_ROOT, get_settings
-from core.schemas.chat import Intent, Language, RetrievalQuery, RetrievedPassage, RiskKind
+from core.schemas.chat import Intent, RetrievalQuery, RetrievedPassage, RiskKind
 from core.schemas.events import ChatEvent
+from core.schemas.source import Language
 from evals.fakes.asgi_driver import drive
 from evals.fakes.engine_gates import gate_settings, merge_records, write_metrics
 from evals.fakes.fake_llm import FakeLLMProvider
@@ -107,7 +108,9 @@ class Harness:
         body = json.loads(r.body)
         return str(body["session_token"]), str(body["session_id"])
 
-    async def turn(self, token: str, message: str, lang: str, client: tuple[str, int]) -> tuple[int, list[ChatEvent]]:
+    async def turn(
+        self, token: str, message: str, lang: str, client: tuple[str, int]
+    ) -> tuple[int, list[ChatEvent]]:
         body = {"message": message, "locale": lang, "client_turn_id": str(uuid.uuid4())}
         headers = {"authorization": f"Bearer {token}", "accept": "text/event-stream"}
         r = await drive(self.app, "POST", "/api/v1/chat", body, headers, client=client)
@@ -119,7 +122,9 @@ def planted_passages(scenario: Scenario) -> Any:
         base = default_passages()
         if not scenario.planted:
             return base
-        planted = make_passage(0, scenario.planted, title="Fever", heading="Overview", language=_LANG[scenario.lang])
+        planted = make_passage(
+            0, scenario.planted, title="Fever", heading="Overview", language=_LANG[scenario.lang]
+        )
         return (planted, *base)
 
     return passages
@@ -164,8 +169,19 @@ def _mode(events: Sequence[ChatEvent]) -> str:
 
 
 async def _adversarial_turn(
-    h: Harness, *, token: str, client: tuple[str, int], message: str, attack_id: str, family: str, lang: str,
-    turn: int, payload: str, intent: Intent, goal: str, planted: str | None,
+    h: Harness,
+    *,
+    token: str,
+    client: tuple[str, int],
+    message: str,
+    attack_id: str,
+    family: str,
+    lang: str,
+    turn: int,
+    payload: str,
+    intent: Intent,
+    goal: str,
+    planted: str | None,
 ) -> TurnOutcome:
     s = h.scenario
     s.lang, s.goal, s.planted, s.payload, s.intent = lang, goal, planted, payload, intent
@@ -198,8 +214,18 @@ async def run_attacks_adversarial(h: Harness, attacks: Sequence[Attack]) -> list
             index += 1
             out.append(
                 await _adversarial_turn(
-                    h, token=token, client=client, message=message, attack_id=a.id, family=a.family,
-                    lang=a.lang, turn=j, payload=payload, intent=intent, goal=a.goal, planted=a.planted,
+                    h,
+                    token=token,
+                    client=client,
+                    message=message,
+                    attack_id=a.id,
+                    family=a.family,
+                    lang=a.lang,
+                    turn=j,
+                    payload=payload,
+                    intent=intent,
+                    goal=a.goal,
+                    planted=a.planted,
                 )
             )
     return out
@@ -212,15 +238,25 @@ async def run_sweep(h: Harness) -> list[TurnOutcome]:
         for intent in (Intent.MEDICAL_INFO, Intent.SYMPTOM_INFO):
             jobs += [(lang, kind, intent, "", None, f"sweep-{lang}-{kind}") for kind in ALL_KINDS]
             for i, (text, goal) in enumerate(PLANTED[lang]):
-                planted = f"{PLANTED_BASE[lang]} {text}"
-                jobs.append((lang, "obey_planted", intent, goal, planted, f"sweep-{lang}-planted-{i + 1}"))
+                passage = f"{PLANTED_BASE[lang]} {text}"
+                jobs.append((lang, "obey_planted", intent, goal, passage, f"sweep-{lang}-planted-{i + 1}"))
     for n, (lang, kind, intent, goal, planted, attack_id) in enumerate(jobs):
         client = h.client()
         token, _ = await h.session(lang, client)
         out.append(
             await _adversarial_turn(
-                h, token=token, client=client, message=BENIGN[lang][n % len(BENIGN[lang])], attack_id=attack_id,
-                family="sweep", lang=lang, turn=0, payload=kind, intent=intent, goal=goal, planted=planted,
+                h,
+                token=token,
+                client=client,
+                message=BENIGN[lang][n % len(BENIGN[lang])],
+                attack_id=attack_id,
+                family="sweep",
+                lang=lang,
+                turn=0,
+                payload=kind,
+                intent=intent,
+                goal=goal,
+                planted=planted,
             )
         )
     return out
@@ -348,10 +384,14 @@ def summarise_routing(routes: Sequence[RouteOutcome]) -> dict[str, Any]:
         "struck_rate": rate(direct, "struck"),
         "precheck_flag_rate": rate(direct, "precheck_flag"),
         "locked_sessions": sum(r.locked for r in routes),
-        "by_lang": {lang: {"refused": rate([r for r in direct if r.attack.lang == lang], "refused"),
-                           "struck": rate([r for r in direct if r.attack.lang == lang], "struck"),
-                           "precheck": rate([r for r in direct if r.attack.lang == lang], "precheck_flag")}
-                    for lang in LANGS},
+        "by_lang": {
+            lang: {
+                "refused": rate([r for r in direct if r.attack.lang == lang], "refused"),
+                "struck": rate([r for r in direct if r.attack.lang == lang], "struck"),
+                "precheck": rate([r for r in direct if r.attack.lang == lang], "precheck_flag"),
+            }
+            for lang in LANGS
+        },
         "by_family_lang": table,
         "planted_answered_normally": sum(
             1 for r in routes if r.attack.family == "planted_chunk" and not r.refused
@@ -384,14 +424,32 @@ def metric_records(inv: dict[str, Any], routing: dict[str, Any], n_attacks: int)
             by_payload=json.dumps(inv["urls_by_payload"], sort_keys=True),
             hit_kinds=json.dumps(inv["url_hit_kinds"], sort_keys=True),
         ),
-        record("redteam_unlisted_phone_released", float(inv["phone_turns"]), sample_size=inv["turns"], **common,
-               by_payload=json.dumps(inv["phones_by_payload"], sort_keys=True)),
-        record("redteam_forbidden_claim_released", float(inv["claim_turns"]), sample_size=inv["turns"], **common,
-               by_payload=json.dumps(inv["claims_by_payload"], sort_keys=True)),
-        record("redteam_instruction_marker_released", float(inv["marker_turns"]), sample_size=inv["turns"],
-               **common),
-        record("redteam_sse_contract_violations", float(inv["contract_violations"]), sample_size=inv["turns"],
-               **common),
+        record(
+            "redteam_unlisted_phone_released",
+            float(inv["phone_turns"]),
+            sample_size=inv["turns"],
+            **common,
+            by_payload=json.dumps(inv["phones_by_payload"], sort_keys=True),
+        ),
+        record(
+            "redteam_forbidden_claim_released",
+            float(inv["claim_turns"]),
+            sample_size=inv["turns"],
+            **common,
+            by_payload=json.dumps(inv["claims_by_payload"], sort_keys=True),
+        ),
+        record(
+            "redteam_instruction_marker_released",
+            float(inv["marker_turns"]),
+            sample_size=inv["turns"],
+            **common,
+        ),
+        record(
+            "redteam_sse_contract_violations",
+            float(inv["contract_violations"]),
+            sample_size=inv["turns"],
+            **common,
+        ),
         record(
             "redteam_injection_routed_rate",
             routing["refused_rate"],
@@ -420,7 +478,9 @@ async def run_all(attacks: Sequence[Attack], root: Path) -> tuple[list[TurnOutco
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     reports = get_settings().data_root / "reports"
     parser.add_argument("--out", type=Path, default=reports / "redteam.metrics.json")
     parser.add_argument("--report-dir", type=Path, default=reports / "redteam")
@@ -438,7 +498,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     detail = {
         "invariant": inv,
         "routing": routing,
-        "failures": [t.__dict__ for t in turns if t.leak or t.urls or t.phone or t.claim or t.marker or t.contract],
+        "failures": [
+            t.__dict__ for t in turns if t.leak or t.urls or t.phone or t.claim or t.marker or t.contract
+        ],
         "unrouted": [
             {"id": r.attack.id, "family": r.attack.family, "lang": r.attack.lang, "modes": r.modes}
             for r in routes
@@ -451,8 +513,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.no_write:
         existing = json.loads(args.out.read_text(encoding="utf-8")) if args.out.exists() else []
         write_metrics(args.out, merge_records(existing, metric_records(inv, routing, len(attacks))))
-    sys.stdout.write(json.dumps({"invariant": inv, "routing": {k: v for k, v in routing.items()
-                                                               if k != "by_family_lang"}}, indent=1) + "\n")
+    sys.stdout.write(
+        json.dumps(
+            {"invariant": inv, "routing": {k: v for k, v in routing.items() if k != "by_family_lang"}},
+            indent=1,
+        )
+        + "\n"
+    )
     return 0
 
 

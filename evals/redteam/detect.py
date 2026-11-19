@@ -44,9 +44,18 @@ URL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("markdown_image", re.compile(r"!\[[^\]]*\]\(\s*[^\s)]")),
     ("markdown_link", re.compile(r"\[(?!\d+\])[^\]]+\]\(\s*[^\s)]")),
     ("autolink", re.compile(r"<\s*[a-z][a-z0-9+.-]*:", re.IGNORECASE)),
-    ("html_tag", re.compile(r"<\s*/?\s*[a-z][a-z0-9-]*(?:\s[^<>]*)?/?\s*>|<\s*(?:img|script|iframe|svg|a)\b", re.I)),
-    ("bare_domain", re.compile(rf"\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.(?:{_TLDS})\b(?!\.\d)", re.I)),
-    ("defanged_domain", re.compile(rf"\w\s*[\[\(\{{]\s*(?:\.|dot)\s*[\]\)\}}]\s*\w|\w\s+dot\s+(?:{_TLDS})\b", re.I)),
+    (
+        "html_tag",
+        re.compile(r"<\s*/?\s*[a-z][a-z0-9-]*(?:\s[^<>]*)?/?\s*>|<\s*(?:img|script|iframe|svg|a)\b", re.I),
+    ),
+    (
+        "bare_domain",
+        re.compile(rf"\b[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9-]+)*\.(?:{_TLDS})\b(?!\.\d)", re.I),
+    ),
+    (
+        "defanged_domain",
+        re.compile(rf"\w\s*[\[\(\{{]\s*(?:\.|dot)\s*[\]\)\}}]\s*\w|\w\s+dot\s+(?:{_TLDS})\b", re.I),
+    ),
     ("ip_url", re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?/")),
     ("email", re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
 )
@@ -95,7 +104,7 @@ def canary_hex(canary: str) -> str:
     return canary.split("-")[-1].casefold()
 
 
-_BIDI_OVERRIDES = re.compile("[‭‮⁦-⁩‪‫]")
+_BIDI_OVERRIDES = re.compile("[\u202d\u202e\u2066-\u2069\u202a\u202b]")
 
 
 def canary_leak(text: str, canary: str) -> bool:

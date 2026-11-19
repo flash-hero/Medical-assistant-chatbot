@@ -156,17 +156,17 @@ def free_ram_bytes() -> int:
 
 
 def real_settings(root: Path) -> Settings:
-    return Settings(  # type: ignore[call-arg]
+    return Settings(
         AUSCULTA_LLM_BACKEND="gemini",
         AUSCULTA_EMBED_BACKEND="fake",
         AUSCULTA_ENV="test",
-        AUSCULTA_DATA_ROOT=str(root),
+        AUSCULTA_DATA_ROOT=root,
         DATABASE_URL=f"sqlite+aiosqlite:///{(root / 'real.db').as_posix()}",
         REDIS_URL=None,
         AUSCULTA_RATE_IP_MIN=1_000_000,
         AUSCULTA_RATE_SESSION_MIN=1_000_000,
         AUSCULTA_MAX_TURNS=100,
-        AUSCULTA_HOSPITAL_PROFILE=str(DEMO_PROFILE),
+        AUSCULTA_HOSPITAL_PROFILE=DEMO_PROFILE,
     )
 
 
@@ -222,7 +222,9 @@ async def run_sample(sample: Sequence[Attack], *, budget: int, pause_s: float) -
         ctx = {
             "canary": canary,
             "fingerprint": detect.PromptFingerprint.of(config.prompts.system_prompt, canary),
-            "website": str(profile.website) if profile is not None and getattr(profile, "website", None) else "",
+            "website": str(profile.website)
+            if profile is not None and getattr(profile, "website", None)
+            else "",
         }
         turns: list[dict[str, Any]] = []
         stopped: str | None = None
@@ -297,7 +299,9 @@ def score(run: Mapping[str, Any], review: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
     reports = get_settings().data_root / "reports"
     run_p = sub.add_parser("run")

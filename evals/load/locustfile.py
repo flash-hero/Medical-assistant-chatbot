@@ -49,7 +49,7 @@ _ip_counter = itertools.count(1)
 _records = open(RECORDS_PATH, "a", encoding="utf-8", buffering=1)  # noqa: SIM115 - closed on quit
 
 
-@events.quitting.add_listener
+@events.quitting.add_listener  # type: ignore[untyped-decorator]
 def _close_records(**_: Any) -> None:
     _records.close()
 

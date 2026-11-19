@@ -9,11 +9,12 @@ time to first token of about 0.9 s and then one chunk every ~40 ms; Decisions AP
 about 1.1 s; plain generations (query rewrite) about 0.9 s. Every latency is drawn from a log-normal
 distribution around that median (seeded, AUSCULTA_LOAD_SEED).
 
-A pure-ASGI timing wrapper records, per HTTP request: wall time from the first ASGI call to the last body byte,
-and the fake model's own time inside it (a context variable that every fake model call adds its sleeps to; the
-turn's engine task inherits it). app-added latency = wall - model time - (number of model sleeps x the idle
-asyncio timer overshoot, measured once by GET /__load/calibrate before the load: ~7 ms per sleep on Windows,
-a platform constant, not app work). Extra routes exist ONLY in this harness: GET /__load/calibrate,
+A pure-ASGI timing wrapper records, per HTTP request: wall time from the first ASGI call to the last body
+byte, and the fake model's own time inside it (a context variable that every fake model call adds its sleeps
+to; the turn's engine task inherits it). app-added latency = wall - requested model time (an upper bound: it
+still holds the asyncio timer overshoot of each model sleep, 1-16 ms on Windows); wall - measured sleeps is
+the lower bound (Sample.as_dict). Samples go to the JSONL file named by AUSCULTA_LOAD_SAMPLES, so they do not
+grow the measured process. Extra routes exist ONLY in this harness: GET /__load/calibrate,
 GET /__load/stats?since=N (the samples) and GET /__load/rss (resident memory of this process).
 """
 
@@ -25,6 +26,7 @@ import json
 import math
 import os
 import random
+import sys
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from contextlib import aclosing
@@ -54,7 +56,9 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 STATS_PATH = "/__load/stats"
 RSS_PATH = "/__load/rss"
 CALIBRATE_PATH = "/__load/calibrate"
-HARNESS_PATHS = (STATS_PATH, RSS_PATH, CALIBRATE_PATH)
+STATE_PATH = "/__load/state"
+HARNESS_PATHS = (STATS_PATH, RSS_PATH, CALIBRATE_PATH, STATE_PATH)
+SAMPLES_ENV = "AUSCULTA_LOAD_SAMPLES"  # JSONL file for the samples (kept out of the measured process' memory)
 MAX_SAMPLES = 500_000
 CALIBRATION_SLEEPS = 60
 CALIBRATION_SLEEP_S = 0.04
@@ -136,8 +140,11 @@ class Sample:
     first_event_ms: float | None  # first SSE "delta" / "answer" / "safety" frame, if any
 
     def as_dict(self, overshoot_ms: float) -> dict[str, Any]:
-        """app_ms = wall - model time - sleeps x the IDLE timer overshoot (a platform constant: ~7 ms per
-        asyncio.sleep on Windows). Event-loop delay caused by load stays in app_ms."""
+        """app_ms_uncorrected = wall - requested model time: an UPPER bound of the app's own time (it still
+        contains the asyncio timer overshoot of every model sleep, ~1-16 ms each on Windows).
+        app_ms_lower = wall - measured model sleeps: a LOWER bound (event-loop lag at wake-up is booked to
+        the model). app_ms = wall - requested - sleeps x idle overshoot (calibrated once; unreliable when the
+        Windows timer resolution changes during the run)."""
         return {
             "method": self.method,
             "path": self.path,
@@ -149,6 +156,7 @@ class Sample:
             "sleeps": self.sleeps,
             "app_ms": round(self.wall_ms - self.model_ms - self.sleeps * overshoot_ms, 2),
             "app_ms_uncorrected": round(self.wall_ms - self.model_ms, 2),
+            "app_ms_lower": round(self.wall_ms - self.measured_model_ms, 2),
             "first_event_ms": None if self.first_event_ms is None else round(self.first_event_ms, 2),
         }
 
@@ -165,10 +173,24 @@ def rss_bytes() -> int:
 class TimingMiddleware:
     """Outermost ASGI wrapper: per-request wall time and fake-model time, plus the two harness routes."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, *, container: Any = None, samples_path: str | None = None) -> None:
         self.app = app
-        self.samples: list[Sample] = []
+        self.container = container
+        self.samples: list[Sample] = []  # only without samples_path (tests)
+        self.count = 0
         self.overshoot_ms = 0.0
+        self._file = open(samples_path, "a", encoding="utf-8", buffering=1 << 16) if samples_path else None  # noqa: SIM115
+
+    def _record(self, sample: Sample) -> None:
+        self.count += 1
+        if self._file is not None:
+            self._file.write(json.dumps(sample.as_dict(self.overshoot_ms)) + "\n")
+        elif len(self.samples) < MAX_SAMPLES:
+            self.samples.append(sample)
+
+    def flush(self) -> None:
+        if self._file is not None:
+            self._file.flush()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -203,30 +225,34 @@ class TimingMiddleware:
         finally:
             _MODEL_TIME.reset(token)
             stop = end if end is not None else time.perf_counter()
-            if len(self.samples) < MAX_SAMPLES:
-                self.samples.append(
-                    Sample(
-                        method=str(scope.get("method", "")),
-                        path=path,
-                        status=status,
-                        started=started,
-                        wall_ms=(stop - t0) * 1000,
-                        model_ms=acc[0] * 1000,
-                        measured_model_ms=acc[1] * 1000,
-                        sleeps=int(acc[2]),
-                        first_event_ms=None if first_event is None else (first_event - t0) * 1000,
-                    )
+            self._record(
+                Sample(
+                    method=str(scope.get("method", "")),
+                    path=path,
+                    status=status,
+                    started=started,
+                    wall_ms=(stop - t0) * 1000,
+                    model_ms=acc[0] * 1000,
+                    measured_model_ms=acc[1] * 1000,
+                    sleeps=int(acc[2]),
+                    first_event_ms=None if first_event is None else (first_event - t0) * 1000,
                 )
+            )
 
     async def _harness(self, scope: Scope, send: Send, path: str) -> None:
         if path == RSS_PATH:
-            payload: Any = {"rss_bytes": rss_bytes(), "pid": os.getpid(), "samples": len(self.samples)}
+            payload: Any = {"rss_bytes": rss_bytes(), "pid": os.getpid(), "samples": self.count}
+        elif path == STATE_PATH:
+            self.flush()
+            payload = self.state(with_gc=b"gc=1" in scope.get("query_string", b""))
         elif path == CALIBRATE_PATH:
             self.overshoot_ms = await idle_overshoot_ms()
             payload = {"overshoot_ms": self.overshoot_ms}
         else:
             query = dict(
-                part.split("=", 1) for part in scope.get("query_string", b"").decode().split("&") if "=" in part
+                part.split("=", 1)
+                for part in scope.get("query_string", b"").decode().split("&")
+                if "=" in part
             )
             since = int(query.get("since", "0") or 0)
             rows = [s.as_dict(self.overshoot_ms) for s in self.samples[since:]]
@@ -235,6 +261,31 @@ class TimingMiddleware:
         headers = [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode())]
         await send({"type": "http.response.start", "status": 200, "headers": headers})
         await send({"type": "http.response.body", "body": body})
+
+    def state(self, *, with_gc: bool) -> dict[str, Any]:
+        """Sizes of the in-process stores (memory backends) and, on request, the most common object types."""
+        c = self.container
+        out: dict[str, Any] = {"samples": self.count, "rss_bytes": rss_bytes()}
+        if c is not None:
+            for name, obj, attr in (
+                ("sessions", c.sessions, "_data"),
+                ("replay", c.registry, "_done"),
+                ("gate_locks", c.registry, "_locks"),
+                ("idempotency", c.idempotency, "_data"),
+            ):
+                held = getattr(obj, attr, None)
+                out[name] = len(held) if held is not None else None
+            out["admission_held"] = c.admission.held
+            out["admission_waiting"] = c.admission.waiting
+        if with_gc:
+            import gc
+            from collections import Counter
+
+            gc.collect()
+            counts = Counter(type(o).__name__ for o in gc.get_objects())
+            out["gc_objects"] = sum(counts.values())
+            out["top_types"] = dict(counts.most_common(15))
+        return out
 
 
 async def idle_overshoot_ms() -> float:
@@ -252,12 +303,22 @@ def load_llm(seed: int | None = None) -> RealisticFakeLLM:
     return RealisticFakeLLM(inner=scripted_provider(), rng=random.Random(seed))
 
 
+def precise_timers() -> None:
+    """Windows only: 1 ms timer resolution for this process (timeBeginPeriod), so the fake model's sleeps
+    overshoot by ~1 ms instead of up to 15.6 ms, like on the Linux servers the app runs on."""
+    if sys.platform == "win32":
+        import ctypes
+
+        ctypes.windll.winmm.timeBeginPeriod(1)
+
+
 def create_load_app() -> TimingMiddleware:
     """uvicorn factory. Settings come from the environment; the fake backends are required."""
+    precise_timers()
     settings = Settings()
     if settings.llm_backend != "fake" or settings.embed_backend != "fake":
         raise RuntimeError("the load server needs AUSCULTA_LLM_BACKEND=fake and AUSCULTA_EMBED_BACKEND=fake")
     from app.api.container import Overrides
 
     app = create_app(settings, overrides=Overrides(llm=load_llm(), retriever=FakeRetriever()))
-    return TimingMiddleware(app)  # type: ignore[arg-type]
+    return TimingMiddleware(app, container=app.state.container, samples_path=os.environ.get(SAMPLES_ENV))  # type: ignore[arg-type]

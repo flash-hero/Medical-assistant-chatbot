@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import socket
 import time
+from typing import Any
 
 import pytest
 from chaos_support import EMERGENCY, FEVER, VISITING
@@ -27,7 +28,7 @@ def _closed_port() -> int:
         return int(s.getsockname()[1])
 
 
-async def _assert_qdrant_down_behaviour(api, texts) -> None:
+async def _assert_qdrant_down_behaviour(api: Any, texts: Any) -> None:
     token = await api.token()
     t0 = time.perf_counter()
     medical = await api.chat(token, FEVER)
@@ -57,14 +58,14 @@ async def _assert_qdrant_down_behaviour(api, texts) -> None:
     assert int(ready.headers["retry-after"]) >= 1
 
 
-async def test_fake_store_down_degrades_medical_answers_only(chaos_app) -> None:
+async def test_fake_store_down_degrades_medical_answers_only(chaos_app: Any) -> None:
     retriever = FakeRetriever(error=ConnectionError("qdrant: connection refused"), healthy=False)
     async with chaos_app(retriever=retriever) as api:
         await _assert_qdrant_down_behaviour(api, api.container.texts)
         assert api.container.admission.held == 0
 
 
-async def test_store_recovery_restores_answers_and_readiness(chaos_app) -> None:
+async def test_store_recovery_restores_answers_and_readiness(chaos_app: Any) -> None:
     retriever = FakeRetriever(error=ConnectionError("down"), healthy=False)
     async with chaos_app(retriever=retriever) as api:
         token = await api.token()
@@ -77,7 +78,7 @@ async def test_store_recovery_restores_answers_and_readiness(chaos_app) -> None:
         assert (await api.client.get("/api/v1/ready")).status_code == 200
 
 
-async def test_slow_store_hits_the_retrieval_timeout_not_the_turn_deadline(chaos_app) -> None:
+async def test_slow_store_hits_the_retrieval_timeout_not_the_turn_deadline(chaos_app: Any) -> None:
     """A store that hangs is cut by the retrieval timeout (8 s) and degrades; the turn still completes."""
     retriever = FakeRetriever(latency_s=60.0)
     async with chaos_app(retriever=retriever) as api:
@@ -89,7 +90,7 @@ async def test_slow_store_hits_the_retrieval_timeout_not_the_turn_deadline(chaos
         assert time.perf_counter() - t0 < MEDICAL_TURN_BUDGET_S + 2
 
 
-def _real_retriever_or_skip(port: int):
+def _real_retriever_or_skip(port: int) -> Any:
     from rag.embedding import QueryEmbedder
     from rag.paths import DataPaths
     from rag.rerank import NoopReranker
@@ -110,7 +111,7 @@ def _real_retriever_or_skip(port: int):
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning")
-async def test_real_hybrid_retriever_against_a_dead_qdrant_port(chaos_app) -> None:
+async def test_real_hybrid_retriever_against_a_dead_qdrant_port(chaos_app: Any) -> None:
     """The production retriever (real Qdrant client, real BM25 encoder) pointed at a closed port."""
     retriever = _real_retriever_or_skip(_closed_port())
     async with chaos_app(retriever=retriever) as api:

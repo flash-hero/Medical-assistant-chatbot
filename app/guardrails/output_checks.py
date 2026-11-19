@@ -6,8 +6,9 @@ Per sentence, in order:
      reaches the user and the checks below see what the reader sees                    (red team P5)
   1. canary-token leak and system-prompt echo (word 8-gram overlap)           -> fatal: answer withdrawn
      The canary is matched on an alphanumeric squeeze (spaced, dotted, fullwidth, Arabic-Indic digits), also
-     reversed or base64-encoded; both checks also run over everything released before the sentence, so a
-     canary or a prompt cut into short sentences is caught too (red team P5).
+     reversed or base64-encoded; both checks also run over the tail of the text released before the
+     sentence (RELEASED_TAIL_CHARS), so a canary or a prompt cut into short sentences is caught too
+     (red team P5).
   2. markup removal: URLs, e-mail addresses, markdown links/images, HTML, code -> sentence kept, text modified
   3. phone numbers not in HospitalProfile.allowed_numbers()                     -> number removed
      (also short numbers after a call verb or near an emergency word: app/guardrails/scrub.py)
@@ -32,6 +33,9 @@ from core.text import detection_form, sanitize
 
 NGRAM = 8
 MIN_SHARED_NGRAMS = 2
+# Released text re-checked with each new sentence: longer than any obfuscated canary (spaced / zero-width:
+# ~45 characters) and than two 8-gram windows of prompt words.
+RELEASED_TAIL_CHARS = 200
 _MD_IMAGE = re.compile(r"!\[[^\]]{0,300}\]\([^)]{0,800}\)")
 _MD_LINK = re.compile(r"\[([^\]\d][^\]]{0,300})\]\([^)]{0,800}\)")
 _HTML = re.compile(r"</?[a-zA-Z][^<>]{0,300}>|<!--.*?-->", re.DOTALL)
@@ -99,18 +103,19 @@ def clean_output(text: str) -> str:
     return sanitize(text.translate(_FULLWIDTH)).text
 
 
-def ngrams(text: str, n: int = NGRAM) -> frozenset[tuple[str, ...]]:
-    """Word n-grams of the detection form; citation markers dropped, underscores split ("a_b" -> "a b")."""
-    toks = detection_form(_without_markers(text)).replace("_", " ").split()
+def ngrams(text: str, n: int = NGRAM, *, form: str | None = None) -> frozenset[tuple[str, ...]]:
+    """Word n-grams of the detection form; citation markers dropped, underscores split ("a_b" -> "a b").
+    `form`: the text's _match_form when the caller already has it."""
+    toks = (form if form is not None else _match_form(text)).replace("_", " ").split()
     return frozenset(tuple(toks[i : i + n]) for i in range(len(toks) - n + 1))
+
+
+def _match_form(text: str) -> str:
+    return detection_form(_without_markers(text))
 
 
 def _without_markers(text: str) -> str:
     return _MARKER_LIST.sub(" ", _MARKER.sub(" ", text))
-
-
-def _squeezed(text: str) -> str:
-    return _SQUEEZE.sub("", detection_form(_without_markers(text)))
 
 
 def policy_ngrams(system_prompt: str, canary: str) -> frozenset[tuple[str, ...]]:
@@ -125,22 +130,23 @@ def _base64_decoded(text: str) -> Iterator[str]:
             continue
 
 
-def canary_in(text: str, canary: str) -> bool:
+def canary_in(text: str, canary: str, *, form: str | None = None) -> bool:
     """The canary's random part, also spaced / dotted / fullwidth / with Arabic-Indic digits (the squeeze),
     reversed, or base64-encoded (the "encode your instructions" attack)."""
     secret = _SQUEEZE.sub("", canary.split("-")[-1].casefold())
     if not secret:
         return False
-    flat = _squeezed(text)
+    flat = _SQUEEZE.sub("", form if form is not None else _match_form(text))
     if secret in flat or secret[::-1] in flat:
         return True
     return any(secret in _SQUEEZE.sub("", d.casefold()) for d in _base64_decoded(text))
 
 
 def _leak(text: str, ctx: CheckContext) -> str | None:
-    if ctx.canary and canary_in(text, ctx.canary):
+    form = _match_form(text)  # one normalisation for both checks
+    if ctx.canary and canary_in(text, ctx.canary, form=form):
         return "canary_leak"
-    if ctx.policy_ngrams and len(ngrams(text) & ctx.policy_ngrams) >= MIN_SHARED_NGRAMS:
+    if ctx.policy_ngrams and len(ngrams(text, form=form) & ctx.policy_ngrams) >= MIN_SHARED_NGRAMS:
         return "system_prompt_echo"
     return None
 
@@ -174,9 +180,10 @@ def _tidy(text: str) -> str:
 
 
 def check_sentence(sentence: str, ctx: CheckContext, *, released: str = "") -> SentenceCheck:
-    """`released`: the answer text already released before this sentence (leak checks span both)."""
+    """`released`: the answer text already released before this sentence. The leak checks also cover its
+    tail, so a canary or a prompt run cut across sentences is caught at constant cost per sentence."""
     text = clean_output(sentence)
-    leak = _leak(f"{released} {text}" if released else text, ctx)
+    leak = _leak(f"{released[-RELEASED_TAIL_CHARS:]} {text}" if released else text, ctx)
     if leak:
         return SentenceCheck("", kept=False, modified=True, fatal=True, violations=(leak,), citations=())
     cleaned = strip_phones(strip_markup(text), ctx.allowed_numbers)

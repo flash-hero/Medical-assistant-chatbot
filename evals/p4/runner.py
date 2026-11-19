@@ -22,8 +22,9 @@ from evals.p4.judge import (
     check_independent,
     judge_answer,
     judge_model_id,
+    judge_refusal,
 )
-from evals.p4.metrics import Ctx, all_records, is_answered
+from evals.p4.metrics import Ctx, all_records, is_answered, refusal_judge_records
 from evals.p4.provider import DECIDE, GENERATE, CountingProvider
 from evals.p4.results import ItemResult, TurnResult
 from evals.p4.store import Store, utc_now
@@ -32,7 +33,8 @@ Sleep = Callable[[float], Awaitable[None]]
 Log = Callable[[str], None]
 COOLDOWN_S = 65.0
 MAX_ATTEMPTS = 3
-SUITE_ORDER = ("safety", "quality", "dose", "refusal")
+MAX_JUDGE_FAILURES = 2  # consecutive upstream failures (e.g. 503 "high demand") that end a judge pass
+SUITE_ORDER = ("safety", "quality", "dose", "refusal", "latency")
 
 
 class TurnDriver(Protocol):
@@ -133,8 +135,12 @@ async def _attempt(
     summary: RunSummary,
     log: Log,
     retries: Callable[[], int],
+    *,
+    last_attempt: bool = False,
 ) -> tuple[ItemResult | None, str]:
-    """One attempt at an item. Returns (result to cache or None, stop reason)."""
+    """One attempt at an item. Returns (result to cache or None, stop reason). A stream that ended without
+    `done` although the runner did not halt it (client-side timeout, e.g. after the machine slept) is retried;
+    on the last attempt it is kept, so a turn that really never finishes counts as a failure."""
     llm = driver.llm
     llm.begin_item()
     before = retries()
@@ -147,6 +153,10 @@ async def _attempt(
     if llm.rate_limited:
         summary.discarded_attempts += 1
         log(f"{item.id}: rate limited ({','.join(llm.rate_limited)}), discarded")
+        return None, ""
+    if not last_attempt and any(not t.complete and not t.halted for t in result.turns):
+        summary.discarded_attempts += 1
+        log(f"{item.id}: stream ended without done, retried")
         return None, ""
     return result, ""
 
@@ -174,7 +184,8 @@ async def run_items(
             summary.stopped = short
             break
         for attempt in range(opts.max_attempts):
-            result, stop = await _attempt(driver, store, item, summary, log, retries)
+            last = attempt + 1 == opts.max_attempts
+            result, stop = await _attempt(driver, store, item, summary, log, retries, last_attempt=last)
             if stop:
                 summary.stopped = stop
                 break
@@ -226,6 +237,7 @@ async def run_judge(
     check_independent(tier)
     judge_id = judge_model_id(tier)
     summary = RunSummary(suite="judge")
+    failures = 0
     todo = [r for s in suites for r in store.results(s) if is_answered(r.last)]
     for result in todo[: opts.limit] if opts.limit is not None else todo:
         summary.considered += 1
@@ -250,14 +262,17 @@ async def run_judge(
             continue
         except Exception as exc:
             log(f"{result.item.id}: judge call failed ({type(exc).__name__})")
-            if llm.day_quota_hit or llm.over_budget:
-                summary.stopped = llm.day_quota_hit or "budget exhausted"
+            failures += 1
+            stop = _judge_stop(llm, failures)
+            if stop:
+                summary.stopped = stop
                 break
             summary.given_up.append(result.item.id)
             await sleep(opts.cooldown_s)
             continue
         finally:
             store.add_calls(call_delta(llm.item_calls()))
+        failures = 0
         store.put_judgement(result.item.suite, result.item.id, verdict.to_dict())
         summary.completed += 1
         claims = verdict.supported + verdict.unsupported
@@ -267,6 +282,75 @@ async def run_judge(
     summary.finished_at = utc_now()
     summary.calls = llm.totals()
     return summary
+
+
+async def run_refusal_judge(
+    llm: CountingProvider,
+    store: Store,
+    opts: RunOptions,
+    *,
+    tier: str = "free",
+    sleep: Sleep = asyncio.sleep,
+    log: Log = print,
+) -> RunSummary:
+    """Extra (not gated) LLM check of released refusal answers: diagnosis, personal dose, triage verdict."""
+    check_independent(tier)
+    summary = RunSummary(suite="judge-refusal")
+    failures = 0
+    for result in [r for r in store.results("refusal") if is_answered(r.last)]:
+        summary.considered += 1
+        text = str((result.last.answer or {}).get("text", ""))
+        cached = store.get_judgement("refusal", result.item.id)
+        if cached is not None and cached.get("answer_hash") == answer_hash(text):
+            summary.cached += 1
+            continue
+        short = _budget_short(llm, opts)
+        if short:
+            summary.stopped = short
+            break
+        llm.begin_item()
+        try:
+            verdict = await judge_refusal(llm, result.item.turns[-1], text)
+        except Exception as exc:
+            log(f"{result.item.id}: refusal judge failed ({type(exc).__name__})")
+            failures += 1
+            stop = _judge_stop(llm, failures)
+            if stop:
+                summary.stopped = stop
+                break
+            summary.given_up.append(result.item.id)
+            await sleep(opts.cooldown_s)
+            continue
+        finally:
+            store.add_calls(call_delta(llm.item_calls()))
+        failures = 0
+        store.put_judgement("refusal", result.item.id, verdict)
+        summary.completed += 1
+        flagged = sorted(k for k, v in verdict["flags"].items() if v)
+        log(f"{result.item.id:<16} refusal judge: {','.join(flagged) or 'clean'}")
+        if opts.pace_s:
+            await sleep(opts.pace_s)
+    summary.finished_at = utc_now()
+    summary.calls = llm.totals()
+    return summary
+
+
+def refusal_judgements(store: Store) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for result in store.results("refusal"):
+        raw = store.get_judgement("refusal", result.item.id)
+        text = str((result.last.answer or {}).get("text", ""))
+        if raw is not None and raw.get("answer_hash") == answer_hash(text):
+            out[result.item.id] = raw
+    return out
+
+
+def _judge_stop(llm: CountingProvider, failures: int) -> str:
+    if llm.day_quota_hit or llm.over_budget:
+        return llm.day_quota_hit or "budget exhausted"
+    if failures >= MAX_JUDGE_FAILURES:
+        return f"judge model unavailable ({failures} consecutive failures)"
+    return ""
 
 
 def _skipped(text: str, judge_id: str) -> dict[str, Any]:
@@ -289,6 +373,8 @@ def verdict_pairs(store: Store) -> list[tuple[ItemResult, JudgeVerdict]]:
 
 def write_metrics(store: Store, *, free_tier: bool, measured_at: str | None = None) -> list[dict[str, Any]]:
     by_suite = {s: store.results(s) for s in SUITE_ORDER}
-    records = all_records(by_suite, verdict_pairs(store), Ctx(measured_at or utc_now(), free_tier))
+    ctx = Ctx(measured_at or utc_now(), free_tier)
+    records = all_records(by_suite, verdict_pairs(store), ctx)
+    records += refusal_judge_records(by_suite["refusal"], refusal_judgements(store), ctx)
     store.write_metrics(records)
     return records

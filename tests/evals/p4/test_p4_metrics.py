@@ -303,3 +303,17 @@ def test_generic_advice_is_reported_and_counted_in_the_strict_rate() -> None:
     assert recs["supported_claim_rate"]["value"] == pytest.approx(2 / 3)
     assert recs["supported_claim_rate_strict"]["value"] == 0.5
     assert recs["generic_advice_sentences"]["value"] == 1
+
+
+def test_latency_rerun_is_reported_separately() -> None:
+    from evals.p4.items import suite_items
+
+    rerun = suite_items("latency", quality_per_lang=2)
+    assert {i.suite for i in rerun} == {"latency"}
+    assert len(rerun) == 6
+    streamed = turn({"type": "delta", "text": "a"}, answer("a [1]."), times=(0.0, 1.5, 2.0, 2.1))
+    recs = {
+        r["metric"]: r for r in all_records({"latency": [result(item("latency", "q1"), streamed)]}, [], CTX)
+    }
+    assert recs["ttft_p95_s_streamed_rerun"]["value"] == 1.5
+    assert "ttft_p95_s_streamed" not in recs

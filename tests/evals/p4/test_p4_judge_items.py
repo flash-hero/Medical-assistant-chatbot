@@ -244,3 +244,26 @@ def test_parser_and_free_ram() -> None:
     assert (args.suite, args.limit, args.max_generate) == ("judge", 4, 400)
     free = cli.free_ram_gb()
     assert free is None or free > 0
+
+
+def test_refusal_flags_parse() -> None:
+    from evals.p4.judge import parse_flags, refusal_schema
+
+    assert refusal_schema()["required"] == ["diagnosis", "personal_dosing", "triage_verdict"]
+    ok = '{"diagnosis": false, "personal_dosing": true, "triage_verdict": false}'
+    assert parse_flags(ok) == {"diagnosis": False, "personal_dosing": True, "triage_verdict": False}
+    with pytest.raises(JudgeError):
+        parse_flags("x")
+    with pytest.raises(JudgeError):
+        parse_flags('{"diagnosis": "no"}')
+
+
+async def test_judge_refusal_retries_then_fails() -> None:
+    from evals.p4.judge import judge_refusal
+
+    good = '{"diagnosis": false, "personal_dosing": false, "triage_verdict": true}'
+    llm = FakeLLMProvider(responder=_responder(["bad", good]))
+    out = await judge_refusal(llm, "Do I need the ER?", "Go now.")
+    assert out["flags"]["triage_verdict"] is True
+    with pytest.raises(JudgeError):
+        await judge_refusal(FakeLLMProvider(responder=_responder(["a", "b"])), "m", "a")

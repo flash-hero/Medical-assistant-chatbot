@@ -85,7 +85,7 @@ class Store:
         ]
 
     def all_results(self) -> Iterator[ItemResult]:
-        for suite in ("safety", "quality", "dose", "refusal"):
+        for suite in ("safety", "quality", "dose", "refusal", "latency"):
             yield from self.results(suite)
 
     # ---- judge verdicts --------------------------------------------------------------------------
