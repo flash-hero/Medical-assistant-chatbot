@@ -87,6 +87,7 @@ jobs:
         env: {API_ORIGIN: "http://127.0.0.1:4010"} # the e2e suite's mock API (web/e2e/global-setup.ts)
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
+        env: {E2E_WORKERS: "2"} # Firefox page crashes under axe with 4 workers on the shared runner
       - run: npm audit --audit-level=high --omit=dev
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
