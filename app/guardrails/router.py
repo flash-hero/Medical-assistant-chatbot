@@ -18,7 +18,7 @@ import structlog
 from app.guardrails.guard_classifier import ClassifierOutput, run_classifier
 from app.guardrails.guard_prompts import GuardPrompts
 from app.guardrails.injection import detect_injection
-from app.guardrails.intent_rules import heuristic_intent, heuristic_language
+from app.guardrails.intent_rules import heuristic_intent, heuristic_language, is_creator_question
 from app.guardrails.lexicon import LexiconMatcher
 from app.guardrails.safety_config import SAFETY_KINDS, SafetyConfig
 from core.errors import UpstreamBlocked
@@ -146,6 +146,8 @@ class GuardRouter:
         return signals
 
     def _intent(self, inp: RouterInput, out: ClassifierOutput | None) -> tuple[Intent, float]:
+        if is_creator_question(inp.text):
+            return Intent.META, 1.0  # the meta template names the creator; never left to the model
         if out is not None and out.intent_confidence >= self._cfg.intent_min_confidence:
             return out.intent, out.intent_confidence
         return heuristic_intent(inp.text, inp.hospital_keywords), 0.0

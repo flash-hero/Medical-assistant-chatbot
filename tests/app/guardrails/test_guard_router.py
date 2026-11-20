@@ -254,3 +254,14 @@ async def test_route_is_cancellable(
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+async def test_creator_question_is_meta_even_if_the_classifier_disagrees(
+    lexicon: LexiconMatcher, guard_prompts: GuardPrompts, safety_config: SafetyConfig, decider_factory: Any
+) -> None:
+    # The meta template names the creator; the answer must never depend on the classifier or the model.
+    llm = FakeLLMProvider(decider=decider_factory(intent=Intent.OUT_OF_SCOPE, intent_conf=0.95))
+    router = _router(lexicon, guard_prompts, safety_config, llm)
+    text = "Qui t'a créé ?"
+    res = await router.route(RouterInput(text=text), router.precheck(text))
+    assert (res.verdict.intent, res.verdict.intent_confidence) == (Intent.META, 1.0)

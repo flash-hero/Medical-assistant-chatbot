@@ -37,6 +37,20 @@ _META = re.compile(
     r"t es qui|qui es tu|es tu un robot|tu es un robot|tu es humain|que peux tu faire|chkoun nta|chkon nta|"
     r"nta robot)\b|من انت|شكون نتا|شكون انت|واش نتا روبو|هل انت انسان|ماذا يمكنك"
 )
+# "Who made you?" is answered from the meta template (it names the creator), never by the model.
+_CREATOR = re.compile(
+    r"\b(?:who (?:created|made|built|developed|designed|programmed|coded|trained|owns) "
+    r"(?:you|u|this|ausculta|the (?:chat)?bot|the assistant)|"
+    r"who (?:is|s) (?:your|the) (?:creator|developer|maker|author|founder|owner)|"
+    r"who (?:is|s) behind (?:you|this|ausculta)|your (?:creator|developer|maker)|"
+    r"qui (?:t a|vous a) (?:cree|concu|developpe|fait|programme|construit)|"
+    r"qui a (?:cree|concu|developpe|fait|programme|construit) (?:ausculta|ce (?:chat)?bot|cet assistant|toi)|"
+    r"(?:ton|votre) (?:createur|developpeur|concepteur)|"
+    r"(?:chkoun|chkon|chkun|chkoune) (?:li )?(?:sawbek|sawbak|sawbk|darek|dark|brmjek))\b|"
+    r"من (?:صنعك|طورك|انشاك|برمجك|صممك|ابتكرك|اخترعك|دربك)|"
+    r"(?:صانعك|مطورك|مبتكرك|مصممك)|"
+    r"شكون (?:لي )?(?:صاوبك|صوبك|دارك|برمجك)"
+)
 _MEDICATION = re.compile(
     r"\b(?:mg|ml|dose|dosage|pill|pills|tablet|tablets|capsule|medicine|medication|drug|side effects?|"
     r"interaction|paracetamol|acetaminophen|ibuprofen|aspirin|amoxicillin|metformin|insulin|antibiotic|"
@@ -86,7 +100,7 @@ def heuristic_intent(text: str, hospital_keywords: Iterable[str] = ()) -> Intent
     t = detection_form(text)
     if not t:
         return Intent.OUT_OF_SCOPE
-    if _META.search(t):
+    if _CREATOR.search(t) or _META.search(t):
         return Intent.META
     if _GREETING.match(t):
         return Intent.SMALLTALK
@@ -99,6 +113,11 @@ def heuristic_intent(text: str, hospital_keywords: Iterable[str] = ()) -> Intent
     if _SYMPTOM.search(t):
         return Intent.SYMPTOM_INFO
     return Intent.MEDICAL_INFO
+
+
+def is_creator_question(text: str) -> bool:
+    """Deterministic: the user asks who created, built or owns the assistant (EN/FR/AR/Darija)."""
+    return bool(_CREATOR.search(detection_form(text)))
 
 
 def _mentions_any(t: str, keywords: Iterable[str]) -> bool:

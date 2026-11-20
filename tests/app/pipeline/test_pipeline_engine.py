@@ -273,3 +273,22 @@ async def test_plain_fake_provider_defaults_work(harness_factory) -> None:
     out = await harness_factory(llm=FakeLLMProvider()).turn("What is a fever?")
     _ok(out)
     assert out.first("answer").mode in ("streamed", "abstain")
+
+
+@pytest.mark.parametrize(
+    ("message", "locale", "creator"),
+    [
+        ("Who created you?", "en", "Oussama Tabakh"),
+        ("Qui t'a créé ?", "fr", "créé par Oussama Tabakh"),
+        ("من صنعك؟", "ar", "أسامة طباخ"),
+    ],
+)
+async def test_creator_question_names_the_creator_without_the_model(
+    harness, message, locale, creator
+) -> None:
+    out = await harness.turn(message, locale=locale)
+    _ok(out)
+    answer = out.first("answer")
+    assert (answer.mode, answer.intent) == ("template", Intent.META)
+    assert creator in answer.text
+    assert harness.llm.count("stream") == 0

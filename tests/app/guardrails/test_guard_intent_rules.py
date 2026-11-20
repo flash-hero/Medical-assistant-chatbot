@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.guardrails.intent_rules import heuristic_intent, heuristic_language, looks_like_arabizi
+from app.guardrails.intent_rules import (
+    heuristic_intent,
+    heuristic_language,
+    is_creator_question,
+    looks_like_arabizi,
+)
 from core.schemas.chat import Intent
 
 
@@ -16,6 +21,14 @@ from core.schemas.chat import Intent
         ("are you a robot?", Intent.META),
         ("t'es qui ?", Intent.META),
         ("شكون نتا", Intent.META),
+        ("Who created you?", Intent.META),
+        ("who made this chatbot", Intent.META),
+        ("Qui t'a créé ?", Intent.META),
+        ("qui est ton créateur", Intent.META),
+        ("من صنعك؟", Intent.META),
+        ("من طوّرك", Intent.META),
+        ("شكون لي صاوبك", Intent.META),
+        ("chkoun sawbek", Intent.META),
         ("hello", Intent.SMALLTALK),
         ("bonjour", Intent.SMALLTALK),
         ("السلام عليكم", Intent.SMALLTALK),
@@ -73,3 +86,19 @@ def test_heuristic_language(text: str, lang: str) -> None:
 
 def test_heuristic_language_falls_back_without_letters() -> None:
     assert heuristic_language("123 456", fallback="fr") == "fr"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Who created you?", True),
+        ("Who is your developer?", True),
+        ("Qui a développé Ausculta ?", True),
+        ("من أنشأك", True),
+        ("who created the polio vaccine", False),  # a medical-history question, not about the assistant
+        ("qui a découvert la pénicilline", False),
+        ("are you a robot?", False),  # still META, but not a creator question
+    ],
+)
+def test_is_creator_question(text: str, expected: bool) -> None:
+    assert is_creator_question(text) is expected
