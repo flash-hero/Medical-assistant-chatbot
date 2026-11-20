@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,77 @@ import yaml
 
 from core.config import get_settings
 from data_pipeline.drug_synonyms import SYNONYMS_PATH
+
+# Trailing salt / ester words that do not change the medicine ("escitalopram oxalate" is escitalopram).
+SALT_WORDS = frozenset(
+    [
+        "acetate",
+        "alafenamide",
+        "besylate",
+        "bitartrate",
+        "calcium",
+        "cilexetil",
+        "citrate",
+        "dihydrate",
+        "dihydrochloride",
+        "disoproxil",
+        "erbumine",
+        "etexilate",
+        "fumarate",
+        "hcl",
+        "hyclate",
+        "hydrobromide",
+        "hydrochloride",
+        "magnesium",
+        "maleate",
+        "medoxomil",
+        "mesylate",
+        "monohydrate",
+        "oxalate",
+        "phosphate",
+        "potassium",
+        "proxetil",
+        "sodium",
+        "succinate",
+        "sulfate",
+        "tartrate",
+        "tromethamine",
+        "xinafoate",
+    ]
+)
+# Names that ARE the salt's cation: never strip ("calcium carbonate" must not become "calcium").
+CATIONS = frozenset(
+    {
+        "aluminium",
+        "aluminum",
+        "calcium",
+        "ferrous",
+        "iron",
+        "lithium",
+        "magnesium",
+        "potassium",
+        "sodium",
+        "zinc",
+    }
+)
+ALIASES = {"ethinylestradiol": "ethinyl estradiol"}
+_LIST_SEPARATOR = re.compile(r"\s+and\s+|\s*\+\s*|\s*/\s*")
+
+
+def _base_name(part: str) -> str:
+    tokens = ALIASES.get(part, part).split()
+    if not tokens or tokens[0] in CATIONS:
+        return " ".join(tokens)
+    end = len(tokens)
+    while end > 1 and tokens[end - 1] in SALT_WORDS:
+        end -= 1
+    return " ".join(tokens[:end])
+
+
+def signature(ingredients: str) -> tuple[str, ...]:
+    """Order- and salt-insensitive identity of an ingredient list ("a and b salt" == "b + a")."""
+    parts = (p.strip() for p in _LIST_SEPARATOR.split(ingredients.strip().lower()))
+    return tuple(sorted(_base_name(p) for p in parts if p))
 
 
 @dataclass(frozen=True)
@@ -41,13 +113,21 @@ def wanted_keys(entries: Iterable[Mapping[str, object]]) -> dict[str, str]:
 
 
 def select(labels: Iterable[Mapping[str, object]], keys: Mapping[str, str]) -> Selection:
-    by_name: dict[str, str] = {}
+    """One label per medicine: an exact ingredient_key match wins, else the first salt- and
+    order-insensitive match."""
+    by_signature = {signature(k): name for k, name in keys.items()}
+    exact: dict[str, str] = {}
+    loose: dict[str, str] = {}
     for doc in labels:
         metadata = doc.get("metadata") or {}
         key = str(metadata.get("ingredient_key", "") if isinstance(metadata, Mapping) else "").strip().lower()
-        name = keys.get(key)
-        if name is not None and name not in by_name:
-            by_name[name] = str(doc["doc_id"])
+        if not key:
+            continue
+        if (name := keys.get(key)) is not None:
+            exact.setdefault(name, str(doc["doc_id"]))
+        elif (name := by_signature.get(signature(key))) is not None:
+            loose.setdefault(name, str(doc["doc_id"]))
+    by_name = {**loose, **exact}
     names = sorted(set(keys.values()))
     return Selection(
         doc_ids=tuple(by_name[n] for n in sorted(by_name)),

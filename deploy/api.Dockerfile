@@ -14,6 +14,21 @@ COPY deploy/requirements.lock /tmp/requirements.lock
 RUN uv venv /opt/venv \
  && uv pip install --python /opt/venv/bin/python --no-cache --require-hashes -r /tmp/requirements.lock
 
+# Bake the embedding model (~1.2 GB) and BM25 analysers into /data so the API starts without internet access.
+# Own stage with only the modules the download script imports: config, template and pipeline changes do not
+# re-download the model. AUSCULTA_ENV=dev only here (the production settings guard needs Redis/Postgres).
+FROM python:3.11-slim-bookworm AS models
+COPY --from=deps /opt/venv /opt/venv
+ENV PATH=/opt/venv/bin:$PATH PYTHONPATH=/build PYTHONDONTWRITEBYTECODE=1 HF_HUB_DISABLE_TELEMETRY=1
+WORKDIR /build
+COPY core ./core
+COPY app/__init__.py ./app/__init__.py
+COPY app/llm ./app/llm
+COPY rag/__init__.py rag/paths.py rag/sparse.py ./rag/
+COPY deploy/prefetch_models.py ./deploy/prefetch_models.py
+RUN HF_HOME=/tmp/hf-home AUSCULTA_ENV=dev AUSCULTA_EMBED_BACKEND=local AUSCULTA_DATA_ROOT=/data \
+    python deploy/prefetch_models.py && rm -rf /tmp/hf-home
+
 FROM python:3.11-slim-bookworm AS runtime
 ENV PATH=/opt/venv/bin:$PATH PYTHONPATH=/srv PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     AUSCULTA_ENV=prod AUSCULTA_DATA_ROOT=/data \
@@ -30,14 +45,9 @@ COPY --chown=app:app evals/__init__.py ./evals/__init__.py
 COPY --chown=app:app evals/fakes ./evals/fakes
 COPY --chown=app:app data_pipeline/__init__.py data_pipeline/drug_synonyms.yaml ./data_pipeline/
 COPY --chown=app:app data_pipeline/sources/registry.yaml ./data_pipeline/sources/registry.yaml
-COPY --chown=app:app deploy/prefetch_models.py ./deploy/prefetch_models.py
+# Docker copies /data into the api_data volume on first use.
+COPY --from=models --chown=app:app /data /data
 USER app
-# Bake the embedding model (~1.2 GB) and BM25 analysers into /data so the API starts without internet access;
-# Docker copies them into the api_data volume on first use. The app user has no home directory, so the
-# downloader's cache and logs go to /tmp during the build. AUSCULTA_ENV=dev only for this build step (the production
-# settings guard needs Redis/Postgres, which do not exist at build time).
-RUN HF_HOME=/tmp/hf-home HF_HUB_OFFLINE=0 AUSCULTA_ENV=dev AUSCULTA_EMBED_BACKEND=local \
-    python deploy/prefetch_models.py && rm -rf /tmp/hf-home
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=5 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2).status == 200 else 1)"
