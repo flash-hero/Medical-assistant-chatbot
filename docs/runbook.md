@@ -52,12 +52,52 @@ to the last good one) and restart. Stop with Ctrl+C: in-flight turns
 are cancelled, upstream model streams are closed, the purge task stops, the DB pool, HTTP clients and the Redis
 client are released.
 
-A demo hospital profile (`is_demo: true`) is only served with `AUSCULTA_DEMO_MODE=true` and
-`AUSCULTA_ENV` dev or test. Anywhere else it is refused at startup (log `hospital_profile_demo_refused`, error
-level) and the API runs without a profile (section 6.4), so fictional phone numbers never reach real users.
+A demo hospital profile (`is_demo: true`) is only served with `AUSCULTA_DEMO_MODE=true` (in any
+environment; the UI then shows the demo banner). Without demo mode it is refused at startup (log
+`hospital_profile_demo_refused`, error level) and the API runs without a profile (section 6.4), so fictional
+phone numbers are never presented as real ones.
 
 `AUSCULTA_SESSION_SECRET` (>= 32 chars) is required in staging/prod. Without it (dev/test only) a random
 secret is generated and every session token becomes invalid on restart (log event `session_secret_ephemeral`).
+
+## 2b. Production stack (Docker Compose)
+
+Services (`deploy/compose.yaml`): `caddy` (the only published port, TLS for `SITE_ADDRESS`), `web` (Next.js),
+`api` (FastAPI, one uvicorn worker, embedding model baked into the image), `migrate` (one-shot
+`alembic upgrade head`; the API waits for it to complete), `qdrant`, `postgres`, `redis` (internal network only).
+Secrets and passwords live in `deploy/.env.prod` (gitignored; never commit or print it).
+
+```sh
+# from the repo root; Git Bash on Windows needs MSYS_NO_PATHCONV=1 for container paths
+C="docker compose -f deploy/compose.yaml --env-file deploy/.env.prod"
+$C build                 # api image: deps from deploy/requirements.lock (hash-pinned), model download cached
+$C up -d --wait          # migrate runs first; api, web, qdrant, postgres, redis report healthy
+$C ps -a                 # migrate: exited (0); everything else: running (healthy)
+$C down                  # stop (volumes kept: api_data, qdrant, postgres, redis)
+```
+
+First start, and every new corpus version: the stack's Qdrant starts empty, so the API reports
+`corpus_unverified` and medical questions get the "temporarily unavailable" template (emergency, crisis and
+front-desk turns work). Build, evaluate and promote the corpus on the build machine (`python -m rag build`,
+`rag eval`, `rag promote`), then load it into the stack:
+
+```sh
+.venv/Scripts/python.exe deploy/load_corpus.py ausculta_corpus_2026_11_20_en2
+```
+
+It snapshots the collection from the build machine's Qdrant, recovers it in the stack, switches the
+`ausculta_corpus` alias, copies the signed manifest, retrieval config and `active.json` into the API volume
+(`/data/manifests`), restarts the API and fails unless the API logs `corpus_verified` for that collection.
+The previous collection stays in the stack; to roll back, run the script again with it (its manifest,
+retrieval config and an `active.json` naming it must be in `manifests/`, e.g. after `python -m rag rollback`).
+
+Code or template changes: `$C build api && $C up -d` (the model download layer is reused; the `api_data`
+volume keeps the model, BM25 files and manifests across rebuilds). Schema changes ship as Alembic migrations in
+`app/storage/migrations/versions/`; `migrate` applies them on the next `up`.
+
+Smoke test through Caddy: `POST http://localhost/api/v1/session` then `POST /api/v1/chat` (section 8, with
+port 80 instead of 8000). `/api/v1/ready` and `/api/v1/meta` answer 404 through Caddy by design (internal
+checks only): use `$C exec api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ready').read())"`.
 
 ## 3. Health checks
 

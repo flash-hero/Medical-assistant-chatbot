@@ -197,3 +197,28 @@ Measured on this index (gold set n=288, single-relevant, LLM-generated, unreview
 Dense leads by 5.4 nDCG points, so `mode: dense` is set in the collection's retrieval config and the confidence
 gate was recalibrated on dense signals (report 20261117T205025Z). BM25 vectors stay in the index, so switching back
 is a one-line config change plus recalibration. Per language (dense): nDCG@8 EN 0.893, FR 0.870, AR 0.822.
+
+## 2026-11-20: index en2 adds the drug labels of 305 common medicines
+
+Medication questions abstained on en1 (no `drug_label` passages; the answer policy requires them). Owner
+decision (2026-11-20): index a curated subset of the openFDA labels instead of all 7,677.
+`python -m data_pipeline.curate_common_drugs` keeps one label per medicine of `drug_synonyms.yaml` (exact
+`ingredient_key`, else an order- and salt-insensitive match); 305 of 330 medicines have one, the 25 others are
+mostly not marketed in the US. `rag build --only-docs openfda_labels=<list>` built `ausculta_corpus_2026_11_20_en2`:
+29,730 chunks (18,542 from the embedding cache, 11,171 embedded locally in 97 min), signed manifest.
+
+Same gold set and dense config as en1 (report 20261120T191328Z, calibration rewritten, rerank sample 0):
+
+| Index | R@8 | R@20 | MRR | nDCG@8 | p95 | OOC abstention | false abstention |
+|---|---|---|---|---|---|---|---|
+| en1 (dense) | 0.990 | 1.000 | 0.820 | 0.862 | 45 ms | 0.969 | 0.080 |
+| **en2 (dense)** | 0.990 | 1.000 | 0.815 | 0.858 | 26 ms | 0.969 | **0.076** |
+
+The 11k label chunks cost 0.4 nDCG points on the (label-free) gold set. Promoted 2026-11-20 (en1 kept for
+rollback) and loaded into the Docker stack with `deploy/load_corpus.py`. Live check through Caddy: metformin
+(EN), amoxicillin (FR) and paracetamol (AR) side-effect questions are answered, verified, with FDA citations
+in ~3.5 s; dose and personal "can I take" questions still abstain by policy. P4 quality: the 6 items excluded
+for lack of drug labels were re-run; antidepressant side effects are now answered in FR/AR, and
+`answered_rate_answerable` is 0.911 over all 90 items with no exclusions (gate >= 0.90, provisional).
+Known gap (issue #6): the representative label per ingredient set prefers prescription labels, so
+paracetamol is indexed from an intravenous label.
