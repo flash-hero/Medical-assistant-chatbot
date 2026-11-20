@@ -15,7 +15,16 @@ to; the turn's engine task inherits it). app-added latency = wall - requested mo
 still holds the asyncio timer overshoot of each model sleep, 1-16 ms on Windows); wall - measured sleeps is
 the lower bound (Sample.as_dict). Samples go to the JSONL file named by AUSCULTA_LOAD_SAMPLES, so they do not
 grow the measured process. Extra routes exist ONLY in this harness: GET /__load/calibrate,
-GET /__load/stats?since=N (the samples) and GET /__load/rss (resident memory of this process).
+GET /__load/stats?since=N (the samples), GET /__load/rss (resident memory of this process), GET /__load/state
+(store sizes, CPU time; ?gc=1 adds object counts), GET /__load/lag?since=T (event-loop lag, probe only) and
+GET /__load/heap?op=mark|diff (tracemalloc snapshot diff, AUSCULTA_LOAD_TRACEMALLOC=<frames> only).
+
+Diagnostics (evals/load/probe.py): AUSCULTA_LOAD_PROBE=1 adds per-request phase marks to the samples and runs
+an event-loop lag monitor. A request may carry `X-Load-Req: <id>`; the id is copied into its sample so client
+and server timings of the same request can be joined.
+
+The fake retriever keeps no call log here (FakeRetriever.calls would hold every RetrievalQuery of the run:
+~16,500 pydantic objects, ~25 MB, after a 30-minute soak; P5 soak finding).
 """
 
 from __future__ import annotations
@@ -43,9 +52,23 @@ from core.ports import (
     GenerationRequest,
     GenerationResult,
 )
+from core.schemas.chat import RetrievalQuery
 from evals.fakes.fake_llm import FakeLLMProvider
 from evals.fakes.fake_retriever import FakeRetriever
 from evals.fakes.scripted import scripted_provider
+from evals.load.probe import (
+    _MARKS,
+    LagMonitor,
+    heap_diff,
+    heap_mark,
+    inline_precheck_if_asked,
+    install_probes,
+    phases_ms,
+    probe_enabled,
+    process_counters,
+    start_tracemalloc,
+    store_sizes,
+)
 
 Scope = dict[str, Any]
 Message = dict[str, Any]
@@ -57,7 +80,10 @@ STATS_PATH = "/__load/stats"
 RSS_PATH = "/__load/rss"
 CALIBRATE_PATH = "/__load/calibrate"
 STATE_PATH = "/__load/state"
-HARNESS_PATHS = (STATS_PATH, RSS_PATH, CALIBRATE_PATH, STATE_PATH)
+LAG_PATH = "/__load/lag"
+HEAP_PATH = "/__load/heap"
+HARNESS_PATHS = (STATS_PATH, RSS_PATH, CALIBRATE_PATH, STATE_PATH, LAG_PATH, HEAP_PATH)
+REQ_HEADER = b"x-load-req"
 SAMPLES_ENV = "AUSCULTA_LOAD_SAMPLES"  # JSONL file for the samples (kept out of the measured process' memory)
 MAX_SAMPLES = 500_000
 CALIBRATION_SLEEPS = 60
@@ -138,6 +164,8 @@ class Sample:
     measured_model_ms: float  # what those sleeps really took (timer granularity + event-loop delay)
     sleeps: int
     first_event_ms: float | None  # first SSE "delta" / "answer" / "safety" frame, if any
+    marks: dict[str, float] | None = None  # probe marks, ms since the first ASGI call
+    req: str | None = None  # X-Load-Req of the request
 
     def as_dict(self, overshoot_ms: float) -> dict[str, Any]:
         """app_ms_uncorrected = wall - requested model time: an UPPER bound of the app's own time (it still
@@ -158,6 +186,8 @@ class Sample:
             "app_ms_uncorrected": round(self.wall_ms - self.model_ms, 2),
             "app_ms_lower": round(self.wall_ms - self.measured_model_ms, 2),
             "first_event_ms": None if self.first_event_ms is None else round(self.first_event_ms, 2),
+            **({"req": self.req} if self.req else {}),
+            **({"phases": phases_ms(self.marks)} if self.marks is not None else {}),
         }
 
 
@@ -170,15 +200,32 @@ def rss_bytes() -> int:
     return int(psutil.Process(os.getpid()).memory_info().rss)
 
 
-class TimingMiddleware:
-    """Outermost ASGI wrapper: per-request wall time and fake-model time, plus the two harness routes."""
+def _query(scope: Scope) -> dict[str, str]:
+    raw = scope.get("query_string", b"").decode()
+    return dict(part.split("=", 1) for part in raw.split("&") if "=" in part)
 
-    def __init__(self, app: ASGIApp, *, container: Any = None, samples_path: str | None = None) -> None:
+
+def _req_id(scope: Scope) -> str | None:
+    for name, value in scope.get("headers", ()):
+        if name == REQ_HEADER:
+            return bytes(value).decode("ascii", errors="replace")[:64]
+    return None
+
+
+class TimingMiddleware:
+    """Outermost ASGI wrapper: per-request wall time and fake-model time, plus the harness routes."""
+
+    def __init__(
+        self, app: ASGIApp, *, container: Any = None, samples_path: str | None = None, probe: bool = False
+    ) -> None:
         self.app = app
         self.container = container
         self.samples: list[Sample] = []  # only without samples_path (tests)
         self.count = 0
         self.overshoot_ms = 0.0
+        self.probe = probe
+        self.lag = LagMonitor()
+        self._heap_base: Any = None
         self._file = open(samples_path, "a", encoding="utf-8", buffering=1 << 16) if samples_path else None  # noqa: SIM115
 
     def _record(self, sample: Sample) -> None:
@@ -202,6 +249,11 @@ class TimingMiddleware:
             return
         acc = [0.0, 0.0, 0.0]
         token = _MODEL_TIME.set(acc)
+        marks: dict[str, float] | None = None
+        if self.probe:
+            self.lag.ensure_started()
+            marks = {}
+        marks_token = _MARKS.set(marks)
         t0 = time.perf_counter()
         started = time.time()
         status = 0
@@ -212,6 +264,8 @@ class TimingMiddleware:
             nonlocal status, first_event, end
             if message["type"] == "http.response.start":
                 status = int(message["status"])
+                if marks is not None:
+                    marks.setdefault("response_start", time.perf_counter())
             elif message["type"] == "http.response.body":
                 body = message.get("body", b"")
                 if first_event is None and any(e in body for e in _FIRST_EVENTS):
@@ -224,7 +278,10 @@ class TimingMiddleware:
             await self.app(scope, receive, timed_send)
         finally:
             _MODEL_TIME.reset(token)
+            _MARKS.reset(marks_token)
             stop = end if end is not None else time.perf_counter()
+            if marks is not None:
+                marks = {k: (v - t0) * 1000 for k, v in {**marks, "t0": t0, "end": stop}.items()}
             self._record(
                 Sample(
                     method=str(scope.get("method", "")),
@@ -236,6 +293,8 @@ class TimingMiddleware:
                     measured_model_ms=acc[1] * 1000,
                     sleeps=int(acc[2]),
                     first_event_ms=None if first_event is None else (first_event - t0) * 1000,
+                    marks=marks,
+                    req=_req_id(scope),
                 )
             )
 
@@ -248,13 +307,13 @@ class TimingMiddleware:
         elif path == CALIBRATE_PATH:
             self.overshoot_ms = await idle_overshoot_ms()
             payload = {"overshoot_ms": self.overshoot_ms}
+        elif path == LAG_PATH:
+            since_t = float(_query(scope).get("since", "0") or 0)
+            payload = {"interval_s": self.lag.interval_s, "lags": self.lag.since(since_t)}
+        elif path == HEAP_PATH:
+            payload = self._heap(_query(scope).get("op", "diff"))
         else:
-            query = dict(
-                part.split("=", 1)
-                for part in scope.get("query_string", b"").decode().split("&")
-                if "=" in part
-            )
-            since = int(query.get("since", "0") or 0)
+            since = int(_query(scope).get("since", "0") or 0)
             rows = [s.as_dict(self.overshoot_ms) for s in self.samples[since:]]
             payload = {"next": len(self.samples), "overshoot_ms": self.overshoot_ms, "samples": rows}
         body = json.dumps(payload).encode("utf-8")
@@ -262,21 +321,17 @@ class TimingMiddleware:
         await send({"type": "http.response.start", "status": 200, "headers": headers})
         await send({"type": "http.response.body", "body": body})
 
+    def _heap(self, op: str) -> dict[str, Any]:
+        if op == "mark":
+            self._heap_base = heap_mark()
+            return {"marked": self._heap_base is not None}
+        return heap_diff(self._heap_base)
+
     def state(self, *, with_gc: bool) -> dict[str, Any]:
-        """Sizes of the in-process stores (memory backends) and, on request, the most common object types."""
-        c = self.container
-        out: dict[str, Any] = {"samples": self.count, "rss_bytes": rss_bytes()}
-        if c is not None:
-            for name, obj, attr in (
-                ("sessions", c.sessions, "_data"),
-                ("replay", c.registry, "_done"),
-                ("gate_locks", c.registry, "_locks"),
-                ("idempotency", c.idempotency, "_data"),
-            ):
-                held = getattr(obj, attr, None)
-                out[name] = len(held) if held is not None else None
-            out["admission_held"] = c.admission.held
-            out["admission_waiting"] = c.admission.waiting
+        """Sizes of the in-process stores (memory backends), CPU time and, on request, object counts."""
+        out: dict[str, Any] = {"samples": self.count, "rss_bytes": rss_bytes(), **process_counters()}
+        if self.container is not None:
+            out.update(store_sizes(self.container))
         if with_gc:
             import gc
             from collections import Counter
@@ -312,13 +367,35 @@ def precise_timers() -> None:
         ctypes.windll.winmm.timeBeginPeriod(1)
 
 
+class _NoCallLog(list[RetrievalQuery]):
+    """A FakeRetriever call log that keeps nothing: the load server must not grow with every turn."""
+
+    def append(self, item: RetrievalQuery) -> None:
+        return None
+
+
+def load_retriever() -> FakeRetriever:
+    return FakeRetriever(calls=_NoCallLog())
+
+
 def create_load_app() -> TimingMiddleware:
     """uvicorn factory. Settings come from the environment; the fake backends are required."""
     precise_timers()
+    start_tracemalloc()
     settings = Settings()
     if settings.llm_backend != "fake" or settings.embed_backend != "fake":
         raise RuntimeError("the load server needs AUSCULTA_LLM_BACKEND=fake and AUSCULTA_EMBED_BACKEND=fake")
     from app.api.container import Overrides
 
-    app = create_app(settings, overrides=Overrides(llm=load_llm(), retriever=FakeRetriever()))
-    return TimingMiddleware(app, container=app.state.container, samples_path=os.environ.get(SAMPLES_ENV))  # type: ignore[arg-type]
+    app = create_app(settings, overrides=Overrides(llm=load_llm(), retriever=load_retriever()))
+    container = app.state.container
+    probe = probe_enabled()
+    if probe:
+        install_probes(container)
+    inline_precheck_if_asked()
+    return TimingMiddleware(
+        app,  # type: ignore[arg-type]
+        container=container,
+        samples_path=os.environ.get(SAMPLES_ENV),
+        probe=probe,
+    )

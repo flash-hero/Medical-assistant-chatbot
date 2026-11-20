@@ -165,6 +165,13 @@ class MedicalResponder:
             # asyncio.timeout, not wait_for: on 3.11 wait_for can swallow a turn cancellation
             async with asyncio.timeout(self._cfg.timeouts.retrieval_s):
                 result = await self._retriever.retrieve(query)
+                if not (result.confident and result.passages) and query.filters and not forced:
+                    # The rewriter's content-type hint can name types the index does not hold, or the wrong
+                    # one, and hide the answer. The gate was calibrated on unfiltered retrieval: let it decide
+                    # on that. Intent-forced filters (medication -> drug labels, C7) are never relaxed.
+                    hint = ",".join(query.filters.get("content_type", []))[:80]
+                    trace.audit("retrieval_filter_relaxed", content_types=hint)
+                    result = await self._retriever.retrieve(query.model_copy(update={"filters": {}}))
         except Exception as exc:
             log.warning("retrieval_failed", error=type(exc).__name__)
             trace.degrade("retrieval_failed")

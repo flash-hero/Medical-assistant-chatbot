@@ -12,8 +12,10 @@ supported_claim_rate = supported / (supported + unsupported); the strict variant
 as unsupported.
 
 The judge must be a different model from the answer generator (core/models.py roles JUDGE vs ANSWER), and an
-answer produced by the ANSWER_FALLBACK model is not judged when that model is the judge model.
-Prompt version P4_JUDGE_VERSION is recorded with every verdict.
+answer produced by the ANSWER_FALLBACK model is not judged when that model is the judge model. When the
+configured JUDGE model is unavailable, the run can name another model (`--judge-model`, P4 only): it gets the
+JUDGE spec (thinking level, output budget) with that id and a longer timeout, and the same independence check.
+Prompt version P4_JUDGE_VERSION and the judge model id are recorded with every verdict.
 """
 
 from __future__ import annotations
@@ -22,15 +24,16 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.guardrails.sentences import split_sentences
 from app.pipeline.prompts import neutralise
-from core.models import ModelRole, model_for
+from core.models import ModelRole, ModelSpec, model_for
 from core.ports import GenerationRequest, LLMProvider
 
 P4_JUDGE_VERSION = "p4-judge.v1"
+OVERRIDE_TIMEOUT_S = 120.0  # a substitute judge (e.g. a larger model) may answer slower than the pinned one
 LABELS: tuple[str, ...] = ("supported", "unsupported", "generic_advice", "no_claim")
 _MARKER = re.compile(r"\[(\d+(?:\s*[,;]\s*\d+)*)\]")
 
@@ -101,13 +104,23 @@ def answer_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-def judge_model_id(tier: str = "free") -> str:
-    return model_for(ModelRole.JUDGE, tier).model_id
+def judge_spec(tier: str = "free", model_id: str | None = None) -> ModelSpec:
+    """The JUDGE spec of core/models.py, or the same spec served by `model_id` (substitute judge)."""
+    base = model_for(ModelRole.JUDGE, tier)
+    if not model_id or model_id == base.model_id:
+        return base
+    return replace(
+        base, model_id=model_id, timeout_s=max(base.timeout_s, OVERRIDE_TIMEOUT_S), paid_only=False
+    )
 
 
-def check_independent(tier: str = "free") -> None:
+def judge_model_id(tier: str = "free", model_id: str | None = None) -> str:
+    return judge_spec(tier, model_id).model_id
+
+
+def check_independent(tier: str = "free", model_id: str | None = None) -> None:
     """The judge must differ from the answer model (core/models.py)."""
-    judge, answer = judge_model_id(tier), model_for(ModelRole.ANSWER, tier).model_id
+    judge, answer = judge_model_id(tier, model_id), model_for(ModelRole.ANSWER, tier).model_id
     if judge == answer:
         raise ValueError(f"judge model {judge} is the answer model")
 

@@ -1,20 +1,27 @@
 """P4 integration evaluation on the real pipeline (real Gemini provider, live corpus, real guardrails).
 
-  python -m evals.p4 run --suite safety|quality|dose|refusal|judge|judge-refusal [--limit N] [--per-lang N]
+  python -m evals.p4 run --suite safety|quality|dose|refusal|latency|judge|judge-refusal [--limit N]
+                         [--per-lang N] [--ids ID,ID --replace] [--judge-model ID]
   python -m evals.p4 report      # recompute {data_root}/reports/p4.metrics.json from the cache
   python -m evals.p4 status      # cache counts and model calls used so far
   python -m evals.p4 failures    # failing items per metric (ids, excerpts)
+  python -m evals.p4 causes      # why answerable quality items were not answered (+ contended ids)
+  python -m evals.p4 stages      # per-stage latency table (latency suite, else quality)
 
 The call budget is cumulative over every run (ledger in {data_root}/reports/p4/ledger.json): a run stops
 before the totals pass --max-generate / --max-decide. Runs that load the local embedding model (every suite
-except safety and judge) refuse to start with less than --min-free-gb of free RAM.
+except safety and judge) refuse to start with less than --min-free-gb of free RAM. The latency suite refuses
+to start while another eval or load-test process runs on this machine (it would share the Gemini quota).
+`--ids ... --replace` archives the cached results of those items (reports/p4/archive/) and runs them again.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import ctypes
+import os
 import sys
 from collections.abc import Sequence
 from typing import Any
@@ -31,7 +38,7 @@ from evals.p4.runner import (
     run_refusal_judge,
     write_metrics,
 )
-from evals.p4.store import Store
+from evals.p4.store import Store, utc_now
 
 DEFAULT_MAX_GENERATE = 400
 DEFAULT_MAX_DECIDE = 1500
@@ -55,6 +62,10 @@ RESERVE = {
 }
 MIN_FREE_GB = 3.0
 EMBEDDING_SUITES = frozenset({"quality", "dose", "refusal", "latency"})
+QUIET_SUITES = frozenset({"latency"})
+# module runs that share the Gemini quota or the CPU (shell wrappers and `python -c` helpers are not runs)
+BUSY_MARKERS = ("-m evals.p4", "-m evals.load", "-m evals.redteam", "evals.load.server", "locust")
+BUSY_EXECUTABLES = ("python", "locust")
 
 
 class _MemStatus(ctypes.Structure):
@@ -82,6 +93,29 @@ def free_ram_gb() -> float | None:
     return float(status.ullAvailPhys) / 1024**3
 
 
+def busy_processes(markers: Sequence[str] = BUSY_MARKERS) -> list[str]:
+    """Other Python / Locust processes on this machine that run an eval or a load test (this process and its
+    ancestors, i.e. the venv launcher and the shell that started it, excluded): they would share the Gemini
+    quota and the CPU with a latency measurement."""
+    import psutil
+
+    own = {os.getpid(), os.getppid()}
+    with contextlib.suppress(psutil.Error, OSError):
+        own |= {p.pid for p in psutil.Process().parents()}
+    out = []
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            name = str(proc.info.get("name") or "").lower()
+            cmd = " ".join(proc.info.get("cmdline") or [])
+        except (psutil.Error, OSError):
+            continue
+        if proc.info.get("pid") in own or not name.startswith(BUSY_EXECUTABLES):
+            continue
+        if any(m in cmd for m in markers):
+            out.append(f"{proc.info.get('pid')}: {cmd[:160]}")
+    return out
+
+
 def _out(text: str) -> None:
     sys.stdout.write(text.encode("ascii", "backslashreplace").decode("ascii") + "\n")
     sys.stdout.flush()
@@ -106,7 +140,12 @@ async def _run_suite(settings: Settings, store: Store, args: argparse.Namespace)
 
     run_settings = real_settings(store.db_path)
     gen_left, dec_left = _caps(store, args)
-    items = suite_items(args.suite, quality_per_lang=args.per_lang)
+    items = select_items(suite_items(args.suite, quality_per_lang=args.per_lang), args.ids)
+    if args.ids and args.replace:
+        tag = "replaced-" + utc_now().replace(":", "")
+        for item in items:
+            if store.archive(args.suite, item.id, tag) is not None:
+                _out(f"{item.id}: cached result archived ({tag})")
     store.root.mkdir(parents=True, exist_ok=True)
     with store.log_path.open("a", encoding="utf-8") as log_file:
         async with open_real_harness(
@@ -128,19 +167,53 @@ async def _run_suite(settings: Settings, store: Store, args: argparse.Namespace)
             )
 
 
-async def _run_judge(settings: Settings, store: Store, args: argparse.Namespace) -> RunSummary:
+def select_items(items: Sequence[Any], ids: str | None) -> list[Any]:
+    """The items named in `ids` (comma separated, suite order kept); every item when `ids` is empty."""
+    if not ids:
+        return list(items)
+    wanted = {i.strip() for i in ids.split(",") if i.strip()}
+    chosen = [i for i in items if i.id in wanted]
+    unknown = wanted - {i.id for i in chosen}
+    if unknown:
+        raise SystemExit(f"unknown item ids: {sorted(unknown)}")
+    return chosen
+
+
+def _judge_provider(settings: Settings, judge_model: str | None) -> Any:
+    """The Gemini provider; with `judge_model`, its JUDGE role served by that model (P4 substitute judge)."""
     from app.limits.spend import MemorySpendMeter
     from app.llm.gemini_provider import GeminiProvider
+    from core.models import ModelRole, ModelSpec
+    from evals.p4.judge import judge_spec
+
+    spec = judge_spec(settings.gemini_tier, judge_model)
+
+    class _JudgeProvider(GeminiProvider):
+        def _spec(self, role: ModelRole) -> ModelSpec:
+            return spec if role is ModelRole.JUDGE else super()._spec(role)
+
+    meter = MemorySpendMeter(settings.daily_spend_cap_usd)
+    return _JudgeProvider(settings, spend=meter, policy=CountingRetryPolicy())
+
+
+async def _run_judge(settings: Settings, store: Store, args: argparse.Namespace) -> RunSummary:
+    from core.models import ModelRole
+    from evals.p4.judge import judge_model_id
 
     gen_left, dec_left = _caps(store, args)
-    inner = GeminiProvider(
-        settings, spend=MemorySpendMeter(settings.daily_spend_cap_usd), policy=CountingRetryPolicy()
+    tier = settings.gemini_tier
+    llm = CountingProvider(
+        _judge_provider(settings, args.judge_model),
+        tier=tier,
+        max_generate=gen_left,
+        max_decide=dec_left,
+        model_ids={ModelRole.JUDGE: judge_model_id(tier, args.judge_model)},
     )
-    llm = CountingProvider(inner, tier=settings.gemini_tier, max_generate=gen_left, max_decide=dec_left)
+    model = args.judge_model
     try:
         if args.suite == "judge-refusal":
-            return await run_refusal_judge(llm, store, _options(args), tier=settings.gemini_tier, log=_out)
-        return await run_judge(llm, store, _options(args), tier=settings.gemini_tier, log=_out)
+            return await run_refusal_judge(llm, store, _options(args), tier=tier, log=_out, judge_model=model)
+        return await run_judge(llm, store, _options(args), tier=tier, log=_out, judge_model=model)
     finally:
         await llm.aclose()
 
@@ -153,6 +226,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         if free is not None and free < args.min_free_gb:
             _out(f"refusing to start: {free:.1f} GB free RAM < {args.min_free_gb} GB (embedding model)")
             return 3
+    if args.suite in QUIET_SUITES and not args.allow_busy:
+        busy = busy_processes()
+        if busy:
+            _out("refusing to start: not a quiet window, other eval / load processes run:")
+            for line in busy:
+                _out(f"  {line}")
+            return 4
     runner = _run_judge if args.suite.startswith("judge") else _run_suite
     summary = asyncio.run(runner(settings, store, args))
     store.add_run(summary.to_dict())
@@ -198,6 +278,50 @@ def cmd_failures(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_causes(args: argparse.Namespace) -> int:
+    from evals.p4.diagnose import contended, diagnose, format_causes, load_turn_records, turn_id
+
+    settings = get_settings()
+    store = Store(settings.data_root / "reports")
+    results = store.results(args.suite)
+    records = load_turn_records(store.db_path, (turn_id(r.last) for r in results))
+    missing: list[str] = []
+    if not args.no_index_check:
+        missing = asyncio.run(_missing_gold(settings, results))
+    for line in format_causes(diagnose(results, records, missing), len(results)):
+        _out(line)
+    busy = [r.item.id for r in results if contended(r)]
+    _out("")
+    _out(f"contended (provider retries in the turn): {len(busy)}: {','.join(busy)}")
+    return 0
+
+
+async def _missing_gold(settings: Settings, results: Sequence[Any]) -> list[str]:
+    from qdrant_client import AsyncQdrantClient
+
+    from evals.p4.diagnose import missing_gold_chunks
+
+    key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+    client = AsyncQdrantClient(url=settings.qdrant_url, api_key=key, timeout=30)
+    try:
+        return await missing_gold_chunks(client, settings.qdrant_alias, results)
+    finally:
+        await client.close()
+
+
+def cmd_stages(args: argparse.Namespace) -> int:
+    from evals.p4.stages import format_table, stage_table
+
+    store = Store(get_settings().data_root / "reports")
+    suite = args.suite or ("latency" if store.results("latency") else "quality")
+    turns = [r.last for r in store.results(suite)]
+    for mode in ("streamed", "verified"):
+        for line in format_table(stage_table(turns, mode), f"{suite} / {mode}"):
+            _out(line)
+        _out("")
+    return 0
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     _out(_status(Store(get_settings().data_root / "reports")))
     return 0
@@ -219,10 +343,21 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-decide", type=int, default=DEFAULT_MAX_DECIDE, help="cumulative cap")
     run.add_argument("--min-free-gb", type=float, default=MIN_FREE_GB)
     run.add_argument("--skip-ram-check", action="store_true")
+    run.add_argument("--ids", default=None, help="only these item ids (comma separated)")
+    run.add_argument("--replace", action="store_true", help="with --ids: archive their cached results first")
+    run.add_argument("--judge-model", default=None, help="judge suites: serve the JUDGE role by this model")
+    run.add_argument("--allow-busy", action="store_true", help="latency: skip the quiet-window check")
     run.set_defaults(func=cmd_run)
     sub.add_parser("report", help="rewrite the metric records from the cache").set_defaults(func=cmd_report)
     sub.add_parser("status", help="cache counts and calls used").set_defaults(func=cmd_status)
     sub.add_parser("failures", help="list failing items per metric").set_defaults(func=cmd_failures)
+    causes = sub.add_parser("causes", help="causes of not-answered answerable items")
+    causes.add_argument("--suite", default="quality", choices=["quality", "latency"])
+    causes.add_argument("--no-index-check", action="store_true", help="skip the gold-chunk check in Qdrant")
+    causes.set_defaults(func=cmd_causes)
+    stages = sub.add_parser("stages", help="per-stage latency table")
+    stages.add_argument("--suite", default=None, choices=["quality", "dose", "latency"])
+    stages.set_defaults(func=cmd_stages)
     return parser
 
 
@@ -232,4 +367,4 @@ def main(argv: Sequence[str] | None = None) -> int:
     return int(result)
 
 
-__all__ = ["build_parser", "free_ram_gb", "main"]
+__all__ = ["build_parser", "busy_processes", "free_ram_gb", "main", "select_items"]

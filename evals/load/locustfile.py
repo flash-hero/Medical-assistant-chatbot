@@ -2,13 +2,15 @@
 
 Each simulated user is one patient behind the reverse proxy: its own X-Forwarded-For address (the server runs
 with AUSCULTA_TRUSTED_PROXY_COUNT=1), its own session (rotated every LOAD_TURNS_PER_SESSION turns, as the web
-client does when a session is used up), and a realistic EN/FR/AR message mix: streamed medical answers,
-verify-then-release medication answers, front-desk and appointment turns, small talk and emergencies.
+client does when a session is used up; 0 = never rotated: a fixed pool of users, one session each, for the
+steady-state soak), and a realistic EN/FR/AR message mix: streamed medical answers, verify-then-release
+medication answers, front-desk and appointment turns, small talk and emergencies.
 
 Every request is also written as one JSON line to LOAD_RECORDS (the run script computes the gate metrics from
 these lines, not from Locust's own statistics):
   {"t", "kind": "session"|"chat", "msg", "status", "ok", "error", "headers_ms", "total_ms", "first_event_ms",
-   "retry_after"}
+   "retry_after", "req"}
+Chat requests carry `X-Load-Req: <req>`; the load server copies it into its own sample of the request.
 
 Environment: LOAD_RECORDS (path), LOAD_THINK_MIN / LOAD_THINK_MAX (s), LOAD_TURNS_PER_SESSION,
 LOAD_MODE ("steady" | "overload"), LOAD_REJECT_WAIT_S (pause after a 503 in overload mode).
@@ -129,14 +131,17 @@ class Patient(HttpUser):
     @task
     def chat(self) -> None:
         _, kind, locale, message = self.rng.choices(MESSAGES, weights=_WEIGHTS)[0]
-        if self.token is None or self.turns >= TURNS_PER_SESSION:
+        if self.token is None or (TURNS_PER_SESSION and self.turns >= TURNS_PER_SESSION):
             self.token = None
             if not self._new_session(locale):
                 return
         self.turns += 1
         payload = {"message": message, "locale": locale, "client_turn_id": str(uuid.uuid4())}
-        headers = self._headers({"Authorization": f"Bearer {self.token}", "Accept": "text/event-stream"})
-        record: dict[str, Any] = {"t": time.time(), "kind": "chat", "msg": kind}
+        req = uuid.uuid4().hex
+        headers = self._headers(
+            {"Authorization": f"Bearer {self.token}", "Accept": "text/event-stream", "X-Load-Req": req}
+        )
+        record: dict[str, Any] = {"t": time.time(), "kind": "chat", "msg": kind, "req": req}
         t0 = time.perf_counter()
         try:
             with self.client.post(

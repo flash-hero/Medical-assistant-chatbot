@@ -1,6 +1,7 @@
 """On-disk state of the P4 runs (all under {data_root}/reports):
 
 p4/cache/<suite>/<item id>.json     one ItemResult per finished item (resumable: a cached item is skipped)
+p4/archive/<suite>/<id>.<tag>.json  results replaced by a re-run (`run --ids ... --replace`), kept for audit
 p4/judge/<suite>/<item id>.json     judge verdicts for the item's final answer (keyed by the answer hash)
 p4/ledger.json                      model calls used by every run, cumulative (the free-tier budget)
 p4/p4.db                            the app's SQLite file for eval turns (never the dev database)
@@ -68,6 +69,16 @@ class Store:
 
     def put(self, result: ItemResult) -> None:
         write_json_atomic(self.item_path(result.item.suite, result.item.id), result.to_dict())
+
+    def archive(self, suite: str, item_id: str, tag: str) -> Path | None:
+        """Move a cached result out of the cache (so the item runs again); returns its new path."""
+        path = self.item_path(suite, item_id)
+        if not path.exists():
+            return None
+        target = self.root / "archive" / suite / f"{_file_id(item_id)}.{_file_id(tag)}.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(path, target)
+        return target
 
     def get(self, suite: str, item_id: str) -> ItemResult | None:
         path = self.item_path(suite, item_id)

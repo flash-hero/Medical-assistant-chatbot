@@ -305,15 +305,20 @@ def test_generic_advice_is_reported_and_counted_in_the_strict_rate() -> None:
     assert recs["generic_advice_sentences"]["value"] == 1
 
 
-def test_latency_rerun_is_reported_separately() -> None:
+def test_quiet_latency_rerun_is_the_gated_measure() -> None:
     from evals.p4.items import suite_items
 
     rerun = suite_items("latency", quality_per_lang=2)
     assert {i.suite for i in rerun} == {"latency"}
     assert len(rerun) == 6
     streamed = turn({"type": "delta", "text": "a"}, answer("a [1]."), times=(0.0, 1.5, 2.0, 2.1))
-    recs = {
-        r["metric"]: r for r in all_records({"latency": [result(item("latency", "q1"), streamed)]}, [], CTX)
+    slow = turn({"type": "delta", "text": "a"}, answer("a [1]."), times=(0.0, 9.5, 10.0, 10.1))
+    by_suite = {
+        "latency": [result(item("latency", "q1"), streamed)],
+        "quality": [result(item("quality", "q1"), slow)],
     }
-    assert recs["ttft_p95_s_streamed_rerun"]["value"] == 1.5
-    assert "ttft_p95_s_streamed" not in recs
+    recs = {r["metric"]: r for r in all_records(by_suite, [], CTX)}
+    assert recs["ttft_p95_s_streamed"]["value"] == 1.5
+    assert recs["ttft_p95_s_streamed"]["labels"]["window"] == "quiet"
+    assert recs["ttft_p95_s_streamed_quality"]["value"] == 9.5
+    assert "ttft_p95_s_streamed_rerun" not in recs

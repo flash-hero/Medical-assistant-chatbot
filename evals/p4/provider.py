@@ -10,15 +10,19 @@ exhaustion, and can halt the turn before generation.
 - Halt: generation calls of the roles in `halt_roles` (rewrite / answer) park until the turn is cancelled.
   The safety suite uses it: the safety decision is complete before any of those calls, so it costs only the
   guard's decide call (plus the guard fallback when decide fails, which is never halted).
+- Timing: every record keeps time.perf_counter() at admission, at the end (return, error or cancellation) and,
+  for streams, at the first chunk with text, so a turn can be split into stages (evals/p4/stages.py). A call
+  cancelled by the caller's own timeout (e.g. the rewriter's asyncio.timeout) is recorded as "cancelled".
 """
 
 from __future__ import annotations
 
 import asyncio
+import time
 from collections import Counter
 from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import aclosing
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.llm.retry import RetryPolicy
@@ -36,6 +40,7 @@ from core.ports import (
 GENERATE = "generate"
 DECIDE = "decide"
 DAY_HINT_S = 300.0
+CANCELLED = "cancelled"
 HALT_ROLES: frozenset[ModelRole] = frozenset({ModelRole.REWRITE, ModelRole.ANSWER, ModelRole.ANSWER_FALLBACK})
 
 
@@ -48,17 +53,26 @@ class CallRecord:
     kind: str  # GENERATE | DECIDE
     role: str
     model_id: str
-    outcome: str = "ok"  # "ok" | error code | "halted"
+    outcome: str = "ok"  # "ok" | error code | "halted" | "cancelled"
     scope: str = ""  # rate-limit scope, when rate limited
+    started: float = 0.0  # time.perf_counter() when the call was admitted
+    ended: float = 0.0  # when it returned, failed or was cancelled (0.0 while running or parked)
+    first: float = 0.0  # stream calls: when the first chunk with text arrived
 
-    def to_dict(self) -> dict[str, str]:
-        return {
+    def to_dict(self, base: float | None = None) -> dict[str, Any]:
+        """JSON form; with `base` (the turn's start, perf_counter) also the times relative to it, in s."""
+        out: dict[str, Any] = {
             "kind": self.kind,
             "role": self.role,
             "model_id": self.model_id,
             "outcome": self.outcome,
             "scope": self.scope,
         }
+        if base is not None and self.started:
+            for key, at in (("start_s", self.started), ("end_s", self.ended), ("first_s", self.first)):
+                if at:
+                    out[key] = round(at - base, 4)
+        return out
 
 
 @dataclass(frozen=True)
@@ -85,6 +99,7 @@ class CountingProvider:
     over_budget: bool = False
     day_quota_hit: str = ""  # "<model_id>: <scope>" when a day-scope quota was exhausted
     rate_limited: list[str] = field(default_factory=list)  # model ids, one per rate-limited call
+    model_ids: Mapping[ModelRole, str] = field(default_factory=dict)  # roles served by another model
 
     # ---- bookkeeping -----------------------------------------------------------------------------
     def begin_item(self) -> None:
@@ -104,19 +119,26 @@ class CountingProvider:
         return dict(Counter(f"{c.kind}:{c.model_id}" for c in self.calls if c.outcome != "halted"))
 
     def _model(self, role: ModelRole) -> str:
-        return model_for(role, self.tier).model_id
+        return self.model_ids.get(role) or model_for(role, self.tier).model_id
 
     def _admit(self, kind: str, role: ModelRole) -> int:
         cap = self.max_generate if kind == GENERATE else self.max_decide
         if cap is not None and self.count(kind) >= cap:
             self.over_budget = True
             raise BudgetExceeded(f"P4 {kind} budget of {cap} calls used")
-        self.calls.append(CallRecord(kind, role.value, self._model(role)))
+        self.calls.append(CallRecord(kind, role.value, self._model(role), started=time.perf_counter()))
         return len(self.calls) - 1
 
     def _mark(self, index: int, outcome: str, scope: str = "") -> None:
-        old = self.calls[index]
-        self.calls[index] = CallRecord(old.kind, old.role, old.model_id, outcome, scope)
+        self.calls[index] = replace(self.calls[index], outcome=outcome, scope=scope)
+
+    def _end(self, index: int) -> None:
+        if self.calls[index].outcome != "halted":
+            self.calls[index] = replace(self.calls[index], ended=time.perf_counter())
+
+    def _first_chunk(self, index: int, chunk: GenerationChunk) -> None:
+        if chunk.text and not self.calls[index].first:
+            self.calls[index] = replace(self.calls[index], first=time.perf_counter())
 
     def _failed(self, index: int, exc: BaseException) -> None:
         code = getattr(exc, "code", type(exc).__name__)
@@ -140,9 +162,14 @@ class CountingProvider:
             await self._park(index)
         try:
             return await self.inner.generate(request)
+        except asyncio.CancelledError:
+            self._mark(index, CANCELLED)
+            raise
         except Exception as exc:
             self._failed(index, exc)
             raise
+        finally:
+            self._end(index)
 
     async def stream(self, request: GenerationRequest) -> AsyncIterator[GenerationChunk]:
         index = self._admit(GENERATE, request.role)
@@ -151,10 +178,16 @@ class CountingProvider:
         try:
             async with aclosing(self.inner.stream(request)) as chunks:  # type: ignore[type-var]
                 async for chunk in chunks:
+                    self._first_chunk(index, chunk)
                     yield chunk
+        except asyncio.CancelledError:
+            self._mark(index, CANCELLED)
+            raise
         except Exception as exc:
             self._failed(index, exc)
             raise
+        finally:
+            self._end(index)
 
     async def decide(
         self, role: ModelRole, input_text: str, questions: Mapping[str, DecisionQuestion]
@@ -162,9 +195,14 @@ class CountingProvider:
         index = self._admit(DECIDE, role)
         try:
             return await self.inner.decide(role, input_text, questions)
+        except asyncio.CancelledError:
+            self._mark(index, CANCELLED)
+            raise
         except Exception as exc:
             self._failed(index, exc)
             raise
+        finally:
+            self._end(index)
 
     async def embed(self, texts: Sequence[str], *, dim: int) -> list[list[float]]:
         return await self.inner.embed(texts, dim=dim)

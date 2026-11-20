@@ -9,7 +9,8 @@ because a gate without `lang` would also match a per-language record of the same
   numeric_grounding_violations                     dose answers with a number+unit absent from its sources
   supported_claim_rate                             judge: supported / (supported + unsupported) sentences
   refusal_rate_diagnosis_dosing                    refusal items whose shown text has no forbidden claim
-  ttft_p95_s_streamed / full_answer_p95_s_verified time to first delta / to the verified answer event
+  ttft_p95_s_streamed / full_answer_p95_s_verified time to first delta / to the verified answer event, on
+                                                   the quiet-window `latency` suite if run (else quality)
 Breakdowns use distinct metric names (`*_by_lang`, `pipeline_*`) and are not gated.
 """
 
@@ -25,6 +26,7 @@ from app.guardrails.sentences import split_sentences
 from evals.p4.items import GATED_KINDS, LANGS
 from evals.p4.judge import JudgeVerdict, markers
 from evals.p4.results import ItemResult, TurnResult
+from evals.p4.stages import stage_table
 from evals.retrieval.metrics import percentile
 from evals.safety.sets import HARD_NEGATIVE
 
@@ -33,6 +35,7 @@ ANSWERED_MODES = frozenset({"streamed", "verified"})
 SAFETY_EVENT_KINDS = frozenset({"emergency", "self_harm", "harm_to_others", "abuse_disclosure"})
 LATENCY_SUITE = "quality"  # gated latency: the quality runs; dose turns reported separately
 CITATION_SUITES = ("quality", "dose", "refusal")
+JUDGED_SUITES = ("quality", "dose")  # released answers of these suites are judged (supported_claim_rate)
 
 
 @dataclass(frozen=True)
@@ -271,7 +274,11 @@ def refusal_judge_records(
     return out
 
 
-def judge_records(verdicts: Sequence[tuple[ItemResult, JudgeVerdict]], ctx: Ctx) -> list[dict[str, Any]]:
+def judge_records(
+    verdicts: Sequence[tuple[ItemResult, JudgeVerdict]], ctx: Ctx, eligible: int | None = None
+) -> list[dict[str, Any]]:
+    """Judge metrics; labels name the judge model(s) and how many answers were judged out of the `eligible`
+    released answers (a judge pass stopped by a quota is visible as answers < eligible_answers)."""
     judged = [(r, v) for r, v in verdicts if v.labels]
     if not judged:
         return []
@@ -281,6 +288,8 @@ def judge_records(verdicts: Sequence[tuple[ItemResult, JudgeVerdict]], ctx: Ctx)
         "judge_version": judged[0][1].version,
         "answers": str(len(judged)),
     }
+    if eligible is not None:
+        labels["eligible_answers"] = str(eligible)
     sup = sum(v.supported for _, v in judged)
     claims = sup + sum(v.unsupported for _, v in judged)
     out = [ctx.record("supported_claim_rate", sup / claims if claims else 0.0, claims, labels)]
@@ -304,21 +313,38 @@ def _times(turns: Sequence[TurnResult], mode: str, event: str) -> list[float]:
 
 
 def latency_records(by_suite: Mapping[str, Sequence[ItemResult]], ctx: Ctx) -> list[dict[str, Any]]:
-    """Gated records over every quality turn (dose turns: `*_dose`); `*_no_retry` breakdowns leave out turns
-    in which the provider retried a call (rate limit or timeout): quota contention, not pipeline latency."""
+    """Gated records over the quiet-window re-measure (`latency` suite) when it exists, else over the quality
+    turns; the other suite is reported as `*_quality` / `*_rerun` and dose turns as `*_dose` (not gated).
+    `*_no_retry` breakdowns leave out turns in which the provider retried a call (rate limit or timeout):
+    quota contention, not pipeline latency. Per-stage p50 / p95 (evals/p4/stages.py) for the gated suite."""
+    gated = "latency" if by_suite.get("latency") else LATENCY_SUITE
+    other = (LATENCY_SUITE, "_quality") if gated == "latency" else ("latency", "_rerun")
+    window = {"suite": gated, "window": "quiet" if gated == "latency" else "shared"}
     out: list[dict[str, Any]] = []
-    for suite, tail in ((LATENCY_SUITE, ""), ("dose", "_dose"), ("latency", "_rerun")):
+    for suite, tail in ((gated, ""), other, ("dose", "_dose")):
         turns = [r.last for r in by_suite.get(suite, [])]
         clean = [t for t in turns if not t.retries]
+        labels = window if suite == gated else {"suite": suite}
         for name, mode, event in (("ttft", "streamed", "delta"), ("full_answer", "verified", "answer")):
             suffix = ("s_streamed" if mode == "streamed" else "s_verified") + tail
             values, clean_values = _times(turns, mode, event), _times(clean, mode, event)
             if values:
-                out.append(ctx.record(f"{name}_p95_{suffix}", percentile(values, 95), len(values)))
-                out.append(ctx.record(f"{name}_p50_{suffix}", percentile(values, 50), len(values)))
+                out.append(ctx.record(f"{name}_p95_{suffix}", percentile(values, 95), len(values), labels))
+                out.append(ctx.record(f"{name}_p50_{suffix}", percentile(values, 50), len(values), labels))
             if clean_values:
                 p95 = percentile(clean_values, 95)
-                out.append(ctx.record(f"{name}_p95_{suffix}_no_retry", p95, len(clean_values)))
+                out.append(ctx.record(f"{name}_p95_{suffix}_no_retry", p95, len(clean_values), labels))
+    out += stage_records([r.last for r in by_suite.get(gated, [])], gated, ctx)
+    return out
+
+
+def stage_records(turns: Sequence[TurnResult], suite: str, ctx: Ctx) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for mode in ("streamed", "verified"):
+        for row in stage_table(turns, mode):
+            labels = {"suite": suite, "mode": mode, "stage": row.stage, "owner": row.owner}
+            out.append(ctx.record("latency_stage_p50_s", row.p50, row.n, labels))
+            out.append(ctx.record("latency_stage_p95_s", row.p95, row.n, labels))
     return out
 
 
@@ -334,7 +360,9 @@ def all_records(
         *answered_records(by_suite.get("quality", []), ctx),
         *citation_records(by_suite, ctx),
         *numeric_records(by_suite, ctx),
-        *judge_records(verdicts, ctx),
+        *judge_records(
+            verdicts, ctx, sum(1 for s in JUDGED_SUITES for r in by_suite.get(s, []) if is_answered(r.last))
+        ),
         *refusal_records(by_suite.get("refusal", []), ctx),
         *latency_records(by_suite, ctx),
     ]

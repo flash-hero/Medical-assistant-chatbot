@@ -128,6 +128,7 @@ class Harness:
         answer = next((p for p in reversed(payloads) if p.get("type") == "answer"), None)
         passages, confident = self._passages(answer)
         retries = (len(self.retry_policy.retries) - retries_before) if self.retry_policy else 0
+        record = getattr(self.retriever, "turn_record", None)
         return TurnResult(
             message=message,
             http_status=res.status,
@@ -136,11 +137,12 @@ class Harness:
             elapsed_s=round(res.elapsed_s, 4),
             halted=self.stop_after_guard and res.disconnected_at is not None and res.finished_at is None,
             precheck_kinds=self.precheck_kinds(message),
-            calls=tuple(c.to_dict() for c in self.llm.calls[calls_before:]),
+            calls=tuple(c.to_dict(base=res.started_at) for c in self.llm.calls[calls_before:]),
             retries=retries,
             passages=passages,
             retrieval_confident=confident,
             error=error,
+            retrievals=record(res.started_at) if record is not None else (),
         )
 
     def _passages(self, answer: dict[str, Any] | None) -> tuple[tuple[dict[str, Any], ...], bool | None]:

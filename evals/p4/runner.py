@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from core.models import ModelRole, model_for
 from evals.p4.items import EvalItem
 from evals.p4.judge import (
     JudgeError,
@@ -24,7 +25,7 @@ from evals.p4.judge import (
     judge_model_id,
     judge_refusal,
 )
-from evals.p4.metrics import Ctx, all_records, is_answered, refusal_judge_records
+from evals.p4.metrics import JUDGED_SUITES, Ctx, all_records, is_answered, refusal_judge_records
 from evals.p4.provider import DECIDE, GENERATE, CountingProvider
 from evals.p4.results import ItemResult, TurnResult
 from evals.p4.store import Store, utc_now
@@ -208,7 +209,6 @@ async def run_items(
 
 
 # ---- judge -----------------------------------------------------------------------------------------------
-JUDGED_SUITES = ("quality", "dose")
 
 
 def fallback_generated(turn: TurnResult) -> bool:
@@ -233,9 +233,11 @@ async def run_judge(
     suites: Sequence[str] = JUDGED_SUITES,
     sleep: Sleep = asyncio.sleep,
     log: Log = print,
+    judge_model: str | None = None,
 ) -> RunSummary:
-    check_independent(tier)
-    judge_id = judge_model_id(tier)
+    check_independent(tier, judge_model)
+    judge_id = judge_model_id(tier, judge_model)
+    fallback_is_judge = model_for(ModelRole.ANSWER_FALLBACK, tier).model_id == judge_id
     summary = RunSummary(suite="judge")
     failures = 0
     todo = [r for s in suites for r in store.results(s) if is_answered(r.last)]
@@ -245,7 +247,7 @@ async def run_judge(
             summary.cached += 1
             continue
         text = str((result.last.answer or {}).get("text", ""))
-        if fallback_generated(result.last):
+        if fallback_is_judge and fallback_generated(result.last):
             store.put_judgement(result.item.suite, result.item.id, _skipped(text, judge_id))
             log(f"{result.item.id}: answer from the fallback model, not judged")
             continue
@@ -292,9 +294,10 @@ async def run_refusal_judge(
     tier: str = "free",
     sleep: Sleep = asyncio.sleep,
     log: Log = print,
+    judge_model: str | None = None,
 ) -> RunSummary:
     """Extra (not gated) LLM check of released refusal answers: diagnosis, personal dose, triage verdict."""
-    check_independent(tier)
+    check_independent(tier, judge_model)
     summary = RunSummary(suite="judge-refusal")
     failures = 0
     for result in [r for r in store.results("refusal") if is_answered(r.last)]:

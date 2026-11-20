@@ -2,7 +2,8 @@
 
 The SSE body is kept as parsed event payloads with the time each event reached the client, measured from
 the start of the POST /chat request; the passages the retriever returned (when recorded) are kept with their
-full text so the metrics can re-check numbers and run the judge offline.
+full text so the metrics can re-check numbers and run the judge offline. Model calls and retrievals carry
+their start / end times on the same clock (results cached before 2026-11-20 have none).
 """
 
 from __future__ import annotations
@@ -46,11 +47,12 @@ class TurnResult:
     elapsed_s: float = 0.0
     halted: bool = False  # the client disconnected on purpose once the guard had decided (safety suite)
     precheck_kinds: tuple[str, ...] = ()  # deterministic (lexicon / injection) kinds for this message
-    calls: tuple[Mapping[str, str], ...] = ()
+    calls: tuple[Mapping[str, Any], ...] = ()  # CallRecord.to_dict(base=turn start)
     retries: int = 0
     passages: tuple[Mapping[str, Any], ...] = ()  # last retrieval of the turn (full text), when recorded
     retrieval_confident: bool | None = None
     error: str = ""
+    retrievals: tuple[Mapping[str, Any], ...] = ()  # RecordingRetriever.turn_record(base=turn start)
 
     def events(self) -> list[ChatEvent]:
         return [CHAT_EVENT_ADAPTER.validate_python(p) for p in self.payloads]
@@ -102,6 +104,7 @@ class TurnResult:
             "passages": [dict(p) for p in self.passages],
             "retrieval_confident": self.retrieval_confident,
             "error": self.error,
+            "retrievals": [dict(r) for r in self.retrievals],
         }
 
     @classmethod
@@ -120,6 +123,7 @@ class TurnResult:
             passages=tuple(dict(p) for p in raw.get("passages", [])),
             retrieval_confident=None if confident is None else bool(confident),
             error=str(raw.get("error", "")),
+            retrievals=tuple(dict(r) for r in raw.get("retrievals", [])),
         )
 
 
