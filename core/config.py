@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     hospital_profile_path: Path = Field(
         default=REPO_ROOT / "config" / "hospital" / "demo.yaml", alias="AUSCULTA_HOSPITAL_PROFILE"
     )
-    allowed_origins: tuple[str, ...] = Field(
+    allowed_origins: Annotated[tuple[str, ...], NoDecode] = Field(
         default=("http://localhost:3000", "http://127.0.0.1:3000"), alias="AUSCULTA_ALLOWED_ORIGINS"
     )
     trusted_proxy_count: int = Field(default=0, alias="AUSCULTA_TRUSTED_PROXY_COUNT", ge=0, le=3)

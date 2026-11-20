@@ -37,36 +37,36 @@
 		-Server
 	}
 
-	# Operational endpoints are for the internal health checks only, not the internet (review S10).
-	@internal path /api/v1/ready /api/v1/meta
-	respond @internal 404
+	# `route` keeps the literal order below (Caddy otherwise runs `handle` before `respond`).
+	route {
+		# Operational endpoints are for the internal health checks only, not the internet (review S10).
+		@internal path /api/v1/ready /api/v1/meta
+		respond @internal 404
 
-	handle /api/* {
-		reverse_proxy api:8000 {
-			# stream SSE immediately; keep long-lived connections open
-			flush_interval -1
-			transport http {
-				read_timeout 120s
+		handle /api/* {
+			reverse_proxy api:8000 {
+				# stream SSE immediately; keep long-lived connections open
+				flush_interval -1
+				transport http {
+					read_timeout 120s
+				}
+				# The API trusts exactly one proxy hop (AUSCULTA_TRUSTED_PROXY_COUNT=1). Caddy sets
+				# X-Forwarded-For from the client address and ignores client-supplied values.
 			}
-			# the API trusts exactly one proxy hop (AUSCULTA_TRUSTED_PROXY_COUNT=1)
-			header_up X-Forwarded-For {remote_host}
 		}
-	}
 
-	handle {
-		reverse_proxy web:3000
+		handle {
+			reverse_proxy web:3000
+		}
 	}
 
 	log {
 		output stdout
-		format json
-		# never log query strings or bodies (may contain health information)
+		# JSON access log without query strings, credentials or bodies (they may contain health information)
 		format filter {
 			wrap json
 			fields {
-				request>uri query {
-					delete *
-				}
+				request>uri regexp \?.*$ ""
 				request>headers>Authorization delete
 				request>headers>Cookie delete
 			}
