@@ -90,7 +90,14 @@ async def cmd_build(args: argparse.Namespace, settings: Settings) -> int:
         out("AUSCULTA_SESSION_SECRET is not set: the corpus manifest cannot be signed.")
         return EXIT_ERROR
     sources = tuple(s.strip() for s in args.sources.split(",") if s.strip())
-    req = BuildRequest(args.corpus_version, sources, limit=args.limit, batch_size=args.batch_size)
+    only_docs = tuple(tuple(spec.split("=", 1)) for spec in args.only_docs or ())
+    req = BuildRequest(
+        args.corpus_version,
+        sources,
+        limit=args.limit,
+        batch_size=args.batch_size,
+        only_docs=only_docs,
+    )
     paths = DataPaths.from_settings(settings)
     embedding = embedding_for(settings, cache_only=args.cache_only)
     out(f"Embedding model: {embedding.model_id} ({embedding.name} backend)")
@@ -142,6 +149,12 @@ def _parser() -> argparse.ArgumentParser:
     b.add_argument("--corpus-version", required=True)
     b.add_argument("--sources", required=True, help="comma-separated source ids (must be ACTIVE)")
     b.add_argument("--limit", type=int, default=None, help="max documents per source")
+    b.add_argument(
+        "--only-docs",
+        action="append",
+        metavar="SOURCE=FILE",
+        help="index only the doc ids listed in FILE (one per line) for SOURCE; repeatable",
+    )
     b.add_argument("--batch-size", type=int, default=90)
     b.add_argument(
         "--cache-only", action="store_true", help="never call the embedding API; stop at the first cache miss"
