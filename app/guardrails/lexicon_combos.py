@@ -30,6 +30,10 @@ _MIN_STEM = 3  # a proclitic is only stripped when at least this many letters re
 _SHORT_STEMS = frozenset({"ما", "لا"})  # negation particles glued to و / ف: "وما بقاش كيجاوب", "ولا يتنفس"
 
 Span = tuple[int, int]  # [start, end) token indices
+# French / English words whose consonant skeleton collides with an Arabizi lexicon word and that Arabizi
+# writers do not use for it: "quel ... code" read as "kla ... acide" (swallowed acid) put front-desk questions
+# on the emergency template (P5-D9). They are never compared on the skeleton; their literal forms still match.
+_SKELETON_STOPWORDS = frozenset({"quel", "quelle", "quels", "quelles", "code", "codes"})
 
 
 def _is_arabic(text: str) -> bool:
@@ -115,6 +119,8 @@ class TokenIndex:
         if skeleton not in self._tables:
             table: dict[str, list[int]] = {}
             for i, tok in enumerate(self.tokens):
+                if skeleton and tok in _SKELETON_STOPWORDS:
+                    continue
                 for form in (_skeleton(tok),) if skeleton else token_forms(tok):
                     table.setdefault(form, []).append(i)
             self._tables[skeleton] = table
