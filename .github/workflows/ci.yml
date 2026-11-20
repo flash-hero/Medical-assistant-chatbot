@@ -57,6 +57,8 @@ jobs:
         run: |
           .venv/bin/ruff check .
           .venv/bin/ruff format --check .
+      - name: Type check
+        run: .venv/bin/mypy app core rag evals data_pipeline
       - name: Contracts up to date
         run: |
           .venv/bin/python scripts/export_contracts.py
