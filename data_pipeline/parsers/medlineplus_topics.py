@@ -46,7 +46,7 @@ def discover_topics_url(index_html: str) -> str:
     links = _TOPICS_LINK.findall(index_html)
     if not links:
         raise ValueError("no mplus_topics_*.xml link found on xml.html")
-    return max(links, key=lambda pair: pair[1])[0]
+    return str(max(links, key=lambda pair: pair[1])[0])
 
 
 async def fetch(fetcher: Fetcher, _paths: DataPaths | None = None, *, limit: int | None = None) -> Path:
@@ -136,7 +136,7 @@ def parse_file(
     """Stream the (30 MB) topics file; elements are cleared as they are consumed."""
     stamp = retrieved_at or datetime.fromtimestamp(xml_path.stat().st_mtime, tz=UTC)
     parser_kwargs = {"tag": "health-topic", "load_dtd": False, "no_network": True, "resolve_entities": False}
-    for _, el in etree.iterparse(str(xml_path), **parser_kwargs):  # type: ignore[arg-type]
+    for _, el in etree.iterparse(str(xml_path), **parser_kwargs):
         try:
             doc = topic_to_document(el, record, stamp, xml_path.name)
         except ValueError as exc:

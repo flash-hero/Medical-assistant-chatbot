@@ -48,7 +48,7 @@ def shingles(text: str, size: int = SHINGLE) -> set[int]:
 def signature(text: str) -> np.ndarray:
     hashes = np.fromiter(shingles(text), dtype=np.uint64)
     mixed = hashes[:, None] * _A[None, :] + _B[None, :]  # wraps modulo 2**64 on purpose
-    return mixed.min(axis=0)
+    return np.asarray(mixed.min(axis=0))
 
 
 def estimated_jaccard(a: np.ndarray, b: np.ndarray) -> float:

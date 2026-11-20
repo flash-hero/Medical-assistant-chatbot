@@ -244,7 +244,7 @@ class Fetcher:
             headers["Range"] = f"bytes={part.stat().st_size}-"
             headers["Accept-Encoding"] = "identity"
             if meta.get("etag"):
-                headers["If-Range"] = meta["etag"]
+                headers["If-Range"] = str(meta["etag"])
         elif previous:
             if previous.etag:
                 headers["If-None-Match"] = previous.etag
@@ -256,9 +256,10 @@ class Fetcher:
     def _read_part_meta(part: Path) -> dict[str, object]:
         meta_path = part.with_name(part.name + ".meta")
         try:
-            return json.loads(meta_path.read_text(encoding="utf-8"))
+            data = json.loads(meta_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
+        return data if isinstance(data, dict) else {}
 
     async def _handle(
         self,
@@ -372,14 +373,19 @@ class Fetcher:
         return result.path.read_text(encoding="utf-8", errors="replace")
 
     async def fetch_many(
-        self, urls: Sequence[str], *, concurrency: int = 8, **kwargs: bool
+        self,
+        urls: Sequence[str],
+        *,
+        concurrency: int = 8,
+        robots_exempt: bool = False,
+        refresh: bool = False,
     ) -> list[FetchResult | Exception]:
         gate = asyncio.Semaphore(concurrency)
 
         async def one(target_url: str) -> FetchResult | Exception:
             async with gate:
                 try:
-                    return await self.fetch(target_url, **kwargs)
+                    return await self.fetch(target_url, robots_exempt=robots_exempt, refresh=refresh)
                 except (FetchRefusedError, FetchFailedError) as exc:
                     log.warning("fetch_failed", url=target_url, error=str(exc))
                     return exc
