@@ -53,7 +53,7 @@ jobs:
       - name: Install
         run: |
           pip install uv==0.13.8
-          uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev,load]"
+          uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev,load,data]"
       - name: Lint
         run: |
           .venv/bin/ruff check .

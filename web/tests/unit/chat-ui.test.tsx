@@ -215,7 +215,8 @@ describe("T8 focus and announcements", () => {
     fireEvent.click(screen.getByRole("button", { name: en.feedback.up }));
     const thanks = await screen.findByText(en.feedback.thanks);
     expect(thanks.getAttribute("role")).toBe("status");
-    expect(document.activeElement).toBe(thanks);
+    // the focus moves in an effect after the note renders: wait for it (CI runners are slower)
+    await waitFor(() => expect(document.activeElement).toBe(thanks));
   });
 
   it("focuses the confirmation after the appointment request is sent", async () => {
