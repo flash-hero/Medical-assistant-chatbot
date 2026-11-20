@@ -1,5 +1,5 @@
 import { expectNoSeriousA11yViolations } from "./support/axe";
-import { answerOf, ask, LOCALES, MESSAGES, openChat, PROMPTS } from "./support/chat";
+import { answerOf, ask, LOCALES, MESSAGES, openChat, OTHER_LANGUAGE, PROMPTS } from "./support/chat";
 import { expect, test } from "./support/fixtures";
 
 for (const locale of LOCALES) {
@@ -40,7 +40,28 @@ for (const locale of LOCALES) {
       const answer = await answerOf(page, "verified");
       await expect(answer).toContainText(locale === "ar" ? "الإيبوبروفين" : locale === "fr" ? "ibuprofène" : "Ibuprofen");
       await expect(page.getByTestId("verified-badge")).toHaveText(t.verified);
-      await expect(page.locator("[data-cite-chip]")).toHaveCount(1);
+      await expect(page.locator("[data-cite-chip]")).toHaveCount(2);
+      // T7: the badge names the languages the sources are really in (an English and a French source).
+      const badge = page.getByTestId("source-language-badge");
+      const foreign = { en: ["fr"], fr: ["en"], ar: ["en", "fr"] } as const;
+      for (const language of foreign[locale]) await expect(badge).toContainText(t.languageNames[language]);
+    });
+
+    test("answers in the language of the question, with its own direction (T1)", async ({ page }) => {
+      const other = OTHER_LANGUAGE[locale];
+      await openChat(page, locale);
+      await ask(page, other.prompt);
+      const answer = await answerOf(page, "streamed");
+      await expect(answer).toHaveAttribute("lang", other.language);
+      await expect(answer.locator("p").first()).toHaveAttribute("dir", other.dir);
+      const bubble = page.getByTestId("user-message").last();
+      await expect(bubble).toHaveAttribute("lang", other.language);
+      await expect(bubble).toHaveAttribute("dir", other.dir);
+      await expect(page.locator("html")).toHaveAttribute("dir", locale === "ar" ? "rtl" : "ltr");
+      // The cited source is English, the answer is not: the drawer says so, in the UI language.
+      await answer.locator('[data-cite="1"]').first().click();
+      const drawer = page.getByTestId("source-drawer");
+      await expect(drawer.getByTestId("source-language-note")).toContainText(t.languageNames.en);
     });
 
     test("answers a front-desk question from the hospital profile", async ({ page }) => {
@@ -73,6 +94,8 @@ for (const locale of LOCALES) {
       await feedback.getByRole("button", { name: t.feedback.down }).click();
       await page.getByTestId("feedback-form").getByRole("button", { name: t.feedback.submit }).click();
       await expect(page.getByText(t.feedback.thanks)).toBeVisible();
+      // T8: the controls are gone; focus moves to the thank-you note, not to the page.
+      await expect(page.getByTestId("feedback-thanks")).toBeFocused();
     });
   });
 }

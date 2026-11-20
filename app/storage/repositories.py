@@ -276,7 +276,10 @@ class Storage:
         """Delete every row past its retention (RETENTION). Idempotent; safe to run from several workers."""
         now = now or datetime.now(UTC)
         appointments = await self.appointments.purge_expired(now)
-        counts = {"appointment_contacts": appointments.contacts, "appointment_requests": appointments.requests}
+        counts = {
+            "appointment_contacts": appointments.contacts,
+            "appointment_requests": appointments.requests,
+        }
         async with self.appointments._s.begin() as db:
             counts["turns"] = await _delete_older(db, TurnRow, TurnRow.created_at, now - RETENTION["turns"])
             counts["sessions"] = await _delete_older(

@@ -14,10 +14,11 @@ interface HandoffDialogProps {
 /** "Talk to a person": the hospital's human contact, always one tap away (from GET /api/v1/hospital). */
 export const HandoffDialog = forwardRef<HTMLDialogElement, HandoffDialogProps>(function HandoffDialog({ hospital, onClose }, ref) {
   const t = useTranslations("Chat");
+  // Keyed by role: the front desk and the switchboard may share a number (review T16).
   const contacts = [
-    hospital?.handoff ? { contact: hospital.handoff, tone: "brand" as const } : null,
-    hospital?.mainPhone ? { contact: { ...hospital.mainPhone, label: hospital.mainPhone.label || t("mainPhone") }, tone: "quiet" as const } : null,
-    hospital?.emergency ? { contact: { ...hospital.emergency, label: hospital.emergency.label || t("emergencyLabel") }, tone: "danger" as const } : null,
+    hospital?.handoff ? { role: "handoff", contact: hospital.handoff, tone: "brand" as const } : null,
+    hospital?.mainPhone ? { role: "main", contact: { ...hospital.mainPhone, label: hospital.mainPhone.label || t("mainPhone") }, tone: "quiet" as const } : null,
+    hospital?.emergency ? { role: "emergency", contact: { ...hospital.emergency, label: hospital.emergency.label || t("emergencyLabel") }, tone: "danger" as const } : null,
   ].filter((c) => c !== null);
   return (
     <dialog ref={ref} aria-labelledby="handoff-title" onClose={onClose} className="handoff-dialog" data-testid="handoff-dialog">
@@ -40,8 +41,8 @@ export const HandoffDialog = forwardRef<HTMLDialogElement, HandoffDialogProps>(f
         ) : null}
         {contacts.length > 0 ? (
           <ul className="grid gap-2">
-            {contacts.map(({ contact, tone }) => (
-              <li key={`${contact.label}-${contact.number}`} className="grid">
+            {contacts.map(({ role, contact, tone }) => (
+              <li key={role} className="grid">
                 <ContactLink contact={contact} callLabel={t("call", { label: contact.label })} tone={tone} />
               </li>
             ))}

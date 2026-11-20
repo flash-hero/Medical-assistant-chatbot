@@ -1,6 +1,7 @@
 import { openChatStream, type ChatRequest } from "@/lib/api/client";
 import { ApiError, isAbortError } from "@/lib/api/errors";
-import { readSseStream } from "@/lib/sse/stream";
+import { SseBufferOverflow } from "@/lib/sse/parser";
+import { readSseStream, SseTimeoutError } from "@/lib/sse/stream";
 import { parseChatEvent } from "./events";
 import type { ChatAction, TurnError } from "./reducer";
 
@@ -13,10 +14,11 @@ export interface TurnRequest extends ChatRequest {
 type Dispatch = (action: ChatAction) => void;
 type Open = (request: ChatRequest) => Promise<ReadableStream<Uint8Array>>;
 
+/** Only a message the server wrote for patients is forwarded, never a code like "http_502" (review T5). */
 function toTurnError(error: unknown): TurnError {
-  if (error instanceof ApiError) {
-    return { code: error.code, message: error.status > 0 ? error.message : "", retryAfterS: error.retryAfterS };
-  }
+  if (error instanceof ApiError) return { code: error.code, message: error.serverMessage, retryAfterS: error.retryAfterS };
+  if (error instanceof SseTimeoutError) return { code: "timeout", message: "", retryAfterS: null };
+  if (error instanceof SseBufferOverflow) return { code: "invalid_response", message: "", retryAfterS: null };
   return { code: "unknown", message: "", retryAfterS: null };
 }
 

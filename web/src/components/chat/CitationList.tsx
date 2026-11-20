@@ -10,7 +10,7 @@ function dirOf(language: string): "ltr" | "rtl" {
 }
 
 /** Numbered source chips under an answer; each opens the source drawer. */
-export function CitationList({ citations, answerLocale }: { readonly citations: readonly Citation[]; readonly answerLocale: ChatLocale }) {
+export function CitationList({ citations, answerLanguage }: { readonly citations: readonly Citation[]; readonly answerLanguage: ChatLocale }) {
   const t = useTranslations("Chat");
   const { openSource } = useChatActions();
   if (citations.length === 0) return null;
@@ -23,7 +23,7 @@ export function CitationList({ citations, answerLocale }: { readonly citations: 
             <button
               type="button"
               className="flex min-h-11 max-w-full items-center gap-2 rounded-full border border-line bg-surface py-1.5 pe-4 ps-1.5 text-start text-sm transition-colors hover:border-brand"
-              onClick={(e) => openSource(citation, answerLocale, e.currentTarget)}
+              onClick={(e) => openSource(citation, answerLanguage, e.currentTarget)}
               data-cite-chip={citation.n}
             >
               {/* Name from content (no aria-label) so it contains the visible text: "Source 1: <title>, <publisher>". */}

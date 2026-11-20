@@ -3,13 +3,18 @@
 LLM        AUSCULTA_LLM_BACKEND=gemini -> GeminiProvider (spend-metered); =fake -> scripted FakeLLMProvider
 Retriever  rag.retrieval.build_retriever, imported lazily; None (medical answers degrade to a fixed
            "temporarily unavailable" text) when the module cannot be imported or fails to build.
-           With the fake LLM backend a FakeRetriever with synthetic passages is used.
-Stores     sessions: memory or Redis (REDIS_URL); relational: SQLite (dev) or Postgres (DATABASE_URL)
+           With the fake LLM backend a FakeRetriever with synthetic passages is used. Warmed up at startup
+           (BM25 analysers, query-embedding model) so the first turn does not block the event loop (P12).
+           The real retriever serves only after rag.verify.verify_live_corpus accepted the live collection
+           (S8/P6; app/api/corpus.py), checked in a startup task.
+Stores     sessions + turn gate: memory, or Redis (REDIS_URL) shared by every worker (P2/S5);
+           relational: SQLite (dev) or Postgres (DATABASE_URL), purged hourly by retention (S6/P7)
 Limits     per-IP / per-session rate limits, admission control, daily spend cap, kill switch
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -20,15 +25,17 @@ import anyio
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.api.corpus import CorpusVerifier, VerifiedRetriever
+from app.api.gate import MemoryTurnGate, RedisTurnGate, TurnGate
+from app.api.idempotency import IdempotencyStore, MemoryIdempotencyStore, RedisIdempotencyStore
 from app.api.tokens import SessionTokenSigner
-from app.api.turns import TurnRegistry
 from app.config_files import ConfigFileError
 from app.guardrails.ingress import process_ingress
 from app.limits.admission import AdmissionController
-from app.limits.rate import RateLimiter, rules_from_settings, storage_uri
+from app.limits.rate import RateLimiter, RateRules, rules_from_settings, storage_uri
 from app.limits.spend import KillSwitch, MemorySpendMeter, RedisSpendMeter
-from app.pipeline.engine import TurnEngine
-from app.pipeline.factory import EngineConfig, build_engine, load_engine_config
+from app.pipeline.engine import TURN_DEADLINE_S, TurnEngine
+from app.pipeline.factory import EngineConfig, build_engine, load_engine_config, with_policies
 from app.pipeline.record import TurnRecord
 from app.pipeline.session import MemorySessionStore, RedisSessionStore, SessionStore
 from app.storage.db import create_schema, is_sqlite, make_engine, ping, session_factory
@@ -41,6 +48,7 @@ from core.schemas.hospital import HospitalProfile
 log = structlog.get_logger(__name__)
 KEEPALIVE_S = 15.0
 CANCEL_GRACE_S = 1.0
+PURGE_INTERVAL_S = 60 * 60.0
 WARM_UP_MESSAGE = "warm-up: what are the visiting hours?"
 _UNSET: Any = object()
 
@@ -56,6 +64,10 @@ class Overrides:
     cancel_grace_s: float = CANCEL_GRACE_S
     today: Callable[[], date] | None = None
     redis_client: Any = None
+    rate_rules: Callable[[RateRules], RateRules] | None = None
+    purge_interval_s: float = PURGE_INTERVAL_S
+    turn_deadline_s: float | None = None
+    corpus_verifier: CorpusVerifier | None = _UNSET  # default: verify the real retriever, nothing else
 
 
 @dataclass
@@ -73,11 +85,17 @@ class Container:
     kill_switch: KillSwitch
     signer: SessionTokenSigner
     engine: TurnEngine
-    registry: TurnRegistry
+    registry: TurnGate
     keepalive_s: float
     cancel_grace_s: float
     today: Callable[[], date]
+    redis: Any = None
+    purge_interval_s: float = PURGE_INTERVAL_S
+    corpus_verifier: CorpusVerifier | None = None
+    idempotency: IdempotencyStore | None = None
     started: bool = field(default=False)
+    _purge_task: asyncio.Task[None] | None = field(default=None, repr=False)
+    _corpus_task: asyncio.Task[None] | None = field(default=None, repr=False)
 
     @property
     def texts(self) -> Any:
@@ -102,26 +120,64 @@ class Container:
             return
         if is_sqlite(self.settings.database_url) or self.settings.env in ("dev", "test"):
             await create_schema(self.db)
-        try:
-            purged = await self.storage.appointments.purge_expired()
-            log.info("appointments_purged", contacts=purged.contacts, requests=purged.requests)
-        except Exception as exc:
-            log.error("appointment_purge_failed", error=type(exc).__name__)
         await self.warm_up()
+        if self._purge_task is None or self._purge_task.done():
+            self._purge_task = asyncio.create_task(self._purge_loop(), name="retention-purge")
+        if (
+            self.corpus_verifier is not None
+            and isinstance(self.retriever, VerifiedRetriever)
+            and self._corpus_task is None
+        ):
+            check = self.retriever.verify(self.corpus_verifier, self.settings)
+            self._corpus_task = asyncio.create_task(check, name="corpus-verify")
         self.started = True
 
+    async def corpus_ready(self) -> None:
+        """Wait for the startup corpus verification (tests, tooling); returns at once when there is none."""
+        if self._corpus_task is not None:
+            await asyncio.shield(self._corpus_task)
+
     async def warm_up(self) -> None:
-        """Pay one-time costs (thread-pool backend import, lexicon and regex caches) before the first turn,
-        so the first emergency message is as fast as every later one."""
+        """Pay one-time costs before the first turn: the thread-pool backend import, lexicon and regex caches
+        (so the first emergency message is as fast as every later one) and the retriever's BM25 analysers and
+        query-embedding model (review P12). A failed retriever warm-up only costs a slower first answer."""
         sample = process_ingress(
             WARM_UP_MESSAGE, max_chars=self.settings.max_message_chars, today=self.today()
         )
         await anyio.to_thread.run_sync(self.engine.precheck, sample)
+        warmup = getattr(self.retriever, "warmup", None)
+        if warmup is None:
+            return
+        try:
+            await warmup()
+        except Exception as exc:
+            log.warning("retriever_warmup_failed", error=type(exc).__name__)
+
+    async def purge_once(self) -> None:
+        """Retention purge of every table (idempotent; every worker may run it)."""
+        try:
+            counts = await self.storage.purge_expired()
+        except Exception as exc:
+            log.error("retention_purge_failed", error=type(exc).__name__)
+            return
+        log.info("retention_purged", **counts)
+
+    async def _purge_loop(self) -> None:
+        while True:
+            await self.purge_once()
+            await asyncio.sleep(self.purge_interval_s)
 
     async def shutdown(self) -> None:
+        for task in (self._purge_task, self._corpus_task):
+            if task is not None and not task.done():
+                task.cancel()
+            if task is not None:
+                await asyncio.gather(task, return_exceptions=True)
+        self._purge_task = self._corpus_task = None
         await self.db.dispose()
         await _close_quietly(self.retriever, "retriever")
         await _close_quietly(self.llm, "llm")  # the Gemini provider owns an HTTP client
+        await _close_quietly(self.redis, "redis")  # review P17
         self.started = False
 
     async def persist_turn(self, record: TurnRecord) -> None:
@@ -166,7 +222,7 @@ def _session_secret(settings: Settings) -> bytes:
         if len(secret) < 32:
             raise ConfigFileError("AUSCULTA_SESSION_SECRET must be at least 32 characters")
         return secret
-    if settings.env in ("staging", "prod"):
+    if settings.env in ("staging", "prod"):  # also refused by Settings itself; kept as defence in depth
         raise ConfigFileError("AUSCULTA_SESSION_SECRET is required outside dev/test")
     log.warning("session_secret_ephemeral", hint="tokens become invalid on restart")
     return os.urandom(32)
@@ -222,11 +278,13 @@ def build_container(settings: Settings, overrides: Overrides | None = None) -> C
         else MemorySpendMeter(settings.daily_spend_cap_usd)
     )
     llm = _llm(settings, ov, spend)
-    retriever = build_retriever_or_none(settings, llm) if ov.retriever is _UNSET else ov.retriever
+    retriever, verifier = _retriever_and_verifier(settings, ov, llm)
     sessions: SessionStore = (
         RedisSessionStore(redis_client) if redis_client is not None else MemorySessionStore()
     )
-    config = ov.engine_config or load_engine_config(settings.hospital_profile_path)
+    gate: TurnGate = RedisTurnGate(redis_client) if redis_client is not None else MemoryTurnGate()
+    config = with_policies(ov.engine_config or load_engine_config(settings.hospital_profile_path), settings)
+    rules = rules_from_settings(settings)
     db = make_engine(settings.database_url)
     return Container(
         settings=settings,
@@ -236,16 +294,49 @@ def build_container(settings: Settings, overrides: Overrides | None = None) -> C
         sessions=sessions,
         db=db,
         storage=Storage.from_factory(session_factory(db)),
-        rate=RateLimiter(storage_uri(settings), rules_from_settings(settings)),
+        rate=RateLimiter(storage_uri(settings), ov.rate_rules(rules) if ov.rate_rules else rules),
         admission=AdmissionController(settings.llm_concurrency, settings.queue_max, settings.queue_wait_s),
         spend=spend,
         kill_switch=KillSwitch(settings.kill_switch, settings.data_root),
         signer=SessionTokenSigner(_session_secret(settings)),
         engine=build_engine(
-            config, llm=llm, retriever=retriever, sessions=sessions, settings=settings, today=today
+            config,
+            llm=llm,
+            retriever=retriever,
+            sessions=sessions,
+            settings=settings,
+            today=today,
+            deadline_s=ov.turn_deadline_s or TURN_DEADLINE_S,
         ),
-        registry=TurnRegistry(),
+        registry=gate,
         keepalive_s=ov.keepalive_s,
         cancel_grace_s=ov.cancel_grace_s,
         today=today,
+        redis=redis_client,
+        purge_interval_s=ov.purge_interval_s,
+        corpus_verifier=verifier,
+        idempotency=RedisIdempotencyStore(redis_client)
+        if redis_client is not None
+        else MemoryIdempotencyStore(),
     )
+
+
+def _retriever_and_verifier(
+    settings: Settings, ov: Overrides, llm: LLMProvider
+) -> tuple[Retriever | None, CorpusVerifier | None]:
+    """The retriever to serve and how its corpus is verified. The real one (not the fake backend, not a test
+    override) is always checked with rag.verify.verify_live_corpus; a test may pass its own verifier."""
+    real = ov.retriever is _UNSET and settings.llm_backend != "fake"
+    retriever = build_retriever_or_none(settings, llm) if ov.retriever is _UNSET else ov.retriever
+    verifier = ov.corpus_verifier
+    if verifier is _UNSET:
+        verifier = _live_corpus_verifier() if real else None
+    if retriever is None or verifier is None:
+        return retriever, None
+    return VerifiedRetriever(retriever), verifier
+
+
+def _live_corpus_verifier() -> CorpusVerifier:
+    from rag.verify import verify_live_corpus
+
+    return verify_live_corpus

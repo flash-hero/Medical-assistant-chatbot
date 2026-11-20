@@ -1,4 +1,5 @@
-"""Review S1 / S7 / P16 in the rate limiter: client keys by IPv6 /64, a global session-creation cap, a separate
+"""Review S1 / S7 / P16 in the rate limiter: client keys by IPv6 /64, a global session-creation cap, a
+separate
 safety bucket, daily form caps, and storage outages reported as a dependency error (503), not a crash."""
 
 from __future__ import annotations

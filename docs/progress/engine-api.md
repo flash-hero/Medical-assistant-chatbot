@@ -90,7 +90,40 @@ unanswered. Run 1 with the same messages did not do this (model-dependent).
 - Safety events now come right after `meta`, before the demo notice.
 - build_engine crashed at startup when the retriever's corpus_version raised; now degrades to "none".
 
+## P3 review fixes (2026-11-17, docs/reviews/2026-11-16-p3-review.md)
+21 findings fixed test-first; every fix has a regression test that failed before the change.
+
+| ID | Change | Proving tests |
+|---|---|---|
+| C9/P8 | Chat route runs the deterministic precheck right after the token and length check; emergency / self-harm turns bypass kill switch, rate limits, turn budget, 409, per-client cap, spend cap and admission (own 60/min bucket) | tests/app/api/test_api_review_fixes.py `test_c9_*` (5) |
+| S1 | Clients keyed by IPv4 or IPv6 /64 (IPv4-mapped -> IPv4); global session-creation cap 300/min; 2 running model turns per client (429 scope `concurrent`) | `test_s1_*` (4), tests/app/limits/test_limits_review_fixes.py, tests/app/api/test_api_gate.py |
+| P2/S5 | New app/api/gate.py: MemoryTurnGate / RedisTurnGate (SET NX EX lock + compare-and-delete, INCR/DECR per-client count, shared replay frames <= 64 KiB, TTLs); SessionStore.apply(state, SessionUpdate) atomic deltas (Redis: HINCRBY/SADD/RPUSH+LTRIM in MULTI) | tests/app/pipeline/test_pipeline_session_atomic.py, test_api_gate.py, `test_p2_*` (two apps on one FakeRedis) |
+| C6 | high_risk = model verdict OR classifier down OR sticky OR heuristic medication/symptom intent OR population regex (app/pipeline/heuristics.py, EN/FR/AR/Darija); population threshold capped at 0.3 | test_pipeline_review_fixes.py `test_c6_*` |
+| C7 | MEDICATION: drug_label filter on every query, non-label passages dropped, abstain (`no_drug_label`) without one; citation publisher tagged with the label jurisdiction (US FDA / ANSM / EMA / unknown, localised) | `test_c7_*` |
+| C8 | Rewriter re-raises UpstreamBlocked -> refusal + sticky flag; guard block -> sticky flag (no strike); refusal_blocked names the crisis line | `test_c8_*` |
+| C10 | enforce_demo_policy: a demo profile is refused unless demo mode in dev/test (profile None, error log, API keeps running) | `test_c10_*` (pipeline + API) |
+| C11 | `call_fallback` phrases that follow each call verb; sentences needing handoff/switchboard dropped without a profile; neutral `safety_followup_no_contacts` | `test_c11_*` |
+| C13 | Turn count, history, precheck sticky risks and precheck strike saved before the guard call (strike counted once) | `test_c13_*` |
+| C14 | Classifier down + Latin text without English cues -> UI locale | `test_c14_*` |
+| C15 | Engine and TurnStream send a replacing busy answer before the error when deltas were streamed | `test_c15_*` (pipeline + stream level) |
+| P5 | 45 s per-turn deadline -> busy template (degraded `deadline`) | `test_p5_*` |
+| P10/S9 | Non-ASCII bearer token -> 401 (bearer_token + signer.verify) | `test_p10_*` |
+| P12 | Container.warm_up awaits retriever.warmup(); failure logged | `test_p12_*` |
+| P16/P17 | RedisError / limits StorageError / SQLAlchemyError -> 503 dependency_unavailable (+ store wrappers); Redis client closed on shutdown | `test_p16_*`, `test_p17_*`, test_limits_review_fixes.py |
+| S6/P7 | Storage.purge_expired with RETENTION (appointments 30 d, sessions/turns 90 d, feedback 180 d, audit 365 d); purge task at startup + hourly | tests/app/storage/test_storage_review_fixes.py, `test_s6_*` |
+| S7 | Appointment caps 3/session, 10/client/day, 500/day; feedback 40/session, 200/client/day, 5000/day; request-code collision retried 5x | `test_s7_*`, storage tests |
+| S17 | History window capped at 3 user turns | `test_s17_*` |
+| S18 | Appointment e-mail sanitised, quotes / angle brackets / backticks rejected | `test_s18_*` |
+| S8/P6 (api side) | Real retriever wrapped in app/api/corpus.py VerifiedRetriever; startup task runs rag.verify.verify_live_corpus; fail closed (no retrieval, /ready 503) until it passes | tests/app/api/test_api_corpus.py (7) |
+| P15 | Appointment, contact and audit rows in one transaction | storage `test_appointment_and_its_audit_event_commit_together`, `test_audit_failure_rolls_back_the_appointment` |
+
+Also: every AnswerEvent / SafetyEvent now carries `language`; the two tests broken by the stricter
+core/config.py (HSTS staging, session secret) supply the required fields / assert the ValidationError.
+
+Gates after the fixes (evals.fakes.engine_gates, 2026-11-17): emergency template 10.78 ms max (p95 9.53,
+0 model calls), upstream close after disconnect 0.0019 s, 0 leaked slots after 1000 cancels (200:750, 499:250).
+
 ## Next step
-Track complete. For the lead: review/commit (no git state changed here); guardrails owner to look at the
-lexicon-combination test failure and the guard flagging a front-desk question as an emergency right after an
-emergency message (see deliverable 5).
+For the lead: review/commit (no git state changed here). Open items are listed in the review file and the
+final report of the review-fix run (Settings fields for the new caps, Caddy rate limit, Redis memory alert,
+guardrails root cause of C14).

@@ -40,7 +40,8 @@ jobs:
       AUSCULTA_ENV: test
       AUSCULTA_LLM_BACKEND: fake
       AUSCULTA_EMBED_BACKEND: fake
-      AUSCULTA_DATA_ROOT: ${{ runner.temp }}/ausculta-data
+      # job-level env cannot use the runner context (GitHub rejects the whole workflow file)
+      AUSCULTA_DATA_ROOT: /tmp/ausculta-data
       AUSCULTA_SESSION_SECRET: ci-only-not-a-secret-0123456789abcdef0123456789
       QDRANT_URL: http://127.0.0.1:6333
       DATABASE_URL: postgresql+asyncpg://ausculta:ausculta-ci@127.0.0.1:5432/ausculta
@@ -52,11 +53,13 @@ jobs:
       - name: Install
         run: |
           pip install uv==0.13.8
-          uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev]"
+          uv venv .venv && uv pip install --python .venv/bin/python -e ".[dev,load,data]"
       - name: Lint
         run: |
           .venv/bin/ruff check .
           .venv/bin/ruff format --check .
+      - name: Type check
+        run: .venv/bin/mypy app core rag evals data_pipeline
       - name: Contracts up to date
         run: |
           .venv/bin/python scripts/export_contracts.py
@@ -66,7 +69,7 @@ jobs:
       - name: Tests (unit, contract, services) with coverage
         run: .venv/bin/pytest -m "not live" --cov --cov-report=term --cov-report=xml --cov-fail-under=80
       - name: Dependency audit
-        run: .venv/bin/pip-audit --strict --progress-spinner off
+        run: .venv/bin/pip-audit --strict --progress-spinner off -r deploy/requirements.lock
 
   web:
     runs-on: ubuntu-latest
@@ -81,8 +84,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --run
       - run: npm run build
+        env: {API_ORIGIN: "http://127.0.0.1:4010"} # the e2e suite's mock API (web/e2e/global-setup.ts)
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
+        env: {E2E_WORKERS: "2"} # Firefox page crashes under axe with 4 workers on the shared runner
       - run: npm audit --audit-level=high --omit=dev
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()

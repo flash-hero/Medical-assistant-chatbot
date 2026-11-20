@@ -60,3 +60,18 @@ describe("featuredSources", () => {
     expect(featuredSources(sources, 0)).toEqual([]);
   });
 });
+
+describe("T11/T16 attribution data the page renders", () => {
+  const base = seed.sources[0]!;
+
+  it("drops an impossible date instead of letting the page throw while formatting it", () => {
+    const result = parseAttribution({ ...seed, generated_on: "2026-02-30", sources: [{ ...base, license: { ...base.license, verified_on: "2026-13-01" } }] });
+    expect(result.generatedOn).toBeNull();
+    expect(result.sources[0]?.license.verifiedOn).toBeNull();
+  });
+
+  it("keeps one entry per source id", () => {
+    const result = parseAttribution({ ...seed, sources: [base, { ...base, name: "Duplicate" }] });
+    expect(result.sources.map((s) => s.name)).toEqual([base.name]);
+  });
+});

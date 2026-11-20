@@ -32,11 +32,12 @@ services:
     tmpfs: ["/tmp"]
     networks: [edge]
 
-  api:
-    <<: *restart
-    build: {context: .., dockerfile: deploy/api.Dockerfile}
+  # One-shot schema migration (alembic upgrade head) before the API starts; same image as the API.
+  migrate:
+    image: ausculta-api:latest
+    pull_policy: never
     env_file: [.env.prod]
-    environment:
+    environment: &api-env
       AUSCULTA_ENV: prod
       AUSCULTA_TRUSTED_PROXY_COUNT: "1"
       AUSCULTA_EMBED_BACKEND: ${AUSCULTA_EMBED_BACKEND:-local}
@@ -45,12 +46,28 @@ services:
       QDRANT_URL: http://qdrant:6333
       DATABASE_URL: postgresql+asyncpg://ausculta:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/ausculta
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+    command: ["alembic", "-c", "app/storage/alembic.ini", "upgrade", "head"]
+    restart: "no"
+    read_only: true
+    tmpfs: ["/tmp"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [internal]
+
+  api:
+    <<: *restart
+    image: ausculta-api:latest
+    build: {context: .., dockerfile: deploy/api.Dockerfile}
+    env_file: [.env.prod]
+    environment: *api-env
     read_only: true
     tmpfs: ["/tmp"]
     # Writable data root: embedding model + BM25 assets (copied from the image into a new volume on first use),
     # corpus manifests (active.json), the kill-switch file, logs. Review P3/S15.
     volumes: [api_data:/data]
     depends_on:
+      migrate: {condition: service_completed_successfully}
       qdrant: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}

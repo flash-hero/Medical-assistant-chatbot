@@ -13,8 +13,10 @@ export interface ChatActions {
   readonly retry: (turn: Turn) => void;
   readonly newConversation: () => void;
   readonly sendFeedback: (turn: Turn, body: Omit<FeedbackBody, "turn_id">) => Promise<void>;
-  readonly submitForm: (turn: Turn, body: Readonly<Record<string, string | boolean>>) => Promise<void>;
-  readonly openSource: (citation: Citation, answerLocale: ChatLocale, trigger: HTMLElement) => void;
+  /** `idempotencyKey` is the same for a retried, unchanged request (review T14). */
+  readonly submitForm: (turn: Turn, body: Readonly<Record<string, string | boolean>>, idempotencyKey: string) => Promise<void>;
+  /** `answerLanguage` is the language the answer is written in, which may differ from the UI locale. */
+  readonly openSource: (citation: Citation, answerLanguage: ChatLocale, trigger: HTMLElement) => void;
   readonly openHandoff: (trigger: HTMLElement) => void;
 }
 

@@ -1,15 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { feedSse, INITIAL_SSE_STATE, type SseMessage, SseBufferOverflow } from "@/lib/sse/parser";
-import { readSseStream } from "@/lib/sse/stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createSseParser, MAX_EVENT_CHARS, type SseMessage, SseBufferOverflow } from "@/lib/sse/parser";
+import { readSseStream, SseTimeoutError } from "@/lib/sse/stream";
 
 function parseAll(chunks: readonly string[]): SseMessage[] {
-  let state = INITIAL_SSE_STATE;
+  const parser = createSseParser();
   const out: SseMessage[] = [];
-  for (const chunk of chunks) {
-    const result = feedSse(state, chunk);
-    state = result.state;
-    out.push(...result.messages);
-  }
+  for (const chunk of chunks) out.push(...parser.feed(chunk));
   return out;
 }
 
@@ -23,7 +19,7 @@ function streamOf(parts: readonly (string | Uint8Array)[]): ReadableStream<Uint8
   });
 }
 
-describe("feedSse", () => {
+describe("SSE parser", () => {
   it("parses a single event with a type and JSON data", () => {
     const [msg] = parseAll(['event: delta\ndata: {"type":"delta","text":"Hi"}\n\n']);
     expect(msg).toEqual({ event: "delta", data: '{"type":"delta","text":"Hi"}', id: null, retry: null });
@@ -103,21 +99,61 @@ describe("feedSse", () => {
   });
 
   it("keeps an incomplete trailing event buffered", () => {
-    const first = feedSse(INITIAL_SSE_STATE, "event: delta\ndata: partial");
-    expect(first.messages).toEqual([]);
-    const second = feedSse(first.state, " text\n\n");
-    expect(second.messages[0]?.data).toBe("partial text");
+    const parser = createSseParser();
+    expect(parser.feed("event: delta\ndata: partial")).toEqual([]);
+    expect(parser.feed(" text\n\n")[0]?.data).toBe("partial text");
   });
 
-  it("does not mutate the previous state", () => {
-    const before = INITIAL_SSE_STATE;
-    const snapshot = JSON.stringify(before);
-    feedSse(before, "data: x\n");
-    expect(JSON.stringify(before)).toBe(snapshot);
+  it("keeps two parsers independent", () => {
+    const a = createSseParser();
+    const b = createSseParser();
+    a.feed("data: from a");
+    expect(b.feed("data: from b\n\n").map((m) => m.data)).toEqual(["from b"]);
+    expect(a.feed("\n\n").map((m) => m.data)).toEqual(["from a"]);
   });
 
-  it("refuses a line that grows past the buffer limit", () => {
-    expect(() => feedSse(INITIAL_SSE_STATE, `data: ${"x".repeat(2_000_000)}`)).toThrow(SseBufferOverflow);
+  it("refuses a line that grows past the limit, even when it arrives in small chunks", () => {
+    expect(() => createSseParser().feed(`data: ${"x".repeat(MAX_EVENT_CHARS + 10)}`)).toThrow(SseBufferOverflow);
+    const parser = createSseParser(1_000);
+    expect(() => {
+      for (let i = 0; i < 200; i += 1) parser.feed("data: xxxx");
+    }).toThrow(SseBufferOverflow);
+  });
+});
+
+describe("T6 SSE parser cost and size cap", () => {
+  it("caps the whole event, not only one line: many short data lines overflow too", () => {
+    const parser = createSseParser(10_000);
+    const line = `data: ${"y".repeat(90)}\n`;
+    expect(() => parser.feed(line.repeat(200))).toThrow(SseBufferOverflow);
+  });
+
+  it("resets the budget after each dispatched event", () => {
+    const parser = createSseParser(1_000);
+    const event = `data: ${"z".repeat(600)}\n\n`;
+    const out: SseMessage[] = [];
+    for (let i = 0; i < 20; i += 1) out.push(...parser.feed(event));
+    expect(out).toHaveLength(20);
+  });
+
+  it("parses a large event delivered one character at a time in linear time", () => {
+    const text = `event: answer\ndata: ${"a".repeat(150_000)}\n\n`;
+    const parser = createSseParser();
+    const started = performance.now();
+    const out: SseMessage[] = [];
+    for (const ch of text) out.push(...parser.feed(ch));
+    const elapsed = performance.now() - started;
+    expect(out).toHaveLength(1);
+    expect(out[0]?.data.length).toBe(150_000);
+    expect(elapsed).toBeLessThan(1_500);
+  });
+
+  it("parses thousands of short lines in one chunk in linear time", () => {
+    const text = "data: x\n".repeat(20_000) + "\n";
+    const started = performance.now();
+    const out = createSseParser().feed(text);
+    expect(performance.now() - started).toBeLessThan(1_500);
+    expect(out[0]?.data.length).toBe(20_000 * 2 - 1);
   });
 });
 
@@ -159,5 +195,64 @@ describe("readSseStream", () => {
     ).rejects.toThrow(/abort/i);
     expect(seen).toHaveLength(3);
     expect(cancelled).toBe(true);
+  });
+});
+
+describe("T10 stream liveness", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function silentAfter(first: string): { body: ReadableStream<Uint8Array>; cancelled: () => boolean; push: (text: string) => void } {
+    let cancelled = false;
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        controller = c;
+        c.enqueue(new TextEncoder().encode(first));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    return { body, cancelled: () => cancelled, push: (text) => controller?.enqueue(new TextEncoder().encode(text)) };
+  }
+
+  it("aborts a stream that stays silent for the idle timeout and closes the connection", async () => {
+    vi.useFakeTimers();
+    const silent = silentAfter("data: hello\n\n");
+    const seen: string[] = [];
+    const run = (async () => {
+      for await (const msg of readSseStream(silent.body, undefined, { idleTimeoutMs: 45_000 })) seen.push(msg.data);
+    })();
+    const outcome = expect(run).rejects.toBeInstanceOf(SseTimeoutError);
+    await vi.advanceTimersByTimeAsync(45_001);
+    await outcome;
+    expect(seen).toEqual(["hello"]);
+    expect(silent.cancelled()).toBe(true);
+  });
+
+  it("counts keep-alive comments as activity", async () => {
+    vi.useFakeTimers();
+    const live = silentAfter(": keep-alive\n\n");
+    let finished = false;
+    const run = (async () => {
+      for await (const _ of readSseStream(live.body, undefined, { idleTimeoutMs: 45_000 })) void _;
+      finished = true;
+    })();
+    const settled = run.then(
+      () => null,
+      (error: unknown) => error,
+    );
+    for (let i = 0; i < 4; i += 1) {
+      await vi.advanceTimersByTimeAsync(15_000);
+      live.push(": keep-alive\n\n");
+    }
+    expect(live.cancelled()).toBe(false);
+    live.push("data: done\n\n");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(finished).toBe(false);
+    await vi.advanceTimersByTimeAsync(45_001);
+    expect(await settled).toBeInstanceOf(SseTimeoutError);
   });
 });

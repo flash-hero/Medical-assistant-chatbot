@@ -13,7 +13,7 @@ import { createServer } from "node:http";
 import { setTimeout as sleep } from "node:timers/promises";
 import { publicHospital, RELEASE } from "./fixtures.mjs";
 import { appointmentConfirmation, validateAppointment } from "./form-scenario.mjs";
-import { buildScript, pickScenario } from "./scenarios.mjs";
+import { buildScript, detectLanguage, pickScenario } from "./scenarios.mjs";
 
 const PORT = Number.parseInt(process.env.MOCK_API_PORT ?? "4010", 10);
 const HOST = process.env.MOCK_API_HOST ?? "127.0.0.1";
@@ -139,9 +139,17 @@ async function chat(req, res) {
   const { message, locale, clientTurnId } = parseChatBody(await readJson(req));
   if (session.turnsLeft <= 0) throw new HttpError(429, "session_exhausted", "Question limit reached.");
   const scenario = pickScenario(message);
-  const ctx = { locale, turnId: randomUUID(), sessionId: session.sessionId, turnsLeft: session.turnsLeft - 1 };
+  // Like the server's classifier: answer in the question's language, else the UI locale.
+  const language = detectLanguage(message) ?? locale;
+  const ctx = { locale, language, turnId: randomUUID(), sessionId: session.sessionId, turnsLeft: session.turnsLeft - 1 };
   const script = buildScript(scenario, ctx);
   if (script.kind === "error") throw new HttpError(script.status, script.body.error.code, script.body.error.message, script.retry);
+  if (script.kind === "raw") {
+    // A reverse proxy's own error page: no JSON envelope (review T5).
+    res.writeHead(script.status, { "content-type": script.contentType, "cache-control": "no-store" });
+    res.end(script.body);
+    return;
+  }
   session.turnsLeft -= 1;
   await streamTurn(res, script, trackTurn(clientTurnId, scenario));
 }

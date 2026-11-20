@@ -14,6 +14,8 @@ export { ApiError, parseRetryAfter } from "./errors";
 export type { PhoneContact, PublicDepartment, PublicHospital } from "./hospital";
 
 const API = "/api/v1";
+/** The chat stream's response headers may wait for admission; after them the stream's idle timeout applies. */
+const CHAT_HEADERS_TIMEOUT_MS = 45_000;
 const JSON_HEADERS = { "content-type": "application/json", accept: "application/json" } as const;
 
 export interface Session {
@@ -96,7 +98,7 @@ export async function openChatStream(request: ChatRequest): Promise<ReadableStre
     body: JSON.stringify({ message: request.message, locale: request.locale, client_turn_id: request.clientTurnId }),
     cache: "no-store",
     signal: request.signal,
-  });
+  }, { stream: true, timeoutMs: CHAT_HEADERS_TIMEOUT_MS });
   await ensureOk(response);
   const type = response.headers.get("content-type") ?? "";
   if (!type.toLowerCase().startsWith("text/event-stream") || response.body === null) {
@@ -130,16 +132,22 @@ export interface AppointmentResult {
   readonly message: string;
 }
 
-/** Personal data: posted only to a same-origin API path, never sent anywhere else. */
+/**
+ * Personal data: posted only to a same-origin API path, never sent anywhere else. `idempotencyKey`
+ * stays the same when the patient retries the same request, so a retry after a lost response cannot
+ * file it twice once the server honours the header (review T14).
+ */
 export async function postAppointment(
   token: string,
   submitUrl: string,
   body: Readonly<Record<string, string | boolean>>,
+  idempotencyKey?: string,
 ): Promise<AppointmentResult> {
   if (!isSafeSubmitUrl(submitUrl)) throw new ApiError("invalid_submit_url", 0);
+  const headers = idempotencyKey ? { ...bearer(token), "idempotency-key": idempotencyKey } : bearer(token);
   const response = await safeFetch(submitUrl, {
     method: "POST",
-    headers: bearer(token),
+    headers,
     body: JSON.stringify(body),
     cache: "no-store",
   });

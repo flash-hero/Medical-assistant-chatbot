@@ -110,6 +110,20 @@ def test_texts_errors_fall_back_to_internal_error(engine_config) -> None:
     assert texts.error("no_such_code", "en") == texts.error("internal_error", "en")
 
 
+@pytest.mark.parametrize("code", ["dependency_unavailable", "overloaded", "service_paused"])
+@pytest.mark.parametrize("locale", ["en", "fr", "ar"])
+def test_503_errors_name_the_emergency_and_crisis_numbers(engine_config, code: str, locale: str) -> None:
+    """P5-D8: a refused request still points at urgent help, with the hospital's numbers when known."""
+    texts, profile = engine_config.texts, engine_config.profile_state.profile
+    msg = texts.error(code, locale, profile)
+    assert profile.emergency.number in msg
+    assert profile.crisis_lines[0].number in msg
+    generic = texts.error(code, locale)
+    assert texts.call_fallback[locale] in generic
+    assert "{" not in generic
+    assert "{" not in msg
+
+
 def test_render_ignores_unknown_placeholders_and_falls_back_to_english() -> None:
     assert render({"en": "a {missing} b"}, "fr", {}) == "a  b"
     assert render({"en": "x", "fr": ""}, "fr", {}) == "x"

@@ -97,6 +97,7 @@ def api_factory(
         rate_rules: Any = None,
         purge_interval_s: float = 3600.0,
         turn_deadline_s: float | None = None,
+        corpus_verifier: Any = None,
         client: tuple[str, int] = ("203.0.113.7", 50000),
         **env: Any,
     ) -> AsyncIterator[Api]:
@@ -114,6 +115,7 @@ def api_factory(
             rate_rules=rate_rules,
             purge_interval_s=purge_interval_s,
             turn_deadline_s=turn_deadline_s,
+            corpus_verifier=corpus_verifier,
         )
         app = create_app(settings, overrides=overrides)
         container: Container = app.state.container

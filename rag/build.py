@@ -12,6 +12,7 @@ from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from types import MappingProxyType
 
 import structlog
@@ -42,6 +43,8 @@ class BuildRequest:
     batch_size: int = (
         90  # chunks per embed+upsert+commit step (local CPU: ~33 s; Gemini: one throttle window)
     )
+    # (source_id, path of a file with one doc_id per line): index only those documents of that source
+    only_docs: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         validate_corpus_version(self.corpus_version)
@@ -51,6 +54,17 @@ class BuildRequest:
             validate_source_id(s)
         if self.limit is not None and self.limit < 1:
             raise ValueError("limit must be >= 1")
+        for source, _path in self.only_docs:
+            if source not in self.sources:
+                raise ValueError(f"--only-docs names {source!r}, which is not in --sources")
+
+    def doc_filter(self, source_id: str) -> frozenset[str] | None:
+        """Doc ids to keep for a source, or None to keep every document of that source."""
+        for source, path in self.only_docs:
+            if source == source_id:
+                lines = Path(path).read_text(encoding="utf-8").splitlines()
+                return frozenset(line.strip() for line in lines if line.strip())
+        return None
 
     @property
     def collection(self) -> str:
@@ -58,7 +72,8 @@ class BuildRequest:
 
     def resume_command(self) -> str:
         cmd = f"python -m rag build --corpus-version {self.corpus_version} --sources {','.join(self.sources)}"
-        return cmd + (f" --limit {self.limit}" if self.limit else "")
+        cmd += f" --limit {self.limit}" if self.limit else ""
+        return cmd + "".join(f" --only-docs {source}={path}" for source, path in self.only_docs)
 
 
 @dataclass(frozen=True)
@@ -106,7 +121,13 @@ def _parse_document(raw: str) -> Document | None:
 
 
 def load_documents(
-    paths: DataPaths, registry: Registry, source_id: str, limit: int | None, *, require_ready: bool = True
+    paths: DataPaths,
+    registry: Registry,
+    source_id: str,
+    limit: int | None,
+    *,
+    require_ready: bool = True,
+    keep: frozenset[str] | None = None,
 ) -> SourceLoad:
     """Validated, policy-checked Documents of one source. Bad lines are counted and skipped.
     `require_ready=False` is for dry-run planning only (`python -m rag plan`); builds always require it."""
@@ -119,6 +140,8 @@ def load_documents(
     seen: set[str] = set()
     for _lineno, raw in iter_jsonl(paths.normalized_file(source_id)):
         doc = _parse_document(raw)
+        if keep is not None and doc is not None and doc.doc_id not in keep:
+            continue  # curated subset (--only-docs): not selected, not an error
         reason = "invalid_document" if doc is None else registry.refusal_reason(doc, source_id)
         if doc is not None and reason is None:
             if doc.checksum and doc.checksum != doc.with_checksum().checksum:
@@ -201,7 +224,9 @@ class IndexBuilder:
         loads, chunks = [], []
         for source_id in req.sources:
             record = self._registry.require_indexable(source_id)
-            load = load_documents(self._paths, self._registry, source_id, req.limit)
+            load = load_documents(
+                self._paths, self._registry, source_id, req.limit, keep=req.doc_filter(source_id)
+            )
             per_source = [
                 c
                 for d in load.documents

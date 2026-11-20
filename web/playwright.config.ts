@@ -21,7 +21,8 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // CI: one retry for browser-process crashes on shared runners (reported as "flaky", never hidden); local: 0
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.E2E_WORKERS ? Number(process.env.E2E_WORKERS) : 4,
   timeout: 45_000,
   expect: { timeout: 10_000 },

@@ -42,6 +42,8 @@ dev = [
   "pip-audit>=2.9",
 ]
 load = ["locust>=2.47"]
+# data_pipeline only (not in the API image): streaming JSON for the multi-GB openFDA download
+data = ["ijson>=3.3"]
 
 [build-system]
 requires = ["hatchling>=1.27"]

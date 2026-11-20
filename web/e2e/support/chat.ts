@@ -29,6 +29,9 @@ export const PROMPTS: Readonly<Record<Locale, Readonly<Record<string, string>>>>
     overloaded: "Trigger 503 please",
     slow: "Give me a slow answer",
     fail: "This one will fail",
+    emergencyAbuse: "My partner hits me and now I have chest pain",
+    drift: "I took an overdose of my pills",
+    badGateway: "Trigger 502 please",
   },
   fr: {
     streamed: "Que mesure le test HbA1c ?",
@@ -43,6 +46,9 @@ export const PROMPTS: Readonly<Record<Locale, Readonly<Record<string, string>>>>
     overloaded: "Déclenche 503",
     slow: "Une réponse lente, s'il te plaît",
     fail: "Celle-ci sera un échec",
+    emergencyAbuse: "Mon conjoint me frappe et j'ai une douleur dans la poitrine",
+    drift: "J'ai pris une surdose de médicaments",
+    badGateway: "Déclenche 502",
   },
   ar: {
     streamed: "ماذا يقيس فحص HbA1c؟",
@@ -57,8 +63,24 @@ export const PROMPTS: Readonly<Record<Locale, Readonly<Record<string, string>>>>
     overloaded: "اختبار 503",
     slow: "أجب ببطء من فضلك",
     fail: "هذا الطلب سيفشل",
+    emergencyAbuse: "زوجي يضربني ولدي ألم في الصدر",
+    drift: "تناولت جرعة زائدة من الدواء",
+    badGateway: "اختبار 502",
   },
 };
+
+/**
+ * A question typed in another language than the UI's: the server (and the mock) answers in the
+ * question's language (review T1).
+ */
+export const OTHER_LANGUAGE: Readonly<Record<Locale, { readonly prompt: string; readonly language: Locale; readonly dir: "ltr" | "rtl" }>> = {
+  en: { prompt: PROMPTS.ar.streamed!, language: "ar", dir: "rtl" },
+  fr: { prompt: PROMPTS.ar.streamed!, language: "ar", dir: "rtl" },
+  ar: { prompt: PROMPTS.fr.streamed!, language: "fr", dir: "ltr" },
+};
+
+/** Localised names of the mock hospital's first bookable department (e2e/mock-api/fixtures.mjs). */
+export const FIRST_DEPARTMENT: Readonly<Record<Locale, string>> = { en: "Cardiology", fr: "Cardiologie", ar: "أمراض القلب" };
 
 /** Open the chat and wait until the session exists (the example questions become enabled). */
 export async function openChat(page: Page, locale: Locale): Promise<void> {

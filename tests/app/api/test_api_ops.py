@@ -160,7 +160,15 @@ async def test_security_headers_on_success_and_error(api) -> None:
 
 
 async def test_hsts_only_in_staging_and_prod(api_factory) -> None:
-    async with api_factory(AUSCULTA_ENV="staging") as api:
+    from evals.fakes.fake_redis import FakeRedis
+
+    staging = {  # the smallest configuration core/config.py accepts for staging (review P11/S14)
+        "AUSCULTA_ENV": "staging",
+        "AUSCULTA_ALLOW_FAKE": True,
+        "REDIS_URL": "redis://127.0.0.1:6390/0",
+        "DATABASE_URL": "postgresql+asyncpg://u:p@127.0.0.1:1/db",
+    }
+    async with api_factory(redis_client=FakeRedis(), **staging) as api:
         r = await api.client.get(f"{API}/health")
         assert r.headers["strict-transport-security"].startswith("max-age=")
         assert (await api.client.get(f"{API}/openapi.json")).status_code == 404  # docs off outside dev/test

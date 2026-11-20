@@ -1,3 +1,4 @@
+import { mergeSafety } from "./safety";
 import type { AnswerEvent, ChatEvent, ChatLocale, FormEvent, NoticeEvent, SafetyEvent, Stage } from "./types";
 
 export type TurnPhase = "pending" | "streaming" | "done" | "stopped" | "error";
@@ -20,7 +21,8 @@ export interface Turn {
   readonly stage: Stage | null;
   readonly streamed: string;
   readonly answer: AnswerEvent | null;
-  readonly safety: SafetyEvent | null;
+  /** Every safety event of this turn, one per kind, highest priority first (non-sticky ones render inline). */
+  readonly safety: readonly SafetyEvent[];
   readonly notices: readonly NoticeEvent[];
   readonly form: FormEvent | null;
   readonly formResult: { readonly requestId: string; readonly message: string } | null;
@@ -30,14 +32,16 @@ export interface Turn {
 
 export interface ChatState {
   readonly turns: readonly Turn[];
-  /** Sticky emergency / crisis banner: once shown, it stays for the rest of the session. */
-  readonly safety: SafetyEvent | null;
+  /** Sticky emergency / crisis banners, one per kind, highest priority first: they stay for the session. */
+  readonly safety: readonly SafetyEvent[];
+  /** Questions left: the session's count, one less as soon as a turn is admitted, then the server's number. */
   readonly turnsLeft: number | null;
   readonly demoMode: boolean | null;
   readonly sessionId: string | null;
 }
 
 export type ChatAction =
+  | { readonly type: "session/started"; readonly turnsLeft: number }
   | { readonly type: "turn/submit"; readonly id: string; readonly question: string; readonly locale: ChatLocale }
   | { readonly type: "turn/event"; readonly id: string; readonly event: ChatEvent }
   | { readonly type: "turn/failed"; readonly id: string; readonly error: TurnError }
@@ -49,7 +53,7 @@ export type ChatAction =
 
 export const INITIAL_CHAT_STATE: ChatState = Object.freeze({
   turns: Object.freeze([]) as readonly Turn[],
-  safety: null,
+  safety: Object.freeze([]) as readonly SafetyEvent[],
   turnsLeft: null,
   demoMode: null,
   sessionId: null,
@@ -76,7 +80,7 @@ function newTurn(id: string, question: string, locale: ChatLocale): Turn {
     stage: null,
     streamed: "",
     answer: null,
-    safety: null,
+    safety: [],
     notices: [],
     form: null,
     formResult: null,
@@ -92,7 +96,7 @@ function applyTurnEvent(turn: Turn, event: ChatEvent): Turn {
     case "status":
       return turn.answer ? turn : { ...turn, stage: event.stage, phase: "streaming" };
     case "safety":
-      return { ...turn, safety: event };
+      return { ...turn, safety: mergeSafety(turn.safety, event) };
     case "delta":
       return turn.answer ? turn : { ...turn, streamed: turn.streamed + event.text, phase: "streaming" };
     case "answer":
@@ -104,16 +108,28 @@ function applyTurnEvent(turn: Turn, event: ChatEvent): Turn {
     case "error":
       return { ...turn, stage: null, phase: "error", error: { code: event.code, message: event.message, retryAfterS: event.retry_after_s } };
     case "done":
-      return { ...turn, stage: null, phase: turn.error ? "error" : "done" };
+      return finishTurn(turn);
   }
+}
+
+/** The server never answered: an error with a retry instead of an empty bubble (review T15). */
+const NO_ANSWER: TurnError = { code: "no_answer", message: "", retryAfterS: null };
+
+function finishTurn(turn: Turn): Turn {
+  if (turn.error) return { ...turn, stage: null, phase: "error" };
+  if (turn.answer === null && turn.form === null) return { ...turn, stage: null, phase: "error", error: NO_ANSWER };
+  return { ...turn, stage: null, phase: "done" };
 }
 
 function applySessionEvent(state: ChatState, event: ChatEvent): ChatState {
   switch (event.type) {
-    case "meta":
-      return { ...state, sessionId: event.session_id, demoMode: event.demo_mode };
+    case "meta": {
+      // The server admitted the turn, so it counts even if the stream later breaks (review T18).
+      const turnsLeft = state.turnsLeft === null ? null : Math.max(0, state.turnsLeft - 1);
+      return { ...state, sessionId: event.session_id, demoMode: event.demo_mode, turnsLeft };
+    }
     case "safety":
-      return event.sticky ? { ...state, safety: event } : state;
+      return event.sticky ? { ...state, safety: mergeSafety(state.safety, event) } : state;
     case "done":
       return { ...state, turnsLeft: event.turns_left };
     default:
@@ -138,14 +154,22 @@ function onEvent(state: ChatState, id: string, event: ChatEvent): ChatState {
 
 const ENDED_WITHOUT_DONE: TurnError = { code: "network", message: "", retryAfterS: null };
 
+function onFailed(state: ChatState, id: string, error: TurnError): ChatState {
+  const next = updateTurn(state, id, (t) => ({ ...t, phase: "error", stage: null, error }));
+  return error.code === "session_exhausted" ? { ...next, turnsLeft: 0 } : next;
+}
+
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
+    case "session/started":
+      // Seeds the counter; once the conversation has its own count, that one is newer.
+      return state.turnsLeft === null ? { ...state, turnsLeft: action.turnsLeft } : state;
     case "turn/submit":
       return { ...state, turns: [...state.turns, newTurn(action.id, action.question, action.locale)] };
     case "turn/event":
       return onEvent(state, action.id, action.event);
     case "turn/failed":
-      return updateTurn(state, action.id, (t) => ({ ...t, phase: "error", stage: null, error: action.error }));
+      return onFailed(state, action.id, action.error);
     case "turn/stopped":
       return updateTurn(state, action.id, (t) => (isTurnActive(t) ? { ...t, phase: "stopped", stage: null } : t));
     case "turn/ended":

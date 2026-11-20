@@ -42,6 +42,18 @@ _INVISIBLES = frozenset(
 # Kept on purpose: ZWNJ U+200C and ZWJ U+200D (Arabic/Persian shaping, emoji), LRM U+200E,
 # RLM U+200F, ALM U+061C (legitimate direction marks), U+FE0F (emoji presentation, max one in a row).
 _KEEP_CONTROLS = frozenset({0x09, 0x0A})
+# Every character sanitize() may remove, plus U+FE0F (removed when repeated). Text without any of them skips
+# the per-character loop, which was most of the CPU time of a streamed turn (P5 overload profile: the output
+# checks sanitize every released delta). tests/core/test_text_sanitize_fast_path.py checks this class
+# against _classify for every code point.
+_NONCHARACTERS = "".join(f"{chr((p << 16) | 0xFFFE)}{chr((p << 16) | 0xFFFF)}" for p in range(17))
+_SUSPECT = re.compile(
+    "[\x00-\x08\x0b-\x1f\x7f-\x9f­͏ᅟᅠ᠎​‪-‮⁠-⁤"
+    "⁦-⁩ㅤ-﷐-﷯︀-️﻿ﾠ￹-￻"
+    "\U000e0000-\U000e007f\U000e0100-\U000e01ef\U000f0000-\U000ffffd\U00100000-\U0010fffd"
+    + _NONCHARACTERS
+    + "]"
+)
 
 _MULTI_NEWLINES = re.compile(r"\n{3,}")
 _TRAILING_SPACES = re.compile(r"[ \t]+\n")
@@ -91,6 +103,8 @@ def sanitize(text: str, *, max_chars: int | None = None) -> SanitizeResult:
     Does NOT apply NFKC (that would rewrite Arabic presentation forms and ligatures in stored text).
     """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+    if _SUSPECT.search(text) is None:  # nothing to remove: the loop below would keep every character
+        return _finish(text, 0, set(), max_chars)
     out: list[str] = []
     flags: set[str] = set()
     removed = 0
@@ -109,7 +123,10 @@ def sanitize(text: str, *, max_chars: int | None = None) -> SanitizeResult:
             removed += 1
             continue
         out.append(ch)
-    cleaned = "".join(out)
+    return _finish("".join(out), removed, flags, max_chars)
+
+
+def _finish(cleaned: str, removed: int, flags: set[str], max_chars: int | None) -> SanitizeResult:
     cleaned = _SPACES.sub(" ", cleaned)
     cleaned = _TRAILING_SPACES.sub("\n", cleaned)
     cleaned = _MULTI_NEWLINES.sub("\n\n", cleaned).strip()

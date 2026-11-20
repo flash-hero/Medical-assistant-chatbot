@@ -57,7 +57,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         from data_pipeline.report import write_reports
 
         gates = write_reports(paths, audit_size=args.audit_size)
-        sys.stdout.write(f"wrote {paths.reports / 'data_gates.json'} ({len(gates['per_source'])} sources)\n")
+        per_source = gates.get("per_source")
+        n_sources = len(per_source) if isinstance(per_source, (list, dict)) else 0
+        sys.stdout.write(f"wrote {paths.reports / 'data_gates.json'} ({n_sources} sources)\n")
         return 0
     status = 0
     for source_id in _targets(args):

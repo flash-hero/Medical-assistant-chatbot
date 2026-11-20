@@ -116,15 +116,80 @@ landing clean). Two late insertions after POST /session answered:
   ui.e2e_pass_rate 1 (n=326), ui.axe_serious 0 (n=180), ui.lighthouse_a11y 100 (n=12),
   ui.csp_violations 0 (n=326), ui.chat_js_gzip_kb 177.5 (n=3): **PASS 5, FAIL 0, MISSING 0**.
 
+## Run 6 (2026-11-17): review fixes T1-T18 (docs/reviews/2026-11-16-p3-review.md, "Web (T)")
+
+Each finding got a failing test first (Vitest, plus E2E where the mock can reproduce it), then the fix.
+The mock API now follows the real contract, so the E2E suite would have caught T1 and T3: answers are
+written in the question's language (`detectLanguage`, like the server's classifier) and tagged with
+`language`; department options are ids (app/pipeline/forms.py) with a `consent` select and a
+`preferred_dates` textarea; phone/e-mail rules match app/api/schemas.py; new scenarios
+`emergency_abuse` (two safety events in one turn), `safety_drift` (drifted safety event + impossible
+citation date), `bad_gateway` (502 HTML page, no envelope); the medication answer cites an English and a
+French source.
+
+| ID | Fix | Proving tests |
+|---|---|---|
+| T1 | `lib/i18n/text-language.ts` (language by script/function words, direction by dominant script); `lib/chat/language.ts` `answerLanguage` = `answer.language` ?? detection ?? UI locale. Answer container gets that `lang`/`dir`, every paragraph/list item its own `dir`; question bubble, safety title/message, notices and error text get their own `lang`/`dir`; the drawer compares the source with the answer's language and formats dates in the UI locale. | text-language.test.ts, events.test.ts "T1", chat-ui.test.tsx "T1"; E2E chat-answers "answers in the language of the question (T1)" |
+| T2 | `lib/chat/safety.ts`: safety kept per kind in SAFETY_ORDER (state and turn), banner renders all, contacts merged by dialled number; "new conversation" keeps the merged list. | safety.test.ts, reducer.test.ts "T2", chat-ui "T2"; E2E chat-contract "two safety events" |
+| T3 | Department option labels from the hospital profile (`departmentLabel`), humanised id only without a profile. | chat-ui "T3", mock-scenarios "T3"; E2E chat-flows appointment (option text, body `department_id: "cardiology"`) |
+| T4 | `parseSafety` never rejects: unknown kind -> emergency, text truncated (500/4000), contacts filtered one by one, bad `sticky` -> true; unparseable payload -> `FALLBACK_SAFETY`. Banner falls back to i18n text and the hospital's emergency/crisis numbers, else "call your local emergency number". | events "T4", run-turn "T4", chat-ui "T4"; E2E chat-contract "drifted safety event" |
+| T5 | `ApiError.serverMessage` (envelope message only); `toTurnError` forwards nothing else. | api "T5", run-turn "T5", chat-ui "T5"; E2E chat-contract "proxy error page" |
+| T6 | `createSseParser`: one regex scan per chunk from the last offset, incomplete line kept in pieces, data lines pushed; cap 256 K chars per event (data + current line) -> `SseBufferOverflow` -> `invalid_response`. 150 K chars fed one at a time: linear. | sse-parser "T6", run-turn "T6" |
+| T7 | Badge text from distinct citation languages differing from the answer's (`foreignSourceLanguages`, `Intl.ListFormat`), "all"/"some" wording, EN/FR/AR. | text-language "T7", chat-ui "T7"; E2E chat-answers verified (badge names the languages) |
+| T8 | Stop -> focus to the message box when Stop had focus; feedback thank-you and appointment confirmation take focus; stopped note `role="status"` and announced through the live region. | chat-ui "T8"; E2E keyboard (focus after Stop), feedback (thanks focused), appointment (confirmation focused) |
+| T9 | "Incomplete, not checked" note when streamed text has no confirmed answer (error or stopped). | chat-ui "T9"; E2E chat-flows mid-stream error and Stop |
+| T10 | `readSseStream` idle timeout 45 s (any bytes reset it, keep-alives included) -> `timeout` error; `safeFetch` deadline 20 s for JSON calls (body included), 45 s for the chat headers. | sse-parser "T10", api "T10", run-turn "T10" |
+| T11 | `app/[locale]/error.tsx` (localised, emergency/crisis/front-desk numbers fetched from GET /hospital, `retry()`); layout serialises only `ErrorPage` messages; citation and attribution dates validated as real calendar dates; drawer date formatting cannot throw. | chat-ui "T11", events "T11", validate "T11", attribution "T11"; E2E chat-contract (drawer with an impossible date) |
+| T12 | `telHref` drops the "(0)" trunk prefix of international numbers. | api "T12" |
+| T13 | Non-sticky safety events render inside their turn (`turn-safety`, `role="alert"`). | reducer "T13", chat-ui "T13" |
+| T14 | Client phone/e-mail rules = server's; submission errors explained by code (invalid input, rate limit, unavailable, expired, network); `Idempotency-Key` header, same key for an unchanged retry. | form-validate "T14", api "T14", chat-ui "T14", mock-scenarios "T3" |
+| T15 | `done` without answer or form -> `no_answer` error with Retry (no blank bubble). | reducer "T15", chat-ui "T5/T15" |
+| T16 | Server lists de-duplicated at the parse boundary (citations by n, fields by name, options, departments, crisis lines, safety contacts, attribution sources); handoff contacts keyed by role, licence conditions by index. | events "T16", api "T16", attribution "T16" |
+| T17 | `asHttpUrl` refuses user info (`https://trusted@evil/`). | validate "T17" |
+| T18 | Questions-left: seeded from the session, -1 on `meta`, server value on `done`, 0 on `session_exhausted`; a blocked send says why (connecting / busy / no questions left / too long) in a live region; sources page `lang`/`dir` from the text (French names and attribution lines); spell-check, autocorrect and Grammarly off on every health text field. | reducer "T18", chat-ui "T18", text-language "T18"; E2E site (spellcheck attribute) |
+
+Checks: typecheck 0, eslint 0/0, Vitest **282/282** (was 168; coverage statements 94.6%, branches
+90.5%). `API_ORIGIN=http://127.0.0.1:4010 next build` (2026-11-17 19:58, code of 76bc9f9): 0 warnings.
+E2E chromium-desktop alone first (1 worker, while memory was shared with the index build): 67/67.
+
+Full matrix (2026-11-18, 1 worker, retries 0, report test-results/e2e-report.json):
+- First run: 396 passed, **2 failed**, 4 skipped. Both failures were "the chat empty state is accessible
+  in both themes" on chromium-desktop (en, fr): axe `color-contrast` on the four example-question
+  buttons in dark mode. Cause: Tailwind `transition-colors` (150 ms) still runs under reduced motion,
+  and axe measured right after `emulateMedia({ colorScheme: "dark" })`, on mid-fade colours (text and
+  background both grey). Not a defect a reader can see. Proof: with the fix removed, 4 of 30 repeated
+  runs failed; with it, 30 of 30 passed. Fix (test support only): `e2e/support/axe.ts` waits, up to 3 s,
+  until no CSS transition is running before each axe run. First report kept as
+  test-results/measure/e2e-report-run6-full-first.json.
+- Re-run on the same build: **398/398 passed, 0 failed, 0 flaky, 4 skipped** (keyboard flow on the 2
+  emulated-mobile projects, by design) in 14.5 min. chromium 132/132, firefox 134/134, webkit 132/132
+  (+12 tests per project: chat-contract.spec.ts 3 x 3 locales, one T1 test per locale); CSP violations
+  0 over 398 tests; axe serious/critical 0 over 198 axe runs.
+- `npm run measure:metrics` wrote 18 records to C:/dev/ausculta-data/reports/ui.metrics.json;
+  `python -m evals.run --only ui. --allow-missing`: ui.e2e_pass_rate 1 (n=398), ui.axe_serious 0 (n=198),
+  ui.lighthouse_a11y 100 (n=12, run 5 measurement), ui.csp_violations 0 (n=398), ui.chat_js_gzip_kb 183.7
+  (n=3): **PASS 5, FAIL 0, PROVISIONAL 0, MISSING 0**.
+
+Chat route JS (`npm run measure:js`): /en|fr|ar/chat **183.7 kB gzip** (14 scripts, 596.4 kB raw), budget
+200; /en 209.2 kB (not gated). The first build measured 190.1 kB: the new `[locale]/error.tsx` boundary is
+part of the layout and Turbopack duplicated its imports (API client + event parser, icon module via
+ContactLink) into a separate chunk. Fixed: the boundary loads the API client with `import()` only once an
+error is shown, and draws its call links without the icon module (error chunk 9 kB -> about 2.6 kB gzip).
+The rest of the growth over run 5 (177.5) is the T1-T18 code itself. Lighthouse not re-run: the empty
+chat page's layout is unchanged (the composer's new status line is `empty:sr-only`).
+
+Open (not web): the API does not read `Idempotency-Key` yet (POST /appointments); the client sends it.
+
 ## Open issues
 
 - Playwright's Firefox on Windows can crash the content process after an axe-core run ("Page
   crashed"). Worked around in the landing test (run 4). It happened once more, in the appointment-form
   test on the 12:08Z run, and not in the final run. It is a Playwright/Firefox problem, not app behaviour.
 - SEO 54 is by design (noindex). Set SITE_URL in deployment so canonical/hreflang use the real host.
+- axe after a theme switch measured mid-transition colours (run 6, 2 false positives): fixed in the
+  axe helper by waiting for CSS transitions to end. Any new axe call gets this for free.
 
 ## Next step
 
-UI track complete. For the lead: review and commit the run 5 changes (web/src/lib/chat/demo-mode.ts,
-web/tests/unit/demo-mode.test.ts, web/src/components/chat/{Composer,ChatApp}.tsx,
-web/src/components/chat/hooks/useChatController.ts, web/src/lib/site.ts, this file).
+Review findings T1-T18 are closed and every UI gate passes (run 6). Uncommitted: this file and the
+review's Status column. Open outside web: the API side of `Idempotency-Key` (lead follow-up).

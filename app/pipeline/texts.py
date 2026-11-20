@@ -71,9 +71,11 @@ class Texts:
     def notice(self, key: str, locale: str, profile: HospitalProfile | None, **extra: object) -> str:
         return render(self.notices[key], locale, self.values(profile, locale, **extra))
 
-    def error(self, code: str, locale: str) -> str:
+    def error(self, code: str, locale: str, profile: HospitalProfile | None = None) -> str:
+        """User-facing error message. The 503 texts name the emergency number and the crisis line (from the
+        profile; `call_fallback` without one), so even a refused request points at urgent help (P5-D8)."""
         table = self.errors.get(code) or self.errors["internal_error"]
-        return table.get(locale) or table["en"]
+        return render(table, locale, self.values(profile, locale))
 
     def label(self, key: str, locale: str) -> str:
         return self.frontdesk[key].get(locale) or self.frontdesk[key]["en"]
@@ -89,7 +91,7 @@ class Texts:
         return self.render_safety(self.safety[kind].followup, locale, profile)
 
     def values(self, profile: HospitalProfile | None, locale: str, **extra: object) -> dict[str, str]:
-        """Placeholder values. Profile-only keys are absent without a profile (their sentences are dropped)."""
+        """Placeholder values; profile-only keys are absent without a profile (sentences dropped)."""
         fallback = self.call_fallback.get(locale) or self.call_fallback["en"]
         vals = dict.fromkeys(("emergency_number", "crisis_number"), fallback)
         if profile is not None:

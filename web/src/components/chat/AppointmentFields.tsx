@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import type { FormField } from "@/lib/chat/types";
 import type { FieldError } from "@/lib/forms/validate";
+import { HEALTH_TEXT_PROPS } from "./health-text";
 
 const AUTOCOMPLETE: Readonly<Record<string, string>> = {
   full_name: "name",
@@ -37,10 +38,15 @@ interface FieldProps {
   readonly value: string;
   readonly error: FieldError | undefined;
   readonly onChange: (value: string) => void;
+  /** Visible text of a select option (the server sends ids, e.g. department ids). */
+  readonly optionLabel?: (option: string) => string;
 }
 
+/** Free text a patient types (name, dates, reason) stays out of browser spell-check services (T18). */
+const TEXT_KINDS: ReadonlySet<FormField["kind"]> = new Set(["text", "textarea"]);
+
 /** One server-described field: label above, error below, described-by wiring for screen readers. */
-export function AppointmentField({ field, id, value, error, onChange }: FieldProps) {
+export function AppointmentField({ field, id, value, error, onChange, optionLabel = (option) => option }: FieldProps) {
   const t = useTranslations("Chat");
   const errorId = `${id}-error`;
   const common = {
@@ -51,6 +57,7 @@ export function AppointmentField({ field, id, value, error, onChange }: FieldPro
     "aria-invalid": error ? true : undefined,
     "aria-describedby": error ? errorId : undefined,
     className: "field-input",
+    ...(TEXT_KINDS.has(field.kind) ? HEALTH_TEXT_PROPS : {}),
   } as const;
   return (
     <div className="grid gap-1.5">
@@ -63,7 +70,7 @@ export function AppointmentField({ field, id, value, error, onChange }: FieldPro
           <option value="">{t("form.chooseOption")}</option>
           {field.options.map((option) => (
             <option key={option} value={option}>
-              {option}
+              {optionLabel(option)}
             </option>
           ))}
         </select>

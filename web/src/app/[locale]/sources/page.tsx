@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import attributionData from "@/content/attribution.json";
 import { routing, type Locale } from "@/i18n/routing";
 import { parseAttribution, type AttributionSource } from "@/lib/attribution";
+import { detectTextLanguage, dirOf } from "@/lib/i18n/text-language";
 import { alternatesFor } from "@/lib/site";
 
 interface PageProps {
@@ -25,6 +26,14 @@ function formatDate(locale: Locale, iso: string): string {
   return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
 }
 
+/**
+ * `lang` and `dir` for a source's own words (names, licence text, conditions): the registry is written
+ * in English, but French publishers keep their French names and attribution lines (BDPM, HAS; review T18).
+ */
+function textProps(text: string): { readonly lang: string; readonly dir: "ltr" | "rtl" | "auto" } {
+  return { lang: detectTextLanguage(text) ?? "en", dir: dirOf(text) };
+}
+
 async function SourceEntry({ locale, source }: { readonly locale: Locale; readonly source: AttributionSource }) {
   const t = await getTranslations({ locale, namespace: "Sources" });
   const common = await getTranslations({ locale, namespace: "Common" });
@@ -32,27 +41,29 @@ async function SourceEntry({ locale, source }: { readonly locale: Locale; readon
   return (
     <article className="grid gap-5 rounded-card border border-line bg-surface p-6 sm:p-8" aria-labelledby={`src-${source.id}`}>
       <header className="grid gap-1">
-        <h2 id={`src-${source.id}`} className="text-2xl font-bold" lang="en" dir="ltr">
+        <h2 id={`src-${source.id}`} className="text-2xl font-bold" {...textProps(source.name)}>
           {source.name}
         </h2>
-        <p className="text-ink-2" lang="en" dir="ltr">
+        <p className="text-ink-2" {...textProps(source.publisher)}>
           {source.publisher}
         </p>
       </header>
       <dl className="grid gap-4 sm:grid-cols-[12rem_1fr]">
         <dt className="font-semibold">{t("licence")}</dt>
-        <dd lang="en" dir="ltr">{source.license.name}</dd>
+        <dd {...textProps(source.license.name)}>{source.license.name}</dd>
         <dt className="font-semibold">{t("attribution")}</dt>
-        <dd lang="en" dir="ltr">{source.license.attribution}</dd>
+        <dd {...textProps(source.license.attribution)}>{source.license.attribution}</dd>
         <dt className="font-semibold">{t("languages")}</dt>
         <dd>{source.languages.map((l) => languageNames.of(l) ?? l).join(", ")}</dd>
         {source.license.conditions.length > 0 ? (
           <>
             <dt className="font-semibold">{t("conditions")}</dt>
             <dd>
-              <ul className="grid list-disc gap-1.5 ps-5" lang="en" dir="ltr">
-                {source.license.conditions.map((c) => (
-                  <li key={c}>{c}</li>
+              <ul className="grid list-disc gap-1.5 ps-5">
+                {source.license.conditions.map((c, i) => (
+                  <li key={i} {...textProps(c)}>
+                    {c}
+                  </li>
                 ))}
               </ul>
             </dd>

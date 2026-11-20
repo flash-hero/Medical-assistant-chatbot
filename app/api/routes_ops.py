@@ -41,7 +41,7 @@ async def ready(request: Request) -> JSONResponse:
         return JSONResponse({"status": "ready", "checks": checks, "paused": paused})
     error = {
         "code": "dependency_unavailable",
-        "message": c.texts.error("dependency_unavailable", request_locale(request)),
+        "message": c.texts.error("dependency_unavailable", request_locale(request), c.profile()),
         "retry_after_s": READY_RETRY_AFTER_S,
     }
     return JSONResponse(

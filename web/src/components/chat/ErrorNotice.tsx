@@ -4,8 +4,20 @@ import { ArrowCounterClockwiseIcon, InfoIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { TurnError } from "@/lib/chat/reducer";
+import { dirOf } from "@/lib/i18n/text-language";
 
-const KNOWN = new Set(["rate_limited", "overloaded", "service_paused", "session_exhausted", "unauthorized", "invalid_input", "network"]);
+/** Codes with their own localised text; any other code shows the server's message or a generic one. */
+const KNOWN = new Set([
+  "rate_limited",
+  "overloaded",
+  "service_paused",
+  "session_exhausted",
+  "unauthorized",
+  "invalid_input",
+  "network",
+  "timeout",
+  "no_answer",
+]);
 /** These errors are fixed by a new conversation (a new session), not by retrying. */
 const NEEDS_NEW_SESSION = new Set(["session_exhausted", "unauthorized"]);
 
@@ -30,7 +42,10 @@ interface ErrorNoticeProps {
   readonly onNewConversation: () => void;
 }
 
-/** Localised, calm error with a Retry-After countdown; Retry stays disabled until it reaches zero. */
+/**
+ * Localised, calm error with a Retry-After countdown; Retry stays disabled until it reaches zero.
+ * A code is never shown: `error.message` is only the server's own user-safe text (review T5).
+ */
 export function ErrorNotice({ error, onRetry, onNewConversation }: ErrorNoticeProps) {
   const t = useTranslations("Chat");
   const left = useCountdown(error.retryAfterS);
@@ -40,7 +55,7 @@ export function ErrorNotice({ error, onRetry, onNewConversation }: ErrorNoticePr
     <div role="alert" className="grid gap-3 rounded-2xl border border-warn-line bg-warn-soft p-4 text-warn-ink" data-testid="turn-error" data-code={error.code}>
       <p className="flex items-start gap-2 font-semibold">
         <InfoIcon size={22} aria-hidden="true" className="mt-0.5 shrink-0" />
-        <span>{message}</span>
+        <span dir={dirOf(message)}>{message}</span>
       </p>
       {left > 0 ? (
         <p data-testid="retry-countdown" aria-live="off">

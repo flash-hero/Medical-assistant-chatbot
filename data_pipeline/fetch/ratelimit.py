@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 
 
 class HostRateLimiter:
@@ -14,7 +14,7 @@ class HostRateLimiter:
         host_rps: Mapping[str, float] | None = None,
         *,
         clock: Callable[[], float] = time.monotonic,
-        sleep: Callable[[float], object] = asyncio.sleep,
+        sleep: Callable[[float], Awaitable[object]] = asyncio.sleep,
     ) -> None:
         if default_rps <= 0:
             raise ValueError("default_rps must be positive")

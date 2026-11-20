@@ -187,7 +187,7 @@ def test_filters_drop_unknown_types_and_require_drug_label_for_medication() -> N
     assert _filters(["condition", "bogus", "condition"], Intent.MEDICAL_INFO) == {
         "content_type": ["condition"]
     }
-    assert _filters(["condition"], Intent.MEDICATION) == {}
+    assert _filters(["condition"], Intent.MEDICATION) == {"content_type": ["drug_label"]}  # review C7
     assert _filters(["drug_label"], Intent.MEDICATION) == {"content_type": ["drug_label"]}
     assert _filters([], Intent.MEDICAL_INFO) == {}
 

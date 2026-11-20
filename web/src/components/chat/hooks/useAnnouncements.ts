@@ -11,13 +11,15 @@ export interface Announcement {
 
 /**
  * Drives the polite live region from the latest turn: "answering" once, then whole sentences at most
- * every 2.5 s, then the rest of the confirmed answer. Never one update per token.
+ * every 2.5 s, then the rest of the confirmed answer. Never one update per token. A stopped turn
+ * says so (review T8): its note appears where the Stop button was, which a screen reader may not visit.
  */
-export function useAnnouncements(turn: Turn | undefined, answeringText: string): Announcement {
+export function useAnnouncements(turn: Turn | undefined, answeringText: string, stoppedText: string): Announcement {
   const [announcement, setAnnouncement] = useState<Announcement>({ id: 0, text: "" });
   const announcerRef = useRef<Announcer | null>(null);
   const turnIdRef = useRef<string | null>(null);
   const answeredRef = useRef<string | null>(null);
+  const stoppedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const announcer = createAnnouncer((text) => setAnnouncement((a) => ({ id: a.id + 1, text })));
@@ -34,6 +36,13 @@ export function useAnnouncements(turn: Turn | undefined, answeringText: string):
       announcer.reset();
       setAnnouncement((a) => ({ id: a.id + 1, text: answeringText }));
     }
+    if (turn.phase === "stopped") {
+      if (stoppedRef.current === turn.id) return;
+      stoppedRef.current = turn.id;
+      announcer.reset();
+      setAnnouncement((a) => ({ id: a.id + 1, text: stoppedText }));
+      return;
+    }
     if (turn.answer && answeredRef.current !== turn.id) {
       answeredRef.current = turn.id;
       if (turn.answer.replaces_stream || turn.streamed === "") announcer.replace(turn.answer.text);
@@ -41,7 +50,7 @@ export function useAnnouncements(turn: Turn | undefined, answeringText: string):
     } else if (!turn.answer && turn.streamed !== "") {
       announcer.stream(turn.streamed);
     }
-  }, [turn, answeringText]);
+  }, [turn, answeringText, stoppedText]);
 
   return announcement;
 }

@@ -2,8 +2,9 @@
 
 import { PaperPlaneRightIcon, StopIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
-import { useId, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { DEFAULT_TURNS_PER_SESSION, MAX_MESSAGE_CHARS } from "@/lib/site";
+import { HEALTH_TEXT_PROPS } from "./health-text";
 
 interface ComposerProps {
   readonly inputRef: RefObject<HTMLTextAreaElement | null>;
@@ -16,15 +17,43 @@ interface ComposerProps {
 
 const WARN_AT = 1800;
 
-/** Enter sends, Shift+Enter adds a line (IME composition is respected). Stop replaces Send while answering. */
+type Blocked = "connecting" | "busy" | "exhausted" | "tooLong";
+
+function blockedReason(ready: boolean, active: boolean, turnsLeft: number | null, length: number): Blocked | null {
+  if (!ready) return "connecting";
+  if (active) return "busy";
+  if (turnsLeft === 0) return "exhausted";
+  return length > MAX_MESSAGE_CHARS ? "tooLong" : null;
+}
+
+/**
+ * Enter sends, Shift+Enter adds a line (IME composition is respected). Stop replaces Send while answering.
+ * A send that cannot happen says why instead of doing nothing (review T18). When Stop disappears while it
+ * has focus (the answer stopped or finished), focus moves to the message box rather than the page (T8).
+ */
 export function Composer({ inputRef, active, ready, turnsLeft, onSend, onStop }: ComposerProps) {
   const t = useTranslations("Chat");
   const id = useId();
   const [text, setText] = useState("");
-  const canSend = ready && !active && text.trim() !== "" && text.length <= MAX_MESSAGE_CHARS;
+  const [tried, setTried] = useState(false);
+  const stopFocused = useRef(false);
+  const blocked = blockedReason(ready, active, turnsLeft, text.length);
+  const canSend = blocked === null && text.trim() !== "";
+  const notice = tried && text.trim() !== "" ? blocked : null;
+
+  useEffect(() => {
+    if (active || !stopFocused.current) return;
+    stopFocused.current = false;
+    inputRef.current?.focus();
+  }, [active, inputRef]);
 
   const submit = () => {
-    if (canSend && onSend(text)) setText("");
+    if (text.trim() === "") return;
+    setTried(true);
+    if (canSend && onSend(text)) {
+      setText("");
+      setTried(false);
+    }
   };
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
@@ -54,12 +83,28 @@ export function Composer({ inputRef, active, ready, turnsLeft, onSend, onStop }:
           value={text}
           maxLength={MAX_MESSAGE_CHARS}
           placeholder={t("placeholder")}
-          aria-describedby={`${id}-hint ${id}-count`}
-          onChange={(e) => setText(e.target.value)}
+          aria-describedby={`${id}-hint ${id}-count ${id}-blocked`}
+          onChange={(e) => {
+            setText(e.target.value);
+            setTried(false);
+          }}
           onKeyDown={onKeyDown}
+          {...HEALTH_TEXT_PROPS}
         />
         {active ? (
-          <button type="button" className="btn btn-quiet shrink-0 bg-surface" onClick={onStop} data-testid="stop-button">
+          <button
+            type="button"
+            className="btn btn-quiet shrink-0 bg-surface"
+            onClick={onStop}
+            onFocus={() => {
+              stopFocused.current = true;
+            }}
+            onBlur={(e) => {
+              // Removal while focused gives no related target: keep the flag so focus can move on.
+              if (e.relatedTarget) stopFocused.current = false;
+            }}
+            data-testid="stop-button"
+          >
             <StopIcon size={20} weight="fill" aria-hidden="true" />
             {t("stop")}
           </button>
@@ -69,6 +114,10 @@ export function Composer({ inputRef, active, ready, turnsLeft, onSend, onStop }:
           </button>
         )}
       </div>
+      {/* Always in the accessibility tree (a live region), out of the layout while empty. */}
+      <p id={`${id}-blocked`} role="status" className="px-2 text-sm font-semibold text-warn-ink empty:sr-only" data-testid="send-blocked">
+        {notice ? t(`sendBlocked.${notice}`) : null}
+      </p>
       <div className="flex flex-wrap justify-between gap-x-4 gap-y-1 px-2 text-sm text-ink-2">
         <span id={`${id}-hint`}>{t("hint")}</span>
         <span className="flex gap-4">

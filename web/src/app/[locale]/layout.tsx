@@ -1,7 +1,7 @@
 import "../globals.css";
 import type { Metadata, Viewport } from "next";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -62,6 +62,7 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   // Reading the request headers makes every page dynamic, which per-request CSP nonces require.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const t = await getTranslations({ locale, namespace: "Common" });
+  const messages = await getMessages({ locale });
 
   return (
     <html
@@ -78,9 +79,10 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
         <a href="#main" className="skip-link">
           {t("skipToContent")}
         </a>
-        {/* Locale context for client components (next-intl <Link>); no messages are serialised here.
+        {/* Locale context for client components (next-intl <Link>). Only the error page's messages are
+            serialised here, for [locale]/error.tsx (a client boundary outside each page's own provider).
             Pages that render translated client islands nest their own provider with the namespaces they need. */}
-        <NextIntlClientProvider locale={locale} messages={{}} timeZone="UTC">
+        <NextIntlClientProvider locale={locale} messages={{ ErrorPage: messages.ErrorPage }} timeZone="UTC">
           {children}
         </NextIntlClientProvider>
       </body>

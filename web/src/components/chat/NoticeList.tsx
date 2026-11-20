@@ -3,6 +3,7 @@
 import { HeadsetIcon, InfoIcon } from "@/components/ui/icons";
 import { useTranslations } from "next-intl";
 import type { NoticeEvent } from "@/lib/chat/types";
+import { detectTextLanguage, dirOf } from "@/lib/i18n/text-language";
 import { useChatActions } from "./ChatContext";
 
 /** Server notices (degraded mode, source language, handoff...). The demo notice is already a banner. */
@@ -22,7 +23,10 @@ export function NoticeList({ notices }: { readonly notices: readonly NoticeEvent
           }`}
         >
           <InfoIcon size={18} aria-hidden="true" className="shrink-0" />
-          <span className="flex-1">{notice.message}</span>
+          {/* Server text, in the answer's language rather than necessarily the UI's (review T1). */}
+          <span className="flex-1" lang={detectTextLanguage(notice.message) ?? undefined} dir={dirOf(notice.message)}>
+            {notice.message}
+          </span>
           {notice.code === "handoff_available" ? (
             <button type="button" className="btn btn-quiet min-h-11 bg-surface text-sm" onClick={(e) => openHandoff(e.currentTarget)}>
               <HeadsetIcon size={18} aria-hidden="true" />

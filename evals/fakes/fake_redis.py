@@ -200,7 +200,11 @@ class FakeRedis:
         return -1 if entry.expires_at is None else max(0, round(entry.expires_at - self.clock()))
 
     def _cmd_hset(
-        self, key: str, field_name: str | None = None, value: Any = None, mapping: Mapping[str, Any] | None = None
+        self,
+        key: str,
+        field_name: str | None = None,
+        value: Any = None,
+        mapping: Mapping[str, Any] | None = None,
     ) -> int:
         h: dict[bytes, bytes] = self._container(key, dict)
         items = dict(mapping or {})

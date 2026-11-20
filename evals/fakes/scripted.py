@@ -67,6 +67,9 @@ DEFAULT_RULES: tuple[tuple[str, GuardScript], ...] = (
     ),
     ("fièvre", GuardScript(language="fr")),
     ("الحمى", GuardScript(language="ar")),
+    # language only: the router makes creator questions META deterministically (classifier says medical_info)
+    ("qui t'a", GuardScript(language="fr")),
+    ("صنعك", GuardScript(language="ar")),
 )
 
 

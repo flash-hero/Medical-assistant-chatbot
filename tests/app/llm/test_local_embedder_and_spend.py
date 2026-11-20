@@ -81,7 +81,10 @@ def test_factory_selects_backend(tmp_path: Any) -> None:
     assert type(fake).__name__ == "FakeLLMProvider"
 
 
-def test_prod_settings_refuse_unsafe_configuration() -> None:
+def test_prod_settings_refuse_unsafe_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    # hermetic: CI sets these for the whole job (fake backends, a Redis service)
+    for name in ("REDIS_URL", "AUSCULTA_LLM_BACKEND", "AUSCULTA_EMBED_BACKEND", "AUSCULTA_ALLOW_FAKE"):
+        monkeypatch.delenv(name, raising=False)
     with pytest.raises(ValueError, match="REDIS_URL"):
         Settings(
             AUSCULTA_ENV="prod", AUSCULTA_SESSION_SECRET="x" * 40, DATABASE_URL="postgresql+asyncpg://h/db"

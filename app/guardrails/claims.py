@@ -69,6 +69,12 @@ _EN_LEAD = (
     r"\b(?:in your case|therefore|thus|i think|i believe|i suspect|it is likely that|it seems|"
     r"it appears|most likely)\W+)"
 )
+# French counterpart of _EN_LEAD: "D'après ce que vous décrivez, vous avez une pneumonie" (red team P5).
+_FR_LEAD = (
+    r"(?:^|(?:d'après|selon|vu|au vu de|compte tenu de) (?:ce que vous (?:décrivez|dites|mentionnez|"
+    r"avez décrit|avez dit)|vos symptômes|votre description|vos réponses|votre cas)\W+|"
+    r"\b(?:dans votre cas|donc|je pense que|je crois que|il semble que|j'ai l'impression que)\W+)"
+)
 _DOSE_UNITS = (
     r"(?:mg|mgs|milligrams?|ml|millilit(?:er|re)s?|g|grams?|mcg|µg|cc|tablets?|pills?|capsules?|caplets?|"
     r"drops?|puffs?|sprays?|sachets?|teaspoons?|tablespoons?|tsp|tbsp|spoonfuls?|units?|iu|doses?)"
@@ -100,6 +106,8 @@ _DIAGNOSIS = (
     r"\bmy (?:diagnosis|assessment) is\b",
     rf"\bvous (?:avez|souffrez|faites|êtes) {_LIKELY_FR}\b",
     rf"\bvous (?:souffrez|êtes atteinte?) (?:{_LIKELY_FR} )?d",
+    rf"{_FR_LEAD}vous (?:avez|faites|souffrez d'|souffrez de) (?:une? |la |le |l'|des |de la |du |d'une? )?"
+    rf"(?:[\w'-]+ ){{0,2}}?{_FR_CONDITION}\b",
     r"\b(?:on dirait|cela ressemble à|ça ressemble à|il semble) que vous (?:avez|faites|souffrez)\b",
     rf"\b(?:cela|ça|ceci) (?:ressemble|fait penser) (?:à|a) (?:une? |la |le |l')?(?:[\w'-]+ ){{0,3}}?"
     rf"{_FR_CONDITION}\b",

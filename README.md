@@ -26,7 +26,7 @@ Bulk data lives outside the repo in `C:\dev\ausculta-data` (`AUSCULTA_DATA_ROOT`
 ```powershell
 python -m venv .venv
 .venv\Scripts\python -m pip install uv
-.venv\Scripts\uv pip install --python .venv\Scripts\python.exe -e ".[dev]"
+.venv\Scripts\uv pip install --python .venv\Scripts\python.exe -e ".[dev,load,data]"
 git config core.hooksPath .githooks
 copy .env.example .env   # then fill GEMINI_API_KEY and AUSCULTA_SESSION_SECRET
 ```

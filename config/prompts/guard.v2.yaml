@@ -51,7 +51,7 @@ intent:
     hospital_admin: Practical hospital information such as opening hours, departments, contacts, directions, visits, documents, payment.
     appointment: Wants to book, change or cancel an appointment.
     smalltalk: Greetings, thanks or chit-chat without a request.
-    meta: Asks about the assistant itself, what it can do or whether it is a human.
+    meta: Asks about the assistant itself, who created or built it, what it can do or whether it is a human.
     out_of_scope: Anything unrelated to health or to the hospital.
 language:
   instructions: In which language should the answer be written, based on the current message?

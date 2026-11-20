@@ -86,7 +86,14 @@ async def test_purge_expired_applies_each_retention(storage: Storage) -> None:
         "audit_events": 1,
         "feedback": 1,
     }
-    for model in (SessionRow, TurnRow, AuditEventRow, FeedbackRow, AppointmentRequestRow, AppointmentContactRow):
+    for model in (
+        SessionRow,
+        TurnRow,
+        AuditEventRow,
+        FeedbackRow,
+        AppointmentRequestRow,
+        AppointmentContactRow,
+    ):
         assert await _count(storage, model) == 1, model.__name__
     assert await storage.purge_expired(NOW) == dict.fromkeys(result, 0), "idempotent"
 

@@ -11,7 +11,7 @@ classifier:
     injection: 0.50
     harmful_request: 0.50
     abusive_user: 0.60
-  population: 0.50
+  population: 0.30
   # Below this intent confidence the deterministic intent heuristic is used instead of the classifier's choice.
   intent_min_confidence: 0.40
   language_min_confidence: 0.50

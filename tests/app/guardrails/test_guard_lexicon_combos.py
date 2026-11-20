@@ -143,3 +143,27 @@ def test_token_index_positions_are_memoised() -> None:
     pattern = WordPattern.parse("chest", "en")
     assert index.positions(pattern) == (0, 2)
     assert index.positions(pattern) is index.positions(pattern)
+
+
+def test_positions_are_ascending_and_unique_for_exact_and_wildcard_words() -> None:
+    """The position memo (keyed by pattern identity, P5 precheck speed-up) returns the same tuples as a fresh
+    lookup: exact words read the form table directly, wildcards scan it."""
+    index = TokenIndex(tuple(normalize("pain then chest pain then painful chest").split()))
+    exact, prefix = WordPattern.parse("pain", "en"), WordPattern.parse("pain*", "en")
+    assert index.positions(exact) == (0, 3)
+    assert index.positions(prefix) == (0, 3, 5)
+    assert index.positions(WordPattern.parse("pain", "en")) == (0, 3)  # an equal pattern, another identity
+    assert index.positions(exact) == (0, 3)  # memoised
+
+
+def test_a_missing_first_group_stops_before_the_other_groups_are_scanned() -> None:
+    class Counting(TokenIndex):
+        calls = 0
+
+        def positions(self, pattern: WordPattern) -> tuple[int, ...]:
+            Counting.calls += 1
+            return super().positions(pattern)
+
+    combo = _combo([["stroke"], ["face", "arm", "speech"], ["droop*", "weak*", "slur*"]])
+    assert find(combo, Counting(tuple(normalize("my arm feels weak").split()))) is None
+    assert Counting.calls == 1

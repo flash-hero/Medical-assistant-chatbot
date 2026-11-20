@@ -3,7 +3,7 @@
 Config files are loaded once at startup (`load_engine_config`); a malformed file raises ConfigFileError
 there, never during a turn. The hospital profile is the exception: a missing, invalid or expired profile
 only disables receptionist features (ProfileState.error), it never stops the app. A demo profile is only
-served in demo mode outside staging/prod (review C10, `enforce_demo_policy`).
+served while demo mode is on (review C10, `enforce_demo_policy`).
 
 The guard's population threshold is capped at POPULATION_THRESHOLD (review C6): a pregnancy / child /
 older-adult probability at or above it makes the answer verify-then-release."""
@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -140,7 +141,7 @@ def build_engine(
         policy_ngrams=policy_ngrams(config.prompts.system_prompt, config.prompts.canary),
     )
     corpus = corpus_version_of(retriever)
-    extra = {"today": today} if today is not None else {}
+    extra: dict[str, Any] = {"today": today} if today is not None else {}
     return TurnEngine(
         router=router,
         medical=medical,

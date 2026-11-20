@@ -1,5 +1,6 @@
-"""Review P2/S5: session updates are atomic deltas, so two workers (or two concurrent turns) never lose an update
-of turns_used, strikes, the lock or the sticky risk flags. Memory store (dev) and Redis store (prod)."""
+"""Review P2/S5: session updates are atomic deltas, so two workers (or two concurrent turns) never lose an
+update of turns_used, strikes, the lock or the sticky risk flags.
+Memory store (dev) and Redis store (prod)."""
 
 from __future__ import annotations
 
@@ -129,3 +130,23 @@ async def test_redis_store_outage_is_a_dependency_error() -> None:
     with pytest.raises(DependencyUnavailable):
         await store.put(_state("down"))
     assert await store.ping() is False
+
+
+@pytest.mark.parametrize(
+    "update",
+    [
+        SessionUpdate(
+            turn_text="t", window=3, risks=frozenset({RiskKind.INJECTION}), strike=True, strikes_to_lock=1
+        ),
+        SessionUpdate(turn_text="t", window=0, strike=True, strikes_to_lock=1),
+        SessionUpdate(risks=frozenset({RiskKind.ABUSIVE_USER}), strike=True, strikes_to_lock=1),
+    ],
+    ids=["turn-risks-strike", "turn-no-window-strike", "risks-strike"],
+)
+async def test_redis_lock_reads_the_strike_count_in_every_update_shape(update) -> None:
+    store = RedisSessionStore(FakeRedis())
+    base = _state("shape")
+    await store.put(base)
+    state = await store.apply(base, update)
+    assert state is not None
+    assert (state.strikes, state.locked) == (1, True)
