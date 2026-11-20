@@ -46,7 +46,7 @@ def result(it: EvalItem, t: TurnResult) -> ItemResult:
 
 def test_any_recorded_exclusions_name_answerable_pool_questions_with_a_rule() -> None:
     exclusions = load_quality_exclusions()
-    # empty since index 2026-11-20.en2 holds drug labels (the medication_needs_drug_label rule no longer applies)
+    # empty since index 2026-11-20.en2 holds drug labels (medication_needs_drug_label no longer applies)
     pool = {base_id(i.id) for i in quality_items(60)}
     assert set(exclusions) <= pool
     answerable = {base_id(r.qid) for r in load_gold(GOLD_DIR) if r.answerable}

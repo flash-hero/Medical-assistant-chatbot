@@ -84,6 +84,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --run
       - run: npm run build
+        env: {API_ORIGIN: "http://127.0.0.1:4010"} # the e2e suite's mock API (web/e2e/global-setup.ts)
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
       - run: npm audit --audit-level=high --omit=dev
