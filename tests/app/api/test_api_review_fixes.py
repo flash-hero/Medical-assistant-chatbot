@@ -269,14 +269,22 @@ async def test_p12_failed_warmup_does_not_stop_the_api(api_factory) -> None:
 
 # ---- P16 / P17: dependency errors and shutdown --------------------------------------------------------
 async def test_p16_redis_outage_is_503_not_500(api_factory) -> None:
+    """Model turns get a 503 naming the emergency (15) and crisis (3114) numbers; the emergency template is
+    still served (P5-D8: it was a 503 too before)."""
     redis = FakeRedis()
     async with api_factory(redis_client=redis) as api:
         token = await api.token()
         redis.fail = RedisConnectionError("redis down")
-        for res in (await api.chat(token, FEVER), await api.chat(token, EMERGENCY)):
-            assert res.response.status_code == 503
-            assert _code(res) == "dependency_unavailable"
-            assert int(res.response.headers["retry-after"]) >= 1
+        res = await api.chat(token, FEVER)
+        assert res.response.status_code == 503
+        assert _code(res) == "dependency_unavailable"
+        assert int(res.response.headers["retry-after"]) >= 1
+        message = res.response.json()["error"]["message"]
+        assert "15" in message
+        assert "3114" in message
+        emergency = await api.chat(token, EMERGENCY)
+        emergency.assert_contract()
+        assert emergency.first("safety").kind == "emergency"
         r = await api.client.post(f"{API}/session", json={"locale": "en"})
         assert r.status_code == 503
         assert "emergency" in r.json()["error"]["message"]

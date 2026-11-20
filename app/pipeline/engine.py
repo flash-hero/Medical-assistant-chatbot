@@ -11,6 +11,10 @@ Session state changes only through atomic SessionStore.apply deltas: the turn co
 precheck's sticky risks and its strike are saved before the guard call, so a cancelled turn never loses a
 safety decision (review C13), and concurrent turns or workers never overwrite each other (P2/S5).
 
+The rewrite call of a likely medical turn starts concurrently with the guard decide (P4 latency, after the
+precheck and the first save, never on a turn with a precheck signal); the engine cancels it on every path
+that does not reach the medical answer, and the medical path consumes it only after the guard verdict.
+
 Every turn runs under a deadline (review P5): past it, the answer becomes the "busy" template. Any failure
 after streamed text first sends a replacing "busy" answer, so unverified deltas never stay on screen (C15).
 """
@@ -36,6 +40,7 @@ from app.pipeline.forms import appointment_form
 from app.pipeline.heuristics import fallback_language, mentions_population
 from app.pipeline.medical import MedicalResponder, MedicalTurn
 from app.pipeline.record import TurnTrace
+from app.pipeline.rewrite import PendingRewrite
 from app.pipeline.session import SessionState, SessionStore, SessionUpdate
 from app.pipeline.texts import Texts, contacts_for
 from core.config import Settings
@@ -113,6 +118,7 @@ class _Strikes:
 class _Turn:
     session: SessionState
     strikes: _Strikes
+    rewrite: PendingRewrite | None = None  # started with the guard call; cancelled unless consumed
 
 
 class TurnEngine:
@@ -128,6 +134,7 @@ class TurnEngine:
         release: ReleaseInfo,
         today: Callable[[], date] = lambda: datetime.now(UTC).date(),
         deadline_s: float = TURN_DEADLINE_S,
+        prefetch_rewrite: bool = True,
     ) -> None:
         self._router = router
         self._medical = medical
@@ -138,6 +145,7 @@ class TurnEngine:
         self._release = release
         self._today = today
         self._deadline_s = deadline_s
+        self._prefetch_rewrite = prefetch_rewrite
         self._window = min(settings.history_window_turns, HISTORY_WINDOW_MAX)
 
     @property
@@ -192,7 +200,7 @@ class TurnEngine:
         retry = exc.detail.get("retry_after_s") if isinstance(exc, AusculaError) else None
         return ErrorEvent(
             code=code,
-            message=self._texts.error(code, req.locale),
+            message=self._texts.error(code, req.locale, self._profiles.active(self._today())),
             retry_after_s=float(retry) if isinstance(retry, (int, float)) else None,
         )
 
@@ -228,6 +236,24 @@ class TurnEngine:
         saved = await self._sessions.apply(session, update)
         return saved if saved is not None else session.applied(update)
 
+    async def _save_first(self, ctx: _Ctx, update: SessionUpdate, *, model_free: bool) -> SessionState:
+        """The turn's first save, before any model call (a cancel can no longer lose it, C13). On an
+        emergency / self-harm turn a session-store outage must not replace the template's closing answer
+        with an error (P5-D8): the failure is logged and the turn ends statelessly."""
+        try:
+            return await self._save(ctx.req.session, update)
+        except Exception as exc:
+            if not model_free:
+                raise
+            log.error(
+                "safety_turn_session_save_failed",
+                turn_id=ctx.req.turn_id,
+                dependency="sessions",
+                error=type(exc).__name__,
+            )
+            ctx.trace.degrade("session_store")
+            return ctx.req.session.applied(update)
+
     # ---- body ------------------------------------------------------------------------------------
     async def _body(self, ctx: _Ctx) -> AsyncIterator[ChatEvent]:
         req, trace = ctx.req, ctx.trace
@@ -242,25 +268,40 @@ class TurnEngine:
             risk_kinds=_names(s.kind for s in req.precheck.signals), redactions=req.message.redaction_total
         )
         strikes = _Strikes(pre=pre_strike, to_lock=self._router.config.strikes_to_lock)
-        session = await self._save(  # before any model call: a cancel can no longer lose it (C13)
-            req.session,
-            SessionUpdate(
-                turn_text=req.message.text,
-                window=self._window,
-                risks=pre_kinds,
-                strike=pre_strike,
-                strikes_to_lock=strikes.to_lock,
-            ),
+        model_free = bool(pre_kinds & self._router.config.block_medical_after)
+        update = SessionUpdate(
+            turn_text=req.message.text,
+            window=self._window,
+            risks=pre_kinds,
+            strike=pre_strike,
+            strikes_to_lock=strikes.to_lock,
         )
+        session = await self._save_first(ctx, update, model_free=model_free)
         if pre_strike:
             trace.audit("strike", count=session.strikes, kinds="precheck")
-        if pre_kinds & self._router.config.block_medical_after or session.locked:
+        if model_free or session.locked:
             yield self._closing_answer(ctx, pre_kinds, heuristic_intent(req.message.text), lang)
             return
         yield StatusEvent(stage="checking")
-        route = await self._route(ctx)
-        async for event in self._after_route(ctx, _Turn(session, strikes), route, pre_kinds):
-            yield event
+        pending = self._start_rewrite(ctx)
+        try:
+            route = await self._route(ctx)
+            async for event in self._after_route(ctx, _Turn(session, strikes, pending), route, pre_kinds):
+                yield event
+        finally:
+            if pending is not None:  # no-op when the medical path awaited it to the end
+                pending.cancel()
+
+    def _start_rewrite(self, ctx: _Ctx) -> PendingRewrite | None:
+        """Start the rewrite with the guard call when the turn will most likely take the medical path: no
+        precheck signal (safety, injection, ...) and a medical heuristic intent. The language is the client's
+        locale (the guard's verdict is not known yet); `rewrite()` re-checks with the verdict's language."""
+        req = ctx.req
+        if not self._prefetch_rewrite or req.precheck.signals:
+            return None
+        if heuristic_intent(req.message.text, hospital_keywords(ctx.profile)) not in MEDICAL_INTENTS:
+            return None
+        return self._medical.prefetch_rewrite(req.message.text, req.session.user_history(), req.locale)
 
     async def _route(self, ctx: _Ctx) -> RouteResult:
         req = ctx.req
@@ -310,7 +351,7 @@ class TurnEngine:
         if current & STRIKE_KINDS:
             yield await self._strike(ctx, session, turn.strikes, current, v.intent, lang)
             return
-        async for event in self._dispatch(ctx, session, v):
+        async for event in self._dispatch(ctx, session, v, turn.rewrite):
             yield event
         left = self._settings.max_turns_per_session - session.turns_used
         if 0 < left <= SESSION_LIMIT_NOTICE_AT:
@@ -349,7 +390,9 @@ class TurnEngine:
             or mentions_population(text)
         )
 
-    async def _dispatch(self, ctx: _Ctx, session: SessionState, v: GuardVerdict) -> AsyncIterator[ChatEvent]:
+    async def _dispatch(
+        self, ctx: _Ctx, session: SessionState, v: GuardVerdict, rewrite: PendingRewrite | None = None
+    ) -> AsyncIterator[ChatEvent]:
         lang = v.language
         if v.intent in MEDICAL_INTENTS:
             turn = MedicalTurn(
@@ -359,6 +402,7 @@ class TurnEngine:
                 high_risk=self._high_risk(ctx, session, v),
                 profile=ctx.profile,
                 on_input_blocked=partial(self._sticky, session),
+                rewrite=rewrite,
             )
             async for ev in self._medical.respond(turn, ctx.trace):
                 yield ev

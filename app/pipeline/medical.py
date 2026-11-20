@@ -28,12 +28,12 @@ from app.guardrails.sentences import Sentence, SentenceBuffer
 from app.pipeline.citations import build_citations, needs_source_language_note
 from app.pipeline.prompts import PromptSet, build_answer_prompt
 from app.pipeline.record import TurnTrace
-from app.pipeline.rewrite import QueryRewriter, intent_filters
+from app.pipeline.rewrite import PendingRewrite, QueryRewriter, intent_filters
 from app.pipeline.texts import Texts
 from core.errors import UpstreamBlocked, UpstreamError
 from core.models import ModelRole
 from core.ports import GenerationChunk, GenerationRequest, LLMProvider, Retriever
-from core.schemas.chat import GuardVerdict, Intent, RetrievalResult, RetrievedPassage, RiskKind
+from core.schemas.chat import GuardVerdict, Intent, Locale, RetrievalResult, RetrievedPassage, RiskKind
 from core.schemas.events import AnswerEvent, ChatEvent, DeltaEvent, NoticeEvent, StatusEvent
 from core.schemas.hospital import HospitalProfile
 from core.schemas.source import ContentType
@@ -59,6 +59,7 @@ class MedicalTurn:
     high_risk: bool
     profile: HospitalProfile | None
     on_input_blocked: OnBlocked | None = None  # records a sticky risk flag when the rewrite call is blocked
+    rewrite: PendingRewrite | None = None  # rewrite call started with the guard call (engine prefetch)
 
 
 @dataclass(frozen=True)
@@ -148,9 +149,17 @@ class MedicalResponder:
         return tuple(p for p in passages if p.content_type is ContentType.DRUG_LABEL)
 
     # ---- retrieval ---------------------------------------------------------------------------------
+    def prefetch_rewrite(
+        self, message: str, history: Sequence[str], language: Locale
+    ) -> PendingRewrite | None:
+        """Start the rewrite call before the guard verdict (the caller cancels it when it goes unused)."""
+        return self._rewriter.prefetch(message, history, language)
+
     async def _retrieve(self, turn: MedicalTurn, trace: TurnTrace) -> tuple[RetrievalResult | None, str]:
         v = turn.verdict
-        outcome = await self._rewriter.rewrite(turn.message, turn.history, v.language, v.intent)
+        outcome = await self._rewriter.rewrite(
+            turn.message, turn.history, v.language, v.intent, pending=turn.rewrite
+        )
         if outcome.error:
             trace.degrade("rewrite_failed")
         query = outcome.query

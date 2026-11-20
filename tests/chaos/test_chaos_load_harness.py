@@ -27,6 +27,7 @@ from evals.load.server import (
     LatencyProfile,
     RealisticFakeLLM,
     TimingMiddleware,
+    load_llm,
     load_retriever,
 )
 
@@ -123,6 +124,17 @@ def test_overload_metrics_requires_retry_after_on_every_rejection() -> None:
     missing = [*ok, {"kind": "chat", "status": 503, "ok": False, "total_ms": 3.0, "retry_after": None}]
     records, _ = overload_metrics(missing, samples, users=192)
     assert records[0]["value"] >= 1e9
+
+
+def test_overload_run_that_never_filled_the_queue_writes_no_gate_record() -> None:
+    """A CPU-starved host served almost everything and refused 2 of 3,628 requests: not a rejection test."""
+    samples = [_sample(1.0, 60.0, status=503)]
+    rows: list[dict[str, Any]] = [{"kind": "chat", "ok": True, "status": 200, "total_ms": 9000.0}] * 98 + [
+        {"kind": "chat", "status": 503, "ok": False, "total_ms": 150.0, "retry_after": "5"}
+    ] * 2
+    records, summary = overload_metrics(rows, samples, users=192)
+    assert records == []
+    assert "never reached the admission queue" in summary["not_written"]
 
 
 def test_soak_metrics_measure_rss_after_the_warm_up_and_label_the_steady_state_model() -> None:
@@ -235,6 +247,15 @@ def test_load_retriever_keeps_no_call_log() -> None:
     for _ in range(100):
         retriever.calls.append(RetrievalQuery(standalone_query="fever", language="en"))
     assert len(retriever.calls) == 0
+
+
+async def test_load_llm_keeps_no_call_log() -> None:
+    """P5 soak finding: FakeLLMProvider.calls held one tuple per model call (~100,000 in a 40-minute soak)."""
+    llm = load_llm(seed=1)
+    llm.profile = FAST
+    for _ in range(5):
+        await llm.generate(GenerationRequest(role=ModelRole.REWRITE, system="s", prompt="p"))
+    assert len(llm.inner.calls) == 0
 
 
 def test_suspend_gaps_ignore_the_tracemalloc_baseline() -> None:

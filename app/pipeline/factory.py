@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -140,7 +141,7 @@ def build_engine(
         policy_ngrams=policy_ngrams(config.prompts.system_prompt, config.prompts.canary),
     )
     corpus = corpus_version_of(retriever)
-    extra = {"today": today} if today is not None else {}
+    extra: dict[str, Any] = {"today": today} if today is not None else {}
     return TurnEngine(
         router=router,
         medical=medical,

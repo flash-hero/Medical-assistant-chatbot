@@ -113,6 +113,10 @@ DEFAULTS: dict[str, tuple[int, float, float]] = {  # users, minutes, warm-up min
     "soak": (300, 40.0, 10.0),
     "overload": (192, 3.0, 0.0),
 }
+# At 3x the slots most requests must be refused; a run in which the server could not even take requests fast
+# enough to fill the admission queue (CPU-starved host: a laptop on battery ran 53 ms of CPU per request, 5x
+# the usual, and refused 2 of 3,628) does not measure the rejection path and writes no gate record.
+OVERLOAD_MIN_REJECTED_SHARE = 0.25
 SUSPEND_GAP_FACTOR = 4  # an RSS sampling gap this many intervals long means the machine was suspended
 GB = 1024**3
 
@@ -596,6 +600,13 @@ def overload_metrics(
         "client_vs_server_503": client_server_join(rows, samples),
         "rejection_phases_ms": rejection_phases(samples),  # probe runs only
     }
+    chats = sum(1 for r in rows if r["kind"] == "chat")
+    if not chats or len(rejected) < OVERLOAD_MIN_REJECTED_SHARE * chats:
+        summary["not_written"] = (
+            f"only {len(rejected)} of {chats} chat requests were refused: the offered load never reached the "
+            "admission queue, so the rejection path was not measured"
+        )
+        return [], summary
     # a rejection without Retry-After does not meet the contract: count the run as failed
     value = percentile(lat, 0.95) if missing_retry == 0 else 1e9
     out = [

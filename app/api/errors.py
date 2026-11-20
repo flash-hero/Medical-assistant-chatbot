@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.pipeline.texts import Texts
 from core.errors import AusculaError
+from core.schemas.hospital import HospitalProfile
 
 log = structlog.get_logger(__name__)
 _LOCALES = ("en", "fr", "ar")
@@ -55,12 +56,18 @@ def request_locale(request: Request) -> str:
 
 
 def envelope(
-    texts: Texts, code: str, status: int, locale: str, retry_after_s: float | None = None
+    texts: Texts,
+    code: str,
+    status: int,
+    locale: str,
+    retry_after_s: float | None = None,
+    profile: HospitalProfile | None = None,
 ) -> JSONResponse:
     headers: dict[str, str] = {}
     if retry_after_s is not None and status in (429, 503):
         headers["Retry-After"] = str(max(1, math.ceil(retry_after_s)))
-    body = {"error": {"code": code, "message": texts.error(code, locale), "retry_after_s": retry_after_s}}
+    message = texts.error(code, locale, profile)
+    body = {"error": {"code": code, "message": message, "retry_after_s": retry_after_s}}
     return JSONResponse(body, status_code=status, headers=headers)
 
 
@@ -75,13 +82,35 @@ def _retry_after(exc: AusculaError) -> float | None:
     return DEFAULT_RETRY_AFTER_S.get(exc.http_status)
 
 
-def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -> None:
+def _no_profile(_: Request) -> HospitalProfile | None:
+    return None
+
+
+def install_error_handlers(
+    app: FastAPI,
+    texts_of: Callable[[Request], Texts],
+    profile_of: Callable[[Request], HospitalProfile | None] = _no_profile,
+) -> None:
+    """`profile_of` fills the emergency / crisis numbers of the 503 messages (P5-D8)."""
+
+    def profile(request: Request) -> HospitalProfile | None:
+        try:
+            return profile_of(request)
+        except Exception as exc:  # an error page must never fail on the profile
+            log.warning("error_profile_unavailable", error=type(exc).__name__)
+            return None
+
     async def domain(request: Request, exc: Exception) -> JSONResponse:
         assert isinstance(exc, AusculaError)
         if exc.http_status >= 500:
             log.warning("request_failed", code=exc.code, path=request.url.path)
         return envelope(
-            texts_of(request), exc.code, exc.http_status, request_locale(request), _retry_after(exc)
+            texts_of(request),
+            exc.code,
+            exc.http_status,
+            request_locale(request),
+            _retry_after(exc),
+            profile(request),
         )
 
     async def validation(request: Request, exc: Exception) -> JSONResponse:
@@ -100,6 +129,7 @@ def install_error_handlers(app: FastAPI, texts_of: Callable[[Request], Texts]) -
             503,
             request_locale(request),
             DEFAULT_RETRY_AFTER_S[503],
+            profile(request),
         )
 
     async def unexpected(request: Request, exc: Exception) -> JSONResponse:

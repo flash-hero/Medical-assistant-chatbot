@@ -100,12 +100,16 @@ class Combination:
 
 
 class TokenIndex:
-    """The tokens of one message, with per-pattern positions memoised for the whole scan."""
+    """The tokens of one message, with per-pattern positions memoised for the whole scan.
+
+    The memo is keyed by the pattern's identity: patterns belong to the loaded lexicon, which outlives every
+    index, and hashing the frozen dataclass on each of the ~1,000 lookups per scan was a measurable part of
+    the precheck's CPU time (P5 overload profile)."""
 
     def __init__(self, tokens: tuple[str, ...]) -> None:
         self.tokens = tokens
         self._tables: dict[bool, dict[str, list[int]]] = {}
-        self._memo: dict[WordPattern, tuple[int, ...]] = {}
+        self._memo: dict[int, tuple[int, ...]] = {}
 
     def _table(self, skeleton: bool) -> dict[str, list[int]]:
         if skeleton not in self._tables:
@@ -117,14 +121,15 @@ class TokenIndex:
         return self._tables[skeleton]
 
     def positions(self, pattern: WordPattern) -> tuple[int, ...]:
-        found = self._memo.get(pattern)
+        found = self._memo.get(id(pattern))
         if found is None:
             table = self._table(pattern.skeleton)
             if pattern.prefix or pattern.suffix:
                 hits = {i for form, idx in table.items() if pattern.match_form(form) for i in idx}
-            else:
-                hits = set(table.get(pattern.core, ()))
-            found = self._memo[pattern] = tuple(sorted(hits))
+                found = tuple(sorted(hits))
+            else:  # a form's list is already ascending and holds each token once
+                found = tuple(table.get(pattern.core, ()))
+            self._memo[id(pattern)] = found
         return found
 
 
@@ -163,9 +168,12 @@ def _fill(anchor: Span, others: Sequence[list[Span]]) -> list[Span] | None:
 
 def find(combo: Combination, index: TokenIndex, max_span: int = MAX_SPAN) -> tuple[int, ...] | None:
     """Token indices of the tightest match of `combo` (every word of every chosen alternative), or None."""
-    per_group = [_maximal({s for alt in g for s in _alternative_spans(alt, index)}) for g in combo.groups]
-    if not all(per_group):
-        return None
+    per_group: list[list[Span]] = []
+    for group in combo.groups:  # stop at the first group without a span: most combinations end here
+        spans = _maximal({s for alt in group for s in _alternative_spans(alt, index)})
+        if not spans:
+            return None
+        per_group.append(spans)
     order = sorted(range(len(per_group)), key=lambda i: len(per_group[i]))
     others = [per_group[i] for i in order[1:]]
     best: list[Span] | None = None

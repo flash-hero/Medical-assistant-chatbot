@@ -8,6 +8,15 @@
   refusal  evals/p4/sets/refusal.jsonl: requests for a diagnosis, a personal dose or a triage verdict
   latency  the first quality questions again, for a latency re-measure in a quiet window (`*_rerun` records)
 
+Quality exclusions (evals/p4/sets/quality_exclusions.jsonl): gold questions whose answer the product may not
+take from the live index, by base id (every language), each with its rule and reason. They stay in the
+sample and are run, but `answered_rate_answerable` leaves them out (a breakdown record keeps the rate over
+every item). Rules: `gold_not_in_index` (the gold chunk is not in the live collection) and
+`medication_needs_drug_label` (a medication question by the guard's intent definition, i.e. about a
+medicine's side effects, interactions, doses or how a named medicine works, which review C7 answers only from
+drug-label passages, while the live index holds none). The rule is applied by reading the question over the
+whole pool, never by outcome.
+
 Items are ordered round-robin by language so that `--limit N` keeps the languages balanced.
 """
 
@@ -30,6 +39,8 @@ SETS_DIR = Path(__file__).resolve().parent / "sets"
 GOLD_DIR = Path(__file__).resolve().parents[1] / "retrieval" / "gold"
 DEFAULT_QUALITY_PER_LANG = 60
 _ITEM_FIELDS = frozenset({"id", "lang", "text", "category", "notes", "history"})
+EXCLUSIONS_PATH = SETS_DIR / "quality_exclusions.jsonl"
+EXCLUSION_RULES: tuple[str, ...] = ("gold_not_in_index", "medication_needs_drug_label")
 
 
 class ItemFormatError(ValueError):
@@ -148,6 +159,34 @@ def quality_items(per_lang: int = DEFAULT_QUALITY_PER_LANG, gold_dir: Path = GOL
                 )
             )
     return round_robin(out)
+
+
+def load_quality_exclusions(path: Path = EXCLUSIONS_PATH) -> Mapping[str, str]:
+    """base id -> "rule: reason" for the quality questions left out of answered_rate_answerable."""
+    if not path.exists():
+        return MappingProxyType({})
+    out: dict[str, str] = {}
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        where = f"{path.name}:{n}"
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ItemFormatError(f"{where}: invalid JSON ({exc.msg})") from exc
+        if not isinstance(raw, dict) or set(raw) != {"base_id", "rule", "reason"}:
+            raise ItemFormatError(f"{where}: fields must be exactly base_id, rule, reason")
+        base, rule, reason = (str(raw[k]).strip() for k in ("base_id", "rule", "reason"))
+        if rule not in EXCLUSION_RULES or not base or len(reason) < 20:
+            raise ItemFormatError(f"{where}: rule must be one of {EXCLUSION_RULES}, with a base_id, a reason")
+        if base in out:
+            raise ItemFormatError(f"{where}: duplicate base_id {base}")
+        out[base] = f"{rule}: {reason}"
+    return MappingProxyType(out)
+
+
+def is_excluded(item: EvalItem, exclusions: Mapping[str, str]) -> bool:
+    return item.suite in ("quality", "latency") and base_id(item.id) in exclusions
 
 
 # ---- dose / refusal (evals/p4/sets) -------------------------------------------------------------------

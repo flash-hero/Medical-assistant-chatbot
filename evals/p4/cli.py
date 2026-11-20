@@ -288,7 +288,10 @@ def cmd_causes(args: argparse.Namespace) -> int:
     missing: list[str] = []
     if not args.no_index_check:
         missing = asyncio.run(_missing_gold(settings, results))
-    for line in format_causes(diagnose(results, records, missing), len(results)):
+    from evals.p4.items import load_quality_exclusions
+
+    exclusions = load_quality_exclusions()
+    for line in format_causes(diagnose(results, records, missing, exclusions), len(results)):
         _out(line)
     busy = [r.item.id for r in results if contended(r)]
     _out("")

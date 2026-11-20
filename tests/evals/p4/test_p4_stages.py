@@ -136,3 +136,33 @@ def test_quality_turns_are_gated_without_a_quiet_rerun() -> None:
     }
     assert recs["ttft_p95_s_streamed"]["labels"] == {"suite": "quality", "window": "shared"}
     assert "ttft_p95_s_streamed_quality" not in recs
+
+
+def test_a_rewrite_concurrent_with_the_guard_counts_once_on_the_path() -> None:
+    """Since 2026-11-20 the engine starts the rewrite with the guard decide: the overlap is not path time."""
+    base = streamed_turn()
+    calls = (
+        call("guard", 0.1, 0.5, kind="decide"),
+        call("rewrite", 0.12, 0.8),  # 0.38 s of it ran while the guard was deciding
+        call("answer", 0.95, 2.6, first=1.6),
+        call("verify", 2.6, 3.0, kind="decide"),
+    )
+    retrieval = {**RETRIEVAL, "start_s": 0.8, "end_s": 0.9}
+    turn = TurnResult("m", 200, base.payloads, (0.0, 2.1, 3.1, 3.2), calls=calls, retrievals=(retrieval,))
+    split = turn_stages(turn)
+    assert split is not None
+    s = split.stages
+    assert s["overlap"] == pytest.approx(0.38)
+    gate = s["guard"] + s["rewrite"] - s["overlap"]
+    assert gate == pytest.approx(0.7)  # guard start 0.1 -> rewrite end 0.8
+    path = gate + s["retrieval"] + s["answer_ttft"] + s["first_sentence"]
+    assert s["overhead"] == pytest.approx(2.1 - path)
+    assert s["overhead"] > 0
+
+
+def test_a_serial_turn_has_no_overlap() -> None:
+    split = turn_stages(streamed_turn())
+    assert split is not None
+    assert split.stages["overlap"] == 0.0
+    rows = {r.stage: r for r in stage_table([streamed_turn()], "streamed")}
+    assert rows["overlap"].owner == "saved"

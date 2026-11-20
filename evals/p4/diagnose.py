@@ -2,6 +2,8 @@
 the app's own turn record (degraded flags, audit reasons) in the eval SQLite file.
 
 Causes, first match wins:
+  excluded_gold            the question is in evals/p4/sets/quality_exclusions.jsonl (recorded rule + reason;
+                           not counted in answered_rate_answerable)
   gold_not_in_index        the gold chunk is not in the live collection (gold-set problem: excluded)
   provider_block           a provider block ended the turn with the refusal template
   medication_label_filter  medication intent: the medical path searches and answers from drug labels only
@@ -27,10 +29,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from evals.p4.items import LANGS
+from evals.p4.items import LANGS, base_id
 from evals.p4.metrics import is_answered
 from evals.p4.results import ItemResult, TurnResult
 
+EXCLUDED_GOLD = "excluded_gold"
 GOLD_NOT_IN_INDEX = "gold_not_in_index"
 PROVIDER_BLOCK = "provider_block"
 MEDICATION_LABEL_FILTER = "medication_label_filter"
@@ -39,6 +42,7 @@ RETRIEVAL_NOT_CONFIDENT = "retrieval_not_confident"
 VERIFICATION_REMOVED = "verification_removed"
 OTHER = "other"
 CAUSES: tuple[str, ...] = (
+    EXCLUDED_GOLD,
     GOLD_NOT_IN_INDEX,
     PROVIDER_BLOCK,
     MEDICATION_LABEL_FILTER,
@@ -119,7 +123,7 @@ def _rewrite_failed(turn: TurnResult, record: TurnRecord | None) -> bool:
 
 
 def classify(
-    result: ItemResult, record: TurnRecord | None, *, gold_in_index: bool = True
+    result: ItemResult, record: TurnRecord | None, *, gold_in_index: bool = True, excluded: str = ""
 ) -> Diagnosis | None:
     """The cause of a not-answered item, or None when the item was answered."""
     turn = result.last
@@ -134,6 +138,8 @@ def classify(
     mode, intent = turn.mode, str(answer.get("intent", "-"))
     degraded = record.degraded if record is not None else ()
     reasons = record.abstain_reasons if record is not None else ()
+    if excluded:
+        return diag(EXCLUDED_GOLD, excluded.split(":", 1)[0])
     if not gold_in_index:
         return diag(GOLD_NOT_IN_INDEX, str(item.meta.get("relevant_chunk_ids", "")))
     if mode == "refusal":
@@ -166,11 +172,14 @@ def diagnose(
     results: Sequence[ItemResult],
     records: Mapping[str, TurnRecord],
     missing_gold: Iterable[str] = (),
+    exclusions: Mapping[str, str] | None = None,
 ) -> list[Diagnosis]:
     missing = set(missing_gold)
+    excluded = exclusions or {}
     out = []
     for r in results:
-        d = classify(r, records.get(turn_id(r.last)), gold_in_index=r.item.id not in missing)
+        reason = excluded.get(base_id(r.item.id), "")
+        d = classify(r, records.get(turn_id(r.last)), gold_in_index=r.item.id not in missing, excluded=reason)
         if d is not None:
             out.append(d)
     return out

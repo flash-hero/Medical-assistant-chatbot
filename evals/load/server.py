@@ -52,7 +52,6 @@ from core.ports import (
     GenerationRequest,
     GenerationResult,
 )
-from core.schemas.chat import RetrievalQuery
 from evals.fakes.fake_llm import FakeLLMProvider
 from evals.fakes.fake_retriever import FakeRetriever
 from evals.fakes.scripted import scripted_provider
@@ -354,8 +353,13 @@ async def idle_overshoot_ms() -> float:
 
 
 def load_llm(seed: int | None = None) -> RealisticFakeLLM:
+    """The fake model of the load server. Its call log keeps nothing: FakeLLMProvider.calls holds one tuple
+    per model call (~4 per turn, ~100,000 in a 40-minute soak; P5 soak finding, tracemalloc fake_llm.py:82,
+    :116)."""
     seed = int(os.environ.get("AUSCULTA_LOAD_SEED", "0")) if seed is None else seed
-    return RealisticFakeLLM(inner=scripted_provider(), rng=random.Random(seed))
+    inner = scripted_provider()
+    inner.calls = _NoCallLog()
+    return RealisticFakeLLM(inner=inner, rng=random.Random(seed))
 
 
 def precise_timers() -> None:
@@ -367,10 +371,11 @@ def precise_timers() -> None:
         ctypes.windll.winmm.timeBeginPeriod(1)
 
 
-class _NoCallLog(list[RetrievalQuery]):
-    """A FakeRetriever call log that keeps nothing: the load server must not grow with every turn."""
+class _NoCallLog(list[Any]):
+    """A call log (FakeRetriever, FakeLLMProvider) that keeps nothing: the load server must not grow with
+    every turn."""
 
-    def append(self, item: RetrievalQuery) -> None:
+    def append(self, item: Any) -> None:
         return None
 
 
