@@ -6,7 +6,7 @@ set -eu
 cd /home/user/app
 python deploy/hf-space/wait_deps.py
 alembic -c app/storage/alembic.ini upgrade head
-HF_HUB_OFFLINE=0 python deploy/hf-space/restore_corpus.py
+python deploy/hf-space/restore_corpus.py
 export HF_HUB_OFFLINE=1
 exec uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000 --workers "${WEB_CONCURRENCY:-1}" \
      --proxy-headers --forwarded-allow-ips=127.0.0.1 --timeout-graceful-shutdown 20

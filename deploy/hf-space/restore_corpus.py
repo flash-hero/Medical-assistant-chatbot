@@ -1,10 +1,11 @@
 """Make the signed corpus live in the Space's Qdrant (idempotent; runs before every API start).
 
-First boot: download the collection snapshot and its signed manifest, retrieval config and active pointer from
-the public Hugging Face dataset AUSCULTA_CORPUS_REPO (or copy them from AUSCULTA_CORPUS_LOCAL_DIR, for a local
-test of the image), recover the collection, point the alias at it and drop the snapshot file. Later boots only
-re-check the alias and the files. The API then verifies the collection against the signed manifest
-(checksums, ids, count, HMAC) and refuses to answer medical questions from anything else.
+First boot: download the collection snapshot and its signed manifest, retrieval config and active pointer
+from AUSCULTA_CORPUS_URL (a public GitHub release of the repository; no token needed), or copy them from
+AUSCULTA_CORPUS_LOCAL_DIR (a local test of the image). Then recover the collection, point the alias at it
+and drop the snapshot file. Later boots only re-check the alias and the files. The API then verifies the
+collection against the signed manifest (checksums, ids, count, HMAC) and refuses to answer medical
+questions from anything else.
 """
 
 from __future__ import annotations
@@ -17,7 +18,10 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient, models
 
-REPO = os.environ.get("AUSCULTA_CORPUS_REPO", "flash-hero/ausculta-corpus")
+BASE_URL = os.environ.get(
+    "AUSCULTA_CORPUS_URL",
+    "https://github.com/flash-hero/Medical-assistant-chatbot/releases/download/corpus-2026-11-20.en2",
+)
 LOCAL_DIR = os.environ.get("AUSCULTA_CORPUS_LOCAL_DIR")
 ALIAS = os.environ.get("QDRANT_ALIAS", "ausculta_corpus")
 DATA_ROOT = Path(os.environ["AUSCULTA_DATA_ROOT"])
@@ -32,9 +36,17 @@ def _fetch(name: str, dest_dir: Path) -> Path:
         target = dest_dir / name
         shutil.copyfile(Path(LOCAL_DIR) / name, target)
         return target
-    from huggingface_hub import hf_hub_download
+    import httpx
 
-    return Path(hf_hub_download(REPO, name, repo_type="dataset", local_dir=dest_dir))
+    target = dest_dir / name
+    partial = target.with_suffix(target.suffix + ".part")
+    with httpx.stream("GET", f"{BASE_URL.rstrip('/')}/{name}", follow_redirects=True, timeout=600) as resp:
+        resp.raise_for_status()
+        with partial.open("wb") as fh:
+            for block in resp.iter_bytes(1 << 20):
+                fh.write(block)
+    partial.replace(target)
+    return target
 
 
 def _active_collection() -> str:
