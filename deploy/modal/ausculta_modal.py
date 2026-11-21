@@ -38,7 +38,7 @@ BAKE_CORPUS = (
     "&& cd /home/user/qdrant && { qdrant > /tmp/qdrant-build.log 2>&1 & echo $! > /tmp/qdrant.pid; } "
     "&& cd /home/user/app && python deploy/hf-space/wait_deps.py --only qdrant "
     "&& python deploy/hf-space/restore_corpus.py "
-    "&& kill $(cat /tmp/qdrant.pid) && sleep 5 && chown -R 1000:1000 /home/user/data"
+    "&& kill $(cat /tmp/qdrant.pid) && sleep 5 && chown -R 1000:1000 /home/user/data /home/user/qdrant"
 )
 
 image = modal.Image.from_dockerfile(
