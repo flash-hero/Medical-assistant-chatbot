@@ -1,4 +1,4 @@
-"""Write build/modal/Dockerfile for `modal deploy deploy/modal/app.py`.
+"""Write build/modal/Dockerfile for `modal deploy deploy/modal/ausculta_modal.py`.
 
 It is deploy/hf-space/Dockerfile cloning this repository at the current commit (which must be pushed),
 without the local-tree source option, the BuildKit syntax line and the final USER (Modal's image builder and

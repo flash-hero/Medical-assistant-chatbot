@@ -1,12 +1,14 @@
 """Ausculta on Modal (free Starter plan, no payment method: $1 of compute per month).
 
+Not named app.py: inside the image PYTHONPATH holds the project, whose `app` package would shadow this module.
+
 The image is the single-container stack of deploy/hf-space (Caddy -> Next.js + FastAPI, with Qdrant, Redis and
 PostgreSQL on localhost), built from this repository at a pinned, pushed commit. The signed corpus is restored
 into the image at build time, so a cold start does not download it. One container at most; it scales to zero
 after SCALEDOWN_S idle seconds, which keeps a demo inside the monthly free credit.
 
     python deploy/modal/stage.py            # writes build/modal/Dockerfile pinned to the current commit
-    modal deploy deploy/modal/app.py        # needs `modal token new` and the secret below
+    modal deploy deploy/modal/ausculta_modal.py   # needs `modal token new` and the secret below
 
 Secret `ausculta-secrets` (create with `modal secret create ausculta-secrets --from-dotenv <file>`):
 GEMINI_API_KEY and AUSCULTA_SESSION_SECRET (the secret that signed the corpus manifest).
@@ -22,7 +24,7 @@ import modal
 APP_NAME = "ausculta"
 STAGED = Path(__file__).resolve().parents[2] / "build" / "modal"
 SCALEDOWN_S = 300
-URL = "https://flash-hero--ausculta-web.modal.run"
+URL = "https://flash-hero--ausculta-web.us-east.modal.run"
 
 # Restore the signed corpus at build time: start Qdrant, run restore_corpus.py (downloads the public GitHub
 # release, recovers the collection, checks the point count), stop Qdrant, hand the files to the app user.
