@@ -31,7 +31,8 @@ def _qdrant_ok() -> bool:
 
 def main() -> int:
     deadline = time.monotonic() + DEADLINE_S
-    pending = {*TCP, "qdrant"}
+    # `--only qdrant`: the image build restores the corpus with Qdrant alone running
+    pending = {"qdrant"} if sys.argv[1:] == ["--only", "qdrant"] else {*TCP, "qdrant"}
     while pending and time.monotonic() < deadline:
         pending = {name for name in pending if not (_qdrant_ok() if name == "qdrant" else _tcp_ok(TCP[name]))}
         if pending:

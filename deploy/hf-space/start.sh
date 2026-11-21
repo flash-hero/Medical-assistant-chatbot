@@ -4,6 +4,12 @@
 # then supervisord runs every service. The corpus and the schema are set up by api-start.sh.
 set -eu
 
+# Some platforms (Modal) start the container as root: PostgreSQL refuses to run as root, so drop to the
+# image's unprivileged user (uid 1000) and keep the environment.
+if [ "$(id -u)" = "0" ]; then
+  exec setpriv --reuid=1000 --regid=1000 --clear-groups sh "$0" "$@"
+fi
+
 export PGDATA="${PGDATA:-/home/user/pgdata}"
 PG_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
 REDIS_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"

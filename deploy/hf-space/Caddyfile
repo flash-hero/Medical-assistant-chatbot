@@ -1,9 +1,10 @@
-# The Space's only port. Hugging Face terminates TLS and proxies to :7860; its proxy is the first trusted
-# hop, Caddy the second (AUSCULTA_TRUSTED_PROXY_COUNT=2), so the API rate-limits the real client address.
+# The container's only port. The hosting platform (Modal, or a Hugging Face Space) terminates TLS and is the
+# only way in, so its proxy is trusted: it appends the client address to X-Forwarded-For, Caddy appends the
+# proxy's, and the API (AUSCULTA_TRUSTED_PROXY_COUNT=2) rate-limits the entry the platform appended.
 {
 	admin off
 	servers {
-		trusted_proxies static private_ranges
+		trusted_proxies static 0.0.0.0/0 ::/0
 		timeouts {
 			read_header 10s
 			read_body 30s
