@@ -1,0 +1,70 @@
+# The Space's only port. Hugging Face terminates TLS and proxies to :7860; its proxy is the first trusted
+# hop, Caddy the second (AUSCULTA_TRUSTED_PROXY_COUNT=2), so the API rate-limits the real client address.
+{
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+		timeouts {
+			read_header 10s
+			read_body 30s
+			idle 2m
+		}
+	}
+}
+
+:7860 {
+	encode {
+		zstd
+		gzip
+		# never compress SSE (it would buffer the stream)
+		match {
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type application/javascript*
+			header Content-Type application/json*
+			header Content-Type image/svg+xml*
+		}
+	}
+
+	request_body {
+		max_size 64KB
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		-Server
+	}
+
+	route {
+		# Operational endpoints are for internal checks only, not the internet.
+		@internal path /api/v1/ready /api/v1/meta
+		respond @internal 404
+
+		handle /api/* {
+			reverse_proxy 127.0.0.1:8000 {
+				flush_interval -1
+				transport http {
+					read_timeout 120s
+				}
+			}
+		}
+
+		handle {
+			reverse_proxy 127.0.0.1:3000
+		}
+	}
+
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ""
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+			}
+		}
+	}
+}
