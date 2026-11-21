@@ -22,7 +22,10 @@ from pathlib import Path
 import modal
 
 APP_NAME = "ausculta"
-STAGED = Path(__file__).resolve().parents[2] / "build" / "modal"
+# Local deploys read the staged Dockerfile from the repo; inside the container this file is /root/<name>.py
+# and the image is already built, so the path only has to be computable.
+_HERE = Path(__file__).resolve()
+STAGED = (_HERE.parents[2] if len(_HERE.parents) > 2 else _HERE.parent) / "build" / "modal"
 SCALEDOWN_S = 300
 URL = "https://flash-hero--ausculta-web.us-east.modal.run"
 
