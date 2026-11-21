@@ -99,6 +99,30 @@ Smoke test through Caddy: `POST http://localhost/api/v1/session` then `POST /api
 port 80 instead of 8000). `/api/v1/ready` and `/api/v1/meta` answer 404 through Caddy by design (internal
 checks only): use `$C exec api python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ready').read())"`.
 
+## 2c. Free public demo (Modal)
+
+The public demo runs the single-container image of `deploy/hf-space/` on Modal's free Starter plan, without a
+payment method: $1 of compute per month, at most one container, scale-to-zero after 5 idle minutes, and a
+cold start of about 35 s. Hugging Face Docker Spaces need a paid plan since 2026, so the same image moved to
+Modal. In the container, supervisord runs Caddy (:7860), Next.js, FastAPI, Qdrant, Redis and PostgreSQL. All
+services run as uid 1000, and the Redis and Postgres passwords are generated per boot. The corpus is restored
+into the image at build time from the public GitHub release `corpus-2026-11-20.en2`.
+
+```sh
+# once: Modal CLI in its own venv, browser login, secret from a 2-line env file (GEMINI_API_KEY, AUSCULTA_SESSION_SECRET)
+modal token new
+modal secret create ausculta-secrets --from-dotenv <file>
+# new corpus version: export it and publish it as a GitHub release (then update AUSCULTA_CORPUS_URL)
+python deploy/hf-space/publish.py export && python deploy/hf-space/publish.py release
+# every deploy: commit and push, pin the Dockerfile to that commit, deploy
+python deploy/modal/stage.py
+modal deploy deploy/modal/ausculta_modal.py
+```
+
+Logs: `modal app logs ausculta`. Shell in the running container: `modal container list`, then
+`modal container exec <id> -- sh`. AUSCULTA_SESSION_SECRET must be the secret that signed the corpus manifest,
+or the API refuses to answer medical questions (`corpus_unverified`).
+
 ## 3. Health checks
 
 | Check | Meaning | Healthy |

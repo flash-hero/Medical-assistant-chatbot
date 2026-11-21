@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ausculta: Project Summary</title>
+<style>
+  @page { size: A4; margin: 14mm 15mm 14mm 15mm; }
+  :root { --ink:#14212b; --ink2:#45555f; --brand:#0f766e; --line:#d7e0e3; --soft:#f2f7f7; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: var(--ink); font-size: 9.6pt;
+         line-height: 1.42; margin: 0; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5px solid var(--brand);
+           padding-bottom: 6px; margin-bottom: 9px; }
+  h1 { font-size: 21pt; margin: 0; letter-spacing: -0.3px; }
+  h1 span { color: var(--brand); }
+  .sub { color: var(--ink2); font-size: 10pt; margin-top: 2px; }
+  .meta { text-align: right; font-size: 8.6pt; color: var(--ink2); line-height: 1.5; }
+  .meta b { color: var(--ink); }
+  h2 { font-size: 11pt; color: var(--brand); margin: 11px 0 4px; text-transform: uppercase; letter-spacing: .6px; }
+  p { margin: 0 0 5px; }
+  ul { margin: 0 0 5px 0; padding-left: 15px; }
+  li { margin-bottom: 2px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .callout { background: var(--soft); border-left: 3px solid var(--brand); padding: 6px 9px; margin: 6px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin: 3px 0 6px; }
+  th, td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .arch { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 8.3pt; margin: 4px 0 6px; }
+  .arch div { border: 1px solid var(--brand); border-radius: 4px; padding: 3px 6px; background: #fff; }
+  .arch .arrow { border: none; color: var(--brand); padding: 0; }
+  .page2 { break-before: page; }
+  footer { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; font-size: 7.8pt; color: var(--ink2); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Ausculta <span>·</span> Project Summary</h1>
+    <div class="sub">A multilingual, safety-first RAG assistant for medical information and hospital front-desk support</div>
+  </div>
+  <div class="meta">
+    <b>Oussama Tabakh</b>, AI &amp; Data Science Engineer<br>
+    November 2026<br>
+    Live demo: <b id="demo-url">flash-hero--ausculta-web.us-east.modal.run</b><br>
+    Code: github.com/flash-hero/Medical-assistant-chatbot
+  </div>
+</header>
+
+<h2>Overview</h2>
+<p>Ausculta answers general health questions from trusted public sources, always with citations, and handles hospital
+front-desk requests: opening hours, departments, visiting rules and appointment requests. It works in
+<b>English, French and Arabic</b>, including Moroccan Darija written in Arabic script or in Latin letters (Arabizi),
+with a right-to-left interface. Answers are generated with the <b>Gemini API on its free tier</b>.
+Retrieval runs on a <b>local embedding model</b>, so the system has no per-query embedding cost and patient
+questions are never sent to an embedding service.</p>
+<div class="callout">Design principle: <b>safety before generation</b>. Emergency and self-harm messages are detected
+deterministically, without any model, and answered first with emergency and crisis numbers. Every medical answer must
+be grounded in retrieved passages and verified before release; otherwise the assistant declines and refers the user to a
+professional. It never diagnoses, judges urgency or gives personal doses. Demo mode is on: not for real patients.</div>
+
+<h2>Architecture</h2>
+<div class="arch">
+  <div>Next.js UI (EN/FR/AR, RTL)</div><div class="arrow">→</div><div>Caddy</div><div class="arrow">→</div>
+  <div>FastAPI (SSE)</div><div class="arrow">→</div><div>Safety precheck (lexicons)</div><div class="arrow">→</div>
+  <div>Gemini guard + query rewrite</div><div class="arrow">→</div><div>Qdrant retrieval</div><div class="arrow">→</div>
+  <div>Gemini answer</div><div class="arrow">→</div><div>Output checks &amp; verification</div>
+</div>
+<div class="grid">
+  <div>
+    <ul>
+      <li><b>Data:</b> 34,464 documents from 16 licence-checked sources (MedlinePlus, NIH institutes, NCI PDQ, CDC,
+        openFDA, French and Arabic sources). A source registry enforces licences, excluded sources and the quarantine
+        of injected text.</li>
+      <li><b>Retrieval:</b> structure-aware chunking; EmbeddingGemma-300M (768-d, ONNX on CPU) with BM25 sparse
+        vectors in Qdrant. Dense search was adopted after a measured comparison. A calibrated confidence gate drives
+        abstention. Each corpus version is signed (HMAC manifest) and verified at startup.</li>
+      <li><b>Live index:</b> 29,730 chunks: the English consumer-health core plus the FDA labels of 305 common
+        medicines.</li>
+    </ul>
+  </div>
+  <div>
+    <ul>
+      <li><b>Guardrails:</b> multilingual risk lexicons (EN/FR/AR, Darija, Arabizi); a Gemini guard classifier;
+        prompt-injection defences (nonce-delimited data blocks, canary checks); verify-then-release; numeric
+        grounding; claim, triage, phone and URL filters; PII redaction.</li>
+      <li><b>Service:</b> streaming over SSE, Redis-backed sessions and locks, rate limits, admission control, a spend
+        cap, a kill switch and idempotent appointment forms. Emergency turns survive a Redis outage.</li>
+      <li><b>Interface:</b> accessible chat (WCAG checks, strict CSP), citations drawer, safety banner and appointment
+        form.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Results (release gates, <code>python -m evals.run</code>)</h2>
+<p><b>28 PASS · 0 FAIL · 14 PROVISIONAL · 1 MISSING.</b> PROVISIONAL means the target is met but the sample is limited by
+the free tier or not yet clinician-reviewed. MISSING is the human data audit.</p>
+<table>
+  <tr><th>Area</th><th>Key measurements</th></tr>
+  <tr><td>Safety</td><td class="num">Emergency and self-harm recall 100% in EN/FR/AR · template shown first 100% · emergency reply in 10.8 ms with every model failing</td></tr>
+  <tr><td>Retrieval</td><td class="num">Recall@20 1.0 · nDCG@8 0.858 · p95 26 ms · out-of-corpus abstention 96.9% · false abstention 7.6%</td></tr>
+  <tr><td>Answer quality</td><td class="num">Answerable questions answered 91.1% · supported claims 98.5% · valid citations 100% · numeric-grounding violations 0 · diagnosis/dose refusal 100%</td></tr>
+  <tr><td>Latency (free tier)</td><td class="num">First token p95 2.96 s (was 5.87 s before the concurrent query rewrite) · verified answer p95 3.99 s</td></tr>
+  <tr><td>Security</td><td class="num">0 system-prompt or canary leaks and 0 rendered external links across 1,134 attacks (600-attack red team in 3 languages)</td></tr>
+  <tr><td>Load &amp; resilience</td><td class="num">0 errors over 23,382 requests · app overhead p95 28 ms · overload rejection p95 125 ms · no memory growth over a 40-min soak</td></tr>
+  <tr><td>Testing</td><td class="num">2,162 Python tests (92.3% coverage) · 282 web unit tests · 398 end-to-end tests on Chromium, Firefox and WebKit · CI green</td></tr>
+</table>
+
+
+<h2>Engineering challenges and how they were solved</h2>
+<table>
+  <tr><th style="width:31%">Challenge</th><th>Resolution</th></tr>
+  <tr><td>Gemini free tier allows only 1,000 embedded texts per day; no billing available</td><td>Moved embeddings to a local open model (EmbeddingGemma via ONNX), with no quota. Prioritised the English consumer-health core, then added drug labels for common medicines.</td></tr>
+  <tr><td>Limited laptop memory during indexing</td><td>Batch embedding with an on-disk cache, detached low-priority jobs, capped container memory; indexing is resumable with no repeated work.</td></tr>
+  <tr><td>Medication questions always declined</td><td>Curated one FDA label per common medicine (salt- and combination-aware matching) and indexed only that subset.</td></tr>
+  <tr><td>First-token latency above target</td><td>The query rewrite now runs concurrently with the guard classifier and is cancelled on non-medical paths: p95 dropped from 5.87 s to 2.96 s.</td></tr>
+  <tr><td>Hardening findings (11 in the bug hunt)</td><td>Fixed Unicode smuggling in outputs, canary-leak variants, unsafe URI schemes, a French unhedged diagnosis, emergency handling during a Redis outage, a French/Arabizi false alarm and overload latency. Each fix has a regression test.</td></tr>
+  <tr><td>Production packaging</td><td>Fixed container issues one by one (model download permissions, config paths, proxy routing, missing migrations, unsigned corpus in the volume), giving a reproducible stack with a one-shot migration and a signed corpus loader.</td></tr>
+  <tr><td>Free hosting for a ~2 GB stack, with no card</td><td>Hugging Face Docker Spaces became paid; Render and Koyeb offer 512 MB; Oracle requires a card. Repackaged the stack as one unprivileged container and deployed it on Modal's free tier with the corpus baked into the image. Fixed six platform issues along the way: module shadowing, root-owned files, supervisor log permissions and others.</td></tr>
+  <tr><td>CI never executed (invalid workflow)</td><td>Repaired the workflow; the first real runs exposed an undeclared dependency, a WCAG 2.5.3 issue on the Arabic header and flaky tests. All fixed; CI fully green.</td></tr>
+</table>
+
+<h2>Deployment</h2>
+<ul>
+  <li><b>Public demo at no cost and with no payment method</b> on <b>Modal</b> (Starter plan, $1 of compute per month,
+    scale-to-zero, about 35 s cold start). Hugging Face moved Docker Spaces to a paid plan, so the same image moved
+    to Modal. The full stack runs in one container managed by supervisord: Caddy, Next.js, FastAPI, Qdrant, Redis
+    and PostgreSQL, all services unprivileged. The image is built from a pinned GitHub commit. The signed corpus
+    comes from a public GitHub release with source credits and is restored at build time; the API verifies its
+    signature before answering. Verified live: emergency banner in 0.3 s, cited answers in EN/FR/AR.</li>
+  <li><b>Self-hosting:</b> Docker Compose behind Caddy with automatic HTTPS, a hash-pinned dependency lock, health
+    checks, migrations and a runbook. CI builds the images and checks that the stack starts healthy.</li>
+</ul>
+
+<h2>Limitations and next steps</h2>
+<ul>
+  <li><b>Not a medical device.</b> Demo mode stays on until clinician review, native-speaker review of the Arabic and
+    Darija sets, the human data audit and the pilot sign-off are complete.</li>
+  <li><b>Free-tier constraints:</b> evaluation samples are small and latency depends on the free Gemini tier. A paid
+    tier would allow full-corpus indexing (French and Arabic sources) and production latency figures.</li>
+  <li><b>Tracked improvements:</b> prefer oral consumer labels for drugs (#6); a clinician-reviewed caustic-substance
+    entry for the keyword lexicon (#7).</li>
+</ul>
+
+<footer>Ausculta was designed and built by Oussama Tabakh. Sources: MedlinePlus (NLM), NIH institutes, NCI PDQ, CDC and
+openFDA; U.S. Government public-domain or copyright-free content, credited in the application.</footer>
+</body>
+</html>

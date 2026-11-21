@@ -6,6 +6,13 @@ Retrieval-augmented generation over a licence-checked public-health corpus, on t
 > **Demo mode.** Not for use with real patients until the pilot gate in
 > [docs/intended-purpose.md](docs/intended-purpose.md) is signed.
 
+**Live demo:** https://flash-hero--ausculta-web.us-east.modal.run ([`/en`](https://flash-hero--ausculta-web.us-east.modal.run/en),
+[`/fr`](https://flash-hero--ausculta-web.us-east.modal.run/fr), [`/ar`](https://flash-hero--ausculta-web.us-east.modal.run/ar)).
+Free hosting on Modal with scale-to-zero: the first visit after a few idle minutes takes about 35 s.
+Created by **Oussama Tabakh**, AI and data science engineer. Project documents:
+[summary (EN, 2 pages)](docs/deliverables/ausculta-project-summary.pdf) and
+[full explanation (Darija, 59 pages)](docs/deliverables/ausculta-explication-darija.pdf).
+
 ## Layout
 
 | Path | What |
